@@ -174,7 +174,27 @@ function diaCorto(iso: string): string {
   const wd = new Intl.DateTimeFormat("es-ES", { timeZone: "UTC", weekday: "narrow" }).format(new Date(Date.UTC(y, m - 1, d)));
   return wd.toUpperCase() + " " + d;
 }
-const loadSt = (): St => { try { const s = window.localStorage.getItem(KEY); if (s) { const d = JSON.parse(s); return { ...INIT, ...d, cal: d && d.cal && typeof d.cal === "object" ? d.cal : {}, calCompra: d && typeof d.calCompra === "string" ? d.calCompra : null, platos: d && Array.isArray(d.platos) ? d.platos.filter((p: unknown) => typeof p === "string") : [], anadidas: d && Array.isArray(d.anadidas) ? d.anadidas.filter((p: unknown) => typeof p === "string") : [] }; } } catch (e) { /* sin almacenamiento */ } return INIT; };
+const loadSt = (): St => {
+  try {
+    const s = window.localStorage.getItem(KEY);
+    if (!s) return INIT;
+    const d = JSON.parse(s);
+    const cal = d && d.cal && typeof d.cal === "object" ? d.cal : {};
+    const anadidas: string[] = d && Array.isArray(d.anadidas) ? d.anadidas.filter((p: unknown) => typeof p === "string") : [];
+    const calCompra = d && typeof d.calCompra === "string" ? d.calCompra : null;
+    if (calCompra) {
+      for (let i = 0; i < 7; i++) {
+        const fecha = shiftDay(calCompra, i);
+        for (const slot of ["comida", "cena"]) {
+          const k = fecha + "|" + slot;
+          if (cal[fecha]?.[slot] && !anadidas.includes(k)) anadidas.push(k);
+        }
+      }
+    }
+    return { ...INIT, ...d, cal, calCompra: null, platos: d && Array.isArray(d.platos) ? d.platos.filter((p: unknown) => typeof p === "string") : [], anadidas };
+  } catch (e) { /* sin almacenamiento */ }
+  return INIT;
+};
 
 const ALLING: string[] = Array.from(new Set(R.flatMap((r: Rec) => r.ing.map((i: string[]) => canon(i[1]))))).filter((c: string) => c !== "Agua").sort((a: string, b: string) => a.localeCompare(b, "es"));
 
@@ -198,6 +218,8 @@ export default function App() {
   const [racR, setRacR] = useState<number>(0);
   const [msg, setMsg] = useState<string>("");
   const [undoGen, setUndoGen] = useState<{ fecha: string; slot: "comida" | "cena" }[] | null>(null);
+  const [undoLimpia, setUndoLimpia] = useState<{ dias: Record<string, CalDay>; anadidas: string[] } | null>(null);
+  const [pedirLimpia, setPedirLimpia] = useState(false);
   const [manT, setManT] = useState<string>("");
   const [manC, setManC] = useState<string>("Despensa");
   const [nevT, setNevT] = useState<string>("");
@@ -293,54 +315,81 @@ export default function App() {
       if (prev.comida || prev.cena) cal[fecha] = prev; else delete cal[fecha];
       const nombre = meal && meal.tipo === "texto" ? meal.valor.trim() : "";
       const platos = nombre && !(s.platos || []).some((p: string) => norm(p) === norm(nombre)) ? [...(s.platos || []), nombre] : (s.platos || []);
-      return { ...s, cal, platos };
+      const anadidas = meal ? (s.anadidas || []) : (s.anadidas || []).filter((k: string) => k !== fecha + "|" + slot);
+      return { ...s, cal, platos, anadidas };
     });
     setEditSlot("");
   };
   const quitarPlato = (nombre: string) => setSt((s: St) => ({ ...s, platos: (s.platos || []).filter((p: string) => norm(p) !== norm(nombre)) }));
-  const recetasSemana = (lunes: string): Rec[] => {
-    const out: Rec[] = [];
-    for (let i = 0; i < 7; i++) {
-      const day = st.cal[shiftDay(lunes, i)];
-      if (!day) continue;
-      for (const slot of ["comida", "cena"] as const) {
-        const m = day[slot];
-        if (!m || m.tipo !== "receta") continue;
-        const r = R.find((x: Rec) => x.n === m.valor);
-        if (r) out.push(r);
-      }
-    }
-    return out;
-  };
-  const textosSemana = (lunes: string): { valor: string; cuando: string }[] => {
-    const out: { valor: string; cuando: string }[] = [];
+  const claveHueco = (fecha: string, slot: "comida" | "cena") => fecha + "|" + slot;
+  const yaAnadida = (fecha: string, slot: "comida" | "cena") => (st.anadidas || []).includes(claveHueco(fecha, slot));
+  const clavesSemana = (lunes: string): string[] => {
+    const out: string[] = [];
     for (let i = 0; i < 7; i++) {
       const fecha = shiftDay(lunes, i);
-      const day = st.cal[fecha];
-      if (!day) continue;
-      for (const slot of ["comida", "cena"] as const) {
-        const m = day[slot];
-        if (m && m.tipo === "texto" && m.valor.trim()) out.push({ valor: m.valor.trim(), cuando: tituloDia(fecha) + " · " + slot });
-      }
+      for (const slot of ["comida", "cena"] as const) if (st.cal[fecha]?.[slot]) out.push(claveHueco(fecha, slot));
     }
     return out;
   };
-  const claveHueco = (fecha: string, slot: "comida" | "cena") => fecha + "|" + slot;
-  const yaAnadida = (fecha: string, slot: "comida" | "cena") => (st.anadidas || []).includes(claveHueco(fecha, slot)) || (!!st.calCompra && fecha >= st.calCompra && fecha <= shiftDay(st.calCompra, 6));
-  const anadirHueco = (fecha: string, slot: "comida" | "cena") => {
+  const toggleHueco = (fecha: string, slot: "comida" | "cena") => {
     const m = st.cal[fecha]?.[slot];
     if (!m) return;
     const k = claveHueco(fecha, slot);
-    if (!(st.anadidas || []).includes(k)) up({ anadidas: [...(st.anadidas || []), k] });
-    setMsg(m.tipo === "texto" ? "Añadida como recordatorio, sin ingredientes." : "Añadida a la lista de la compra.");
+    const tiene = (st.anadidas || []).includes(k);
+    const anadidas = tiene ? (st.anadidas || []).filter((x: string) => x !== k) : [...(st.anadidas || []), k];
+    up({ anadidas });
+    setMsg(tiene ? "Quitada de la lista de la compra." : m.tipo === "texto" ? "Añadida como recordatorio, sin ingredientes." : "Añadida a la lista de la compra.");
   };
   const enviarSemana = () => {
-    const n = recetasSemana(semanaElegida).length;
-    const t = textosSemana(semanaElegida).length;
-    if (!n && !t) { setMsg("Esa semana está vacía. Abre un día y escribe un plato o elige una receta."); return; }
-    up({ calCompra: semanaElegida, checks: [] });
-    setVista("compra");
-    setMsg(t ? "Lista actualizada. Los platos inventados van como recordatorio, sin ingredientes." : "Lista actualizada con " + n + " receta(s) del calendario.");
+    const claves = clavesSemana(semanaElegida);
+    if (!claves.length) { setMsg("Esa semana está vacía. Abre un día y escribe un plato o elige una receta."); return; }
+    up({ anadidas: Array.from(new Set([...(st.anadidas || []), ...claves])), calCompra: null });
+    setMsg("Semana añadida a la lista de la compra.");
+  };
+  const quitarSemana = () => {
+    const drop = new Set<string>();
+    for (let i = 0; i < 7; i++) {
+      const fecha = shiftDay(semanaElegida, i);
+      drop.add(fecha + "|comida");
+      drop.add(fecha + "|cena");
+    }
+    const antes = st.anadidas || [];
+    const anadidas = antes.filter((k: string) => !drop.has(k));
+    up({ anadidas, calCompra: null });
+    setMsg(anadidas.length === antes.length ? "Esta semana no tenía nada en la compra." : "Semana quitada de la lista de la compra.");
+  };
+  const etiquetaSemana = tituloDia(semanaElegida).replace(/^[^,]+, /, "");
+  const limpiarSemana = () => {
+    const drop = new Set<string>();
+    const dias: Record<string, CalDay> = {};
+    for (let i = 0; i < 7; i++) {
+      const fecha = shiftDay(semanaElegida, i);
+      drop.add(fecha + "|comida");
+      drop.add(fecha + "|cena");
+      if (st.cal[fecha]) dias[fecha] = st.cal[fecha];
+    }
+    if (!Object.keys(dias).length) { setPedirLimpia(false); setMsg("Esta semana ya está vacía."); return; }
+    const quitadas = (st.anadidas || []).filter((k: string) => drop.has(k));
+    setSt((s: St) => {
+      const cal = { ...s.cal };
+      for (const fecha of Object.keys(dias)) delete cal[fecha];
+      return { ...s, cal, anadidas: (s.anadidas || []).filter((k: string) => !drop.has(k)) };
+    });
+    setUndoLimpia({ dias, anadidas: quitadas });
+    setUndoGen(null);
+    setPedirLimpia(false);
+    setEditSlot("");
+    setMsg("Semana borrada. También se quitó de la compra.");
+  };
+  const deshacerLimpia = () => {
+    if (!undoLimpia) return;
+    const prev = undoLimpia;
+    setSt((s: St) => {
+      const cal = { ...s.cal, ...prev.dias };
+      return { ...s, cal, anadidas: Array.from(new Set([...(s.anadidas || []), ...prev.anadidas])) };
+    });
+    setUndoLimpia(null);
+    setMsg("Semana recuperada, también en la compra.");
   };
 
   const compra = useMemo(() => {
@@ -360,9 +409,7 @@ export default function App() {
       const r = R.find((x: Rec) => x.n === src.menu[s]); if (!r) continue;
       sumar(r, src.rac / r.rac);
     }
-    const claves = new Set<string>();
-    if (st.calCompra) for (let i = 0; i < 7; i++) { const fecha = shiftDay(st.calCompra, i); claves.add(fecha + "|comida"); claves.add(fecha + "|cena"); }
-    for (const k of st.anadidas || []) claves.add(k);
+    const claves = new Set<string>(st.anadidas || []);
     const avisos: { valor: string; cuando: string }[] = [];
     for (const k of claves) {
       const [fecha, slot] = k.split("|") as [string, "comida" | "cena"];
@@ -405,6 +452,28 @@ export default function App() {
   const rec = R.find((r: Rec) => r.n === abierta);
   const factor = rec ? (racR || rec.rac) / rec.rac : 1;
   const noEsc = rec ? rec.ing.filter((i: string[]) => scaleQty(i[0], 2) === null || NOSCALE.test(i[0])).map((i: string[]) => `${i[1]} (${i[0]})`) : [];
+  const abrirReceta = (n: string) => { setAbierta(n); setRacR(0); };
+  useEffect(() => {
+    if (!abierta) return;
+    const y = window.scrollY;
+    const body = document.body;
+    body.style.position = "fixed";
+    body.style.top = `-${y}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+    const sheet = document.getElementById("rec-sheet-body");
+    if (sheet) sheet.scrollTop = 0;
+    return () => {
+      body.style.position = "";
+      body.style.top = "";
+      body.style.left = "";
+      body.style.right = "";
+      body.style.width = "";
+      window.scrollTo(0, y);
+    };
+  }, [abierta]);
+  useEffect(() => { setPedirLimpia(false); }, [semanaElegida]);
 
   const sel = (v: string, set: (x: string) => void, opts: [string, string][], label: string) => (
     <Select label={label} value={v} onChange={set} options={opts.map(([value, l]: [string, string]) => ({ value, label: l }))} />
@@ -456,7 +525,7 @@ export default function App() {
           {lista.length === 0 && <div style={{ ...card, marginTop: 12 }}><div>Ninguna receta cumple todos los filtros.</div><div style={{ marginTop: 8 }}><Button label="Limpiar filtros" variant="primary" onClick={limpiar} /></div></div>}
           <div className="rec-grid">
             {[...lista].sort((a: Rec, b: Rec) => orden === "tiempo" ? a.t - b.t : orden === "fav" ? Number(st.fav.includes(b.n)) - Number(st.fav.includes(a.n)) || a.n.localeCompare(b.n, "es") : a.n.localeCompare(b.n, "es")).map((r: Rec) => (
-              <button type="button" key={r.n} className="rec-card" aria-pressed={abierta === r.n} onClick={() => { setAbierta(abierta === r.n ? "" : r.n); setRacR(0); }} style={{ borderColor: abierta === r.n ? C.green : C.line }}>
+              <button type="button" key={r.n} className="rec-card" onClick={() => abrirReceta(r.n)}>
                 <span className="rec-emoji" style={{ background: GRADS[R.indexOf(r) % GRADS.length] }}>{EMO(r)}</span>
                 <span className="rec-body">
                   <span className="rec-name">{r.n}</span>
@@ -467,27 +536,6 @@ export default function App() {
               </button>
             ))}
           </div>
-        </Section>
-      )}
-      {vista === "rec" && rec && (
-        <Section heading={rec.n}>
-          <Properties items={[
-            { label: "Ingrediente principal", value: rec.pr }, { label: "Comida / Cena", value: rec.cc }, { label: "Tiempo", value: rec.t + " min" }, { label: "Dificultad", value: rec.dif },
-            { label: "¿Es sana?", value: rec.sana }, { label: "¿Thermomix?", value: rec.tm }, { label: "¿Se congela?", value: rec.cong }, { label: "Nevera (días tras hacerla)", value: rec.nev },
-            { label: "Valoración", value: rec.val || "Sin valorar todavía" },
-          ]} />
-          <div style={{ ...row, marginTop: 12 }}>
-            <span style={muted}>Raciones (receta original: {rec.rac}):</span>
-            <Button label="−" onClick={() => setRacR(Math.max(1, (racR || rec.rac) - 1))} />
-            {[2, 3, 4].map((n: number) => <button key={n} style={chip((racR || rec.rac) === n)} onClick={() => setRacR(n)}>{n}</button>)}
-            <Button label="+" onClick={() => setRacR((racR || rec.rac) + 1)} />
-            <span style={muted}>Ahora: {racR || rec.rac}</span>
-          </div>
-          <Table columns={["Cantidad", "Ingrediente"]} rows={rec.ing.map((i: string[]) => [scaleQty(i[0], factor) ?? i[0], i[1]])} />
-          {factor !== 1 && noEsc.length > 0 && <Text>{`No se escalan automáticamente: ${noEsc.join("; ")}. Son cantidades «al gusto», pizcas, chorritos u opcionales: ajústalas probando.`}</Text>}
-          {rec.ut ? <Text>{"Utensilios: " + rec.ut}</Text> : null}
-          <Steps steps={rec.pasos.map((p: string, i: number) => { const k = p.indexOf(":"); return k > 0 && k < 70 ? { title: `${i + 1}. ${p.slice(0, k)}`, detail: p.slice(k + 1).trim() } : { title: `${i + 1}`, detail: p }; })} />
-          <Text>{"Comentarios: " + rec.com}</Text>
         </Section>
       )}
 
@@ -512,7 +560,7 @@ export default function App() {
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <button type="button" aria-label="Semana anterior" onClick={() => setSemanaElegida(shiftDay(semanaElegida, -7))} style={{ minWidth: 48, minHeight: 48, borderRadius: 14, border: `1px solid ${C.line}`, background: C.card, fontSize: 20 }}>‹</button>
               <div style={{ flex: 1, textAlign: "center" }}>
-                <div style={{ fontFamily: SERIF, fontSize: 20 }}>Semana del {tituloDia(semanaElegida).replace(/^[^,]+, /, "")}</div>
+                <div style={{ fontFamily: SERIF, fontSize: 20 }}>Semana del {etiquetaSemana}</div>
                 <div style={muted}>Toca un día del mes para elegir su semana.</div>
               </div>
               <button type="button" aria-label="Semana siguiente" onClick={() => setSemanaElegida(shiftDay(semanaElegida, 7))} style={{ minWidth: 48, minHeight: 48, borderRadius: 14, border: `1px solid ${C.line}`, background: C.card, fontSize: 20 }}>›</button>
@@ -529,8 +577,8 @@ export default function App() {
                     const puesta = yaAnadida(fecha, slot);
                     return (
                       <div key={slot} className="ws-cell">
-                        <span className="ws-name">{m ? m.valor : "—"}</span>
-                        {m ? <button type="button" className="ws-cart" aria-label={(puesta ? "Añadida: " : "Enviar a la compra: ") + m.valor} onClick={() => anadirHueco(fecha, slot)}>{puesta ? "✓" : "🛒"}</button> : null}
+                        {m && m.tipo === "receta" ? <button type="button" className="ws-name ws-link" onClick={() => abrirReceta(m.valor)}>{m.valor}</button> : <span className="ws-name">{m ? m.valor : "—"}</span>}
+                        {m ? <button type="button" className={"ws-cart" + (puesta ? " on" : "")} aria-pressed={puesta} aria-label={(puesta ? "Quitar de la compra: " : "Añadir a la compra: ") + m.valor} onClick={() => toggleHueco(fecha, slot)}>{puesta ? "✓ En la compra" : "🛒 Añadir"}</button> : null}
                       </div>
                     );
                   })}
@@ -541,7 +589,19 @@ export default function App() {
               <button type="button" onClick={sorprender} style={{ minHeight: 48, flex: "1 1 160px", borderRadius: 999, border: "none", background: C.green, color: "#fff", fontWeight: 700, fontSize: 15 }}>Sorpréndeme / Generar menú</button>
               {undoGen ? <button type="button" onClick={deshacerGen} style={{ minHeight: 48, flex: "1 1 120px", borderRadius: 999, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700 }}>Deshacer</button> : null}
               <button type="button" onClick={enviarSemana} style={{ minHeight: 48, flex: "1 1 160px", borderRadius: 999, border: `1px solid ${C.green}`, background: C.soft, color: C.green, fontWeight: 700, fontSize: 15 }}>Enviar toda la semana</button>
+              <button type="button" onClick={quitarSemana} style={{ minHeight: 48, flex: "1 1 160px", borderRadius: 999, border: `1px solid ${C.green}`, background: C.card, color: C.green, fontWeight: 700, fontSize: 15 }}>Quitar la semana de la compra</button>
+              <button type="button" onClick={() => { const hay = Array.from({ length: 7 }, (_, i: number) => st.cal[shiftDay(semanaElegida, i)]).some(Boolean); if (!hay) { setMsg("Esta semana ya está vacía."); return; } setPedirLimpia(true); }} style={{ minHeight: 48, flex: "1 1 160px", borderRadius: 999, border: `1px solid ${C.line}`, background: C.card, color: C.text, fontWeight: 700, fontSize: 15 }}>Limpiar semana</button>
+              {undoLimpia ? <button type="button" onClick={deshacerLimpia} style={{ minHeight: 48, flex: "1 1 120px", borderRadius: 999, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700 }}>Deshacer</button> : null}
             </div>
+            {pedirLimpia && (
+              <div id="limpia-confirm" style={{ marginTop: 12, background: "#FBEFD9", border: `1px solid ${C.line}`, borderRadius: 14, padding: 12 }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>¿Borrar toda la semana del {etiquetaSemana}?</div>
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <button type="button" onClick={limpiarSemana} style={{ minHeight: 48, flex: 1, borderRadius: 999, border: "none", background: C.green, color: "#fff", fontWeight: 700, fontSize: 16 }}>Borrar</button>
+                  <button type="button" onClick={() => setPedirLimpia(false)} style={{ minHeight: 48, flex: 1, borderRadius: 999, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700, fontSize: 16 }}>Cancelar</button>
+                </div>
+              </div>
+            )}
             {msg ? <div style={{ ...muted, marginTop: 8 }}>{msg}</div> : null}
           </div>
           <div id="cal-dia" style={{ ...card, marginTop: 14 }}>
@@ -558,10 +618,10 @@ export default function App() {
                   <div style={{ fontWeight: 700, letterSpacing: 1 }}>{slot === "comida" ? "COMIDA" : "CENA"}</div>
                   {meal && !abiertaEd ? (
                     <div style={{ marginTop: 8 }}>
-                      <div style={{ fontSize: 18 }}>{meal.valor}</div>
+                      {meal.tipo === "receta" ? <button type="button" onClick={() => abrirReceta(meal.valor)} style={{ display: "block", width: "100%", minHeight: 48, textAlign: "left", border: "none", background: "transparent", color: C.green, fontSize: 18, fontWeight: 700, padding: 0, cursor: "pointer" }}>{meal.valor}</button> : <div style={{ fontSize: 18 }}>{meal.valor}</div>}
                       <div style={{ ...muted, marginTop: 4 }}>{meal.tipo === "receta" ? "Receta del recetario" : "Plato propio"}</div>
                       <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                        {meal.tipo === "receta" && R.some((r: Rec) => r.n === meal.valor) ? <button type="button" onClick={() => { setAbierta(meal.valor); setRacR(0); setVista("rec"); }} style={{ minHeight: 48, flex: 1, borderRadius: 999, border: "none", background: C.green, color: "#fff", fontWeight: 700, fontSize: 16 }}>Ver receta</button> : null}
+                        {meal.tipo === "receta" && R.some((r: Rec) => r.n === meal.valor) ? <button type="button" onClick={() => abrirReceta(meal.valor)} style={{ minHeight: 48, flex: 1, borderRadius: 999, border: "none", background: C.green, color: "#fff", fontWeight: 700, fontSize: 16 }}>Ver receta</button> : null}
                         <button type="button" onClick={() => { setEditSlot(slot); setQCal(""); setTxtCal(meal.tipo === "texto" ? meal.valor : ""); }} style={{ minHeight: 48, flex: 1, borderRadius: 999, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700, fontSize: 16 }}>Editar</button>
                         <button type="button" onClick={() => setMeal(diaCal, slot, null)} style={{ minHeight: 48, flex: 1, borderRadius: 999, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700, fontSize: 16 }}>Borrar</button>
                       </div>
@@ -600,8 +660,7 @@ export default function App() {
         <Section heading="La compra, hecha">
           {!st.confirmado && !st.calCompra && !(st.anadidas || []).length && <Callout tone="warning">Desde el calendario, envía un hueco o toda la semana. Mientras tanto puedes añadir productos a mano.</Callout>}
           {st.confirmado && <div style={muted}>{`Semana ${st.confirmado.semana} · ${st.confirmado.rac} raciones por plato. Se suman las unidades compatibles (g, kg, ml, l, cucharadas…); las incompatibles van separadas con «+».`}</div>}
-          {st.calCompra && <div style={{ ...muted, marginTop: 8 }}>{`Calendario, semana del ${tituloDia(st.calCompra).replace(/^[^,]+, /, "")}. Las recetas suman sus ingredientes. Los platos inventados salen en Recordatorio, sin ingredientes.`}</div>}
-          {st.calCompra ? <div style={{ marginTop: 8 }}><Button label="Quitar la semana del calendario" onClick={() => up({ calCompra: null })} /></div> : null}
+          {(st.anadidas || []).length > 0 && <div style={{ ...muted, marginTop: 8 }}>Los huecos marcados «En la compra» suman sus ingredientes. Quitar un hueco resta solo esa receta; lo añadido a mano se queda. Los platos inventados salen en Recordatorio, sin ingredientes.</div>}
           <div style={{ ...row, marginTop: 12 }}>
             <Button label="Imprimir" onClick={() => { try { window.print(); } catch (e) { setMsg("La impresión no está disponible aquí: usa Exportar y copia el texto."); } }} />
             <Button label="Exportar como texto" onClick={() => { setIo(textoCompra()); setVista("datos"); }} />
@@ -651,7 +710,7 @@ export default function App() {
                 <div style={{ ...muted, marginTop: 4 }}>Coinciden {x.tiene.length} de {x.total} ingredientes</div>
                 {x.falta.length > 0 && <div style={{ fontSize: 13, marginTop: 4, color: th.text.primary }}>Faltan: {x.falta.join(", ")}</div>}
                 <div style={{ ...row, marginTop: 8 }}>
-                  <Button label="Ver receta" onClick={() => { setAbierta(x.r.n); setRacR(0); setVista("rec"); }} />
+                  <Button label="Ver receta" onClick={() => abrirReceta(x.r.n)} />
                   {x.falta.length > 0 && <Button label="Añadir lo que falta a la compra" onClick={() => faltaACompra(x.falta)} />}
                 </div>
               </div>
@@ -683,6 +742,36 @@ export default function App() {
           ]} />
           <Text>Esta Page usa las recetas tal como estaban en la hoja el 31/10/2026, más las cuatro añadidas después. Si cambias la hoja, pídeme que la vuelva a importar.</Text>
         </Section>
+      )}
+      {rec && (
+        <div className="rec-sheet" role="dialog" aria-modal="true" aria-labelledby="rec-sheet-title">
+          <div className="rec-sheet-bar">
+            <button type="button" className="rec-sheet-close" onClick={() => setAbierta("")}>← Volver</button>
+          </div>
+          <div className="rec-sheet-body" id="rec-sheet-body">
+            <h2 id="rec-sheet-title" style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 28, color: C.green, margin: "0 0 8px", lineHeight: 1.2 }}>{rec.n}</h2>
+            <div style={{ ...muted, marginBottom: 4 }}>{rec.t} min · {rec.dif} · {rec.cc} · {rec.sana === "Sí" ? "Sana" : rec.sana}</div>
+            <h3 style={{ fontFamily: SERIF, fontSize: 22, color: C.green, margin: "8px 0" }}>Ingredientes</h3>
+            <Table columns={["Cantidad", "Ingrediente"]} rows={rec.ing.map((i: string[]) => [scaleQty(i[0], factor) ?? i[0], i[1]])} />
+            <div style={{ ...row, marginTop: 8 }}>
+              <span style={muted}>Raciones (receta original: {rec.rac}):</span>
+              <Button label="−" onClick={() => setRacR(Math.max(1, (racR || rec.rac) - 1))} />
+              {[2, 3, 4].map((n: number) => <button key={n} style={chip((racR || rec.rac) === n)} onClick={() => setRacR(n)}>{n}</button>)}
+              <Button label="+" onClick={() => setRacR((racR || rec.rac) + 1)} />
+              <span style={muted}>Ahora: {racR || rec.rac}</span>
+            </div>
+            {factor !== 1 && noEsc.length > 0 && <Text>{`No se escalan automáticamente: ${noEsc.join("; ")}. Son cantidades «al gusto», pizcas, chorritos u opcionales: ajústalas probando.`}</Text>}
+            <h3 style={{ fontFamily: SERIF, fontSize: 22, color: C.green, margin: "16px 0 8px" }}>Pasos</h3>
+            <Steps steps={rec.pasos.map((p: string, i: number) => { const k = p.indexOf(":"); return k > 0 && k < 70 ? { title: `${i + 1}. ${p.slice(0, k)}`, detail: p.slice(k + 1).trim() } : { title: `${i + 1}`, detail: p }; })} />
+            {rec.ut ? <Text>{"Utensilios: " + rec.ut}</Text> : null}
+            <Text>{"Comentarios: " + rec.com}</Text>
+            <Properties items={[
+              { label: "Ingrediente principal", value: rec.pr }, { label: "Comida / Cena", value: rec.cc }, { label: "Tiempo", value: rec.t + " min" }, { label: "Dificultad", value: rec.dif },
+              { label: "¿Es sana?", value: rec.sana }, { label: "¿Thermomix?", value: rec.tm }, { label: "¿Se congela?", value: rec.cong }, { label: "Nevera (días tras hacerla)", value: rec.nev },
+              { label: "Valoración", value: rec.val || "Sin valorar todavía" },
+            ]} />
+          </div>
+        </div>
       )}
     </Page>
   );
