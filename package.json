@@ -1,0 +1,26 @@
+{
+  "name": "amazonas-webs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build:chef": "vite build --config chef/vite.config.ts",
+    "build:warren": "vite build --config warren/vite.config.ts",
+    "build": "npm run typecheck && npm run build:chef && npm run build:warren && node scripts/assemble.mjs",
+    "dev:chef": "vite --config chef/vite.config.ts",
+    "dev:warren": "vite --config warren/vite.config.ts",
+    "preview:chef": "vite preview --config chef/vite.config.ts",
+    "preview:warren": "vite preview --config warren/vite.config.ts"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5.9.2",
+    "vite": "^6.3.6"
+  }
+}
