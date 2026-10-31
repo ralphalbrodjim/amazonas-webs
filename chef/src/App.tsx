@@ -83,6 +83,31 @@ const FR: Record<string, string> = { "0.25": "1/4", "0.5": "1/2", "0.75": "3/4",
 const pnum = (m: string): number => { if (m.includes("/")) { const [a, b] = m.split("/"); return Number(a) / Number(b); } return Number(m.replace(",", ".")); };
 const fmt = (x: number): string => { const r = Math.round(x * 100) / 100; if (r < 1 && FR[String(r)]) return FR[String(r)]; return String(r).replace(".", ","); };
 
+const QTY_UNIT = String.raw`(?:cucharaditas?|cucharadas?|cditas?|cdas?|unidades?|uds?|kg|ml|litros?|g|l)`;
+const QTY_RE = new RegExp(String.raw`(\d+(?:[.,]\d+)?(?:\/\d+)?|[½¼¾⅓⅔])\s*(${QTY_UNIT})\b`, "gi");
+const FRAC_CH: Record<string, number> = { "½": 0.5, "¼": 0.25, "¾": 0.75, "⅓": 1 / 3, "⅔": 2 / 3 };
+function parseQtyToken(token: string): number {
+  if (FRAC_CH[token] !== undefined) return FRAC_CH[token];
+  if (token.includes("/")) { const [a, b] = token.split("/"); return Number(a) / Number(b); }
+  return Number(token.replace(",", "."));
+}
+function scalePaso(text: string, factor: number): ReactNode {
+  if (factor === 1) return text;
+  const parts: ReactNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+  const re = new RegExp(QTY_RE.source, "gi");
+  while ((match = re.exec(text))) {
+    const scaled = fmt(parseQtyToken(match[1]) * factor);
+    parts.push(text.slice(last, match.index));
+    parts.push(<span key={match.index} className="qty-esc">{scaled} {match[2]}</span>);
+    last = match.index + match[0].length;
+  }
+  if (!parts.length) return text;
+  parts.push(text.slice(last));
+  return <>{parts}</>;
+}
+
 const scaleQty = (q: string, f: number): string | null => {
   if (f === 1) return q;
   if (!/^\d/.test(q.trim()) || /^\d+\s*(pizca|chorrito|puñado|hilo)/i.test(q.trim())) return null;
@@ -789,7 +814,8 @@ export default function App() {
             </div>
             {factor !== 1 && noEsc.length > 0 && <Text>{`No se escalan automáticamente: ${noEsc.join("; ")}. Son cantidades «al gusto», pizcas, chorritos u opcionales: ajústalas probando.`}</Text>}
             <h3 style={{ fontFamily: SERIF, fontSize: 22, color: C.green, margin: "16px 0 8px" }}>Pasos</h3>
-            <Steps steps={rec.pasos.map((p: string, i: number) => { const k = p.indexOf(":"); return k > 0 && k < 70 ? { title: `${i + 1}. ${p.slice(0, k)}`, detail: p.slice(k + 1).trim() } : { title: `${i + 1}`, detail: p }; })} />
+            {factor !== 1 ? <p className="note" style={{ color: C.muted }}>Las cantidades de los pasos están ajustadas a las raciones y marcadas. Los tiempos y las temperaturas no cambian.</p> : null}
+            <Steps steps={rec.pasos.map((p: string, i: number) => { const k = p.indexOf(":"); const title = k > 0 && k < 70 ? `${i + 1}. ${p.slice(0, k)}` : `${i + 1}`; const detail = k > 0 && k < 70 ? p.slice(k + 1).trim() : p; return { title: scalePaso(title, factor), detail: scalePaso(detail, factor) }; })} />
             {rec.ut ? <Text>{"Utensilios: " + rec.ut}</Text> : null}
             <Text>{"Comentarios: " + rec.com}</Text>
             <Properties items={[
