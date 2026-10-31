@@ -170,8 +170,8 @@ function Deporte() {
   const peso = deporte.peso;
   const octubrePct = Math.min(100, (octubre.total_km / octubre.objetivo_km) * 100);
   const noviembrePct = Math.min(100, (noviembre.realizados_km / noviembre.objetivo_km) * 100);
-  const viaje = noviembre.viaje_japon;
-  const duranteViaje = (fecha: string) => fecha >= viaje.desde && fecha <= viaje.hasta;
+  const sinSalidas = noviembre.sin_salidas;
+  const parada = gym.planificadas_noviembre.parada;
 
   return (
     <section>
@@ -257,10 +257,10 @@ function Deporte() {
           <div className="fill" style={{ width: `${noviembrePct}%` }} />
         </div>
         <p className="note">{km(noviembre.realizados_km)} de {km(noviembre.objetivo_km)} km hechos. Planificado: {km(noviembre.total_planificado_km)} km.</p>
+        <p className="note">{noviembre.estado}</p>
         <p className="note">{noviembre.criterio}</p>
-        <p className="note">{viaje.nota} Del {formatDay(viaje.desde, false)} al {formatDay(viaje.hasta, false)}.</p>
         <div className="meta">
-          <Pill kind="recorded">{noviembre.estado}</Pill>
+          <Pill kind="wait">Pendiente de confirmar</Pill>
           <Pill kind="miss">Kilómetros no hechos</Pill>
         </div>
       </article>
@@ -275,10 +275,13 @@ function Deporte() {
               <span>{sesion.tipo}</span>
               <Pill kind="miss">No hecha</Pill>
             </div>
-            {duranteViaje(sesion.fecha) ? <p className="note">Durante el viaje a Japón.</p> : null}
           </article>
         ))}
       </div>
+      <article className="card" style={{ marginTop: 12 }}>
+        <h3>Sin salidas</h3>
+        <p className="note">Del {formatDay(sinSalidas.desde, false)} al {formatDay(sinSalidas.hasta, false)}. {sinSalidas.motivo}</p>
+      </article>
 
       <div className="kicker">Gimnasio</div>
       <article className="card">
@@ -300,23 +303,17 @@ function Deporte() {
       </div>
       <article className="card" style={{ marginTop: 12 }}>
         <h3>Noviembre · {gym.planificadas_noviembre.estado}</h3>
-        <p className="note">Descanso: {gym.descanso}.</p>
-        <div className="grid">
-          {gym.planificadas_noviembre.patron_semanal.map((patron) => (
-            <div key={patron.dia} className="row">
-              <b>{patron.dia}</b>
-              <span>{patron.contenido}</span>
-            </div>
-          ))}
-        </div>
-        <p className="note">{gym.planificadas_noviembre.nota}</p>
+        <p className="note">Descanso: {gym.descanso}</p>
+        <p className="note">Parada del {formatDay(parada.desde, false)} al {formatDay(parada.hasta, false)}. {parada.motivo}.</p>
       </article>
       <div className="grid">
-        {gym.planificadas_noviembre.fechas.map((fecha) => (
-          <article key={fecha} className="card">
-            <h3>{formatDay(fecha)}</h3>
-            <div className="meta"><Pill kind="miss">No hecha</Pill></div>
-            {duranteViaje(fecha) ? <p className="note">Coincide con el viaje a Japón.</p> : null}
+        {gym.planificadas_noviembre.sesiones.map((sesion) => (
+          <article key={sesion.fecha} className="card">
+            <h3>{formatDay(sesion.fecha)}</h3>
+            <div className="meta">
+              <span>{sesion.contenido}</span>
+              <Pill kind="miss">No hecha</Pill>
+            </div>
           </article>
         ))}
       </div>

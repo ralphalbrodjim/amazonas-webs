@@ -52,7 +52,7 @@ const TIPO: Record<string, string> = {
   deporte: "Deporte",
 };
 
-const VIAJE = deporte.running.noviembre_2026.viaje_japon;
+const VIAJE = deporte.gimnasio.planificadas_noviembre.parada;
 
 function catOf(id: CatId | null) {
   return CATS.find((cat) => cat.id === id) ?? null;
@@ -224,7 +224,7 @@ export function Planner(props: { hoy: string }) {
                   <span>{formatDay(fecha)}</span>
                   {fecha === props.hoy ? <span className="hoy-tag">Hoy</span> : null}
                 </button>
-                {enViaje(fecha) ? <p className="note">Viaje a Japón</p> : null}
+                {enViaje(fecha) ? <p className="note">{VIAJE.motivo}</p> : null}
                 {FRANJAS.map((franja) => {
                   const fijas = citasDia(fecha).filter((cita) => franjaDe(cita.hora) === franja.id);
                   const propias = miasDia(fecha).filter((item) => item.franja === franja.id);
@@ -343,7 +343,7 @@ function Dia(props: {
         <button className="tap" onClick={props.onNext} aria-label="Día siguiente">›</button>
       </div>
       <button className="tap" onClick={props.onHoy}>Hoy</button>
-      {enViaje(props.fecha) ? <p className="callout">Viaje a Japón, del {formatDay(VIAJE.desde, false)} al {formatDay(VIAJE.hasta, false)}. {VIAJE.nota}</p> : null}
+      {enViaje(props.fecha) ? <p className="callout">{VIAJE.motivo}, del {formatDay(VIAJE.desde, false)} al {formatDay(VIAJE.hasta, false)}.</p> : null}
       {FRANJAS.map((franja) => (
         <Slot
           key={franja.id}
