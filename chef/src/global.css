@@ -17,6 +17,9 @@ button, input, select, textarea {
 
 button {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 @media (max-width: 640px) {

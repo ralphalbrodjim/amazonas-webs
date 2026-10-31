@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import type { ChangeEvent, ReactNode } from "react";
+import type { ChangeEvent, KeyboardEvent, ReactNode } from "react";
 
 const C = { green: "#1F3B34", green2: "#2F5A4B", kicker: "#4F7A63", cream: "#F5F1E8", card: "#FFFDF7", line: "#E4DDCF", text: "#1E2B27", muted: "#6B746F", soft: "#E6EEE7" };
 const SERIF = "Georgia, 'Times New Roman', serif";
@@ -120,9 +120,9 @@ const emptyMenu = (): Record<string, string> => Object.fromEntries(SLOTS.map((s:
 type Saved = { semana: string; menu: Record<string, string>; rac: number };
 type Meal = { tipo: "receta" | "texto"; valor: string };
 type CalDay = { comida?: Meal; cena?: Meal };
-type St = { fav: string[]; menu: Record<string, string>; locked: string[]; rac: number; semana: string; saved: Saved[]; confirmado: Saved | null; checks: string[]; manual: { cat: string; t: string }[]; nevera: string[]; basicos: boolean; cal: Record<string, CalDay>; calCompra: string | null };
+type St = { fav: string[]; menu: Record<string, string>; locked: string[]; rac: number; semana: string; saved: Saved[]; confirmado: Saved | null; checks: string[]; manual: { cat: string; t: string }[]; nevera: string[]; basicos: boolean; cal: Record<string, CalDay>; calCompra: string | null; platos: string[] };
 const KEY = "chef-antracita-v1";
-const INIT: St = { fav: [], menu: emptyMenu(), locked: [], rac: 2, semana: "2026-11-02", saved: [], confirmado: null, checks: [], manual: [], nevera: [], basicos: true, cal: {}, calCompra: null };
+const INIT: St = { fav: [], menu: emptyMenu(), locked: [], rac: 2, semana: "2026-11-02", saved: [], confirmado: null, checks: [], manual: [], nevera: [], basicos: true, cal: {}, calCompra: null, platos: [] };
 
 function hoyMadrid(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -163,7 +163,7 @@ function corto(m: Meal | undefined): string {
   if (!m || !m.valor) return "";
   return m.valor.length > 7 ? m.valor.slice(0, 6) + "…" : m.valor;
 }
-const loadSt = (): St => { try { const s = window.localStorage.getItem(KEY); if (s) { const d = JSON.parse(s); return { ...INIT, ...d, cal: d && d.cal && typeof d.cal === "object" ? d.cal : {}, calCompra: d && typeof d.calCompra === "string" ? d.calCompra : null }; } } catch (e) { /* sin almacenamiento */ } return INIT; };
+const loadSt = (): St => { try { const s = window.localStorage.getItem(KEY); if (s) { const d = JSON.parse(s); return { ...INIT, ...d, cal: d && d.cal && typeof d.cal === "object" ? d.cal : {}, calCompra: d && typeof d.calCompra === "string" ? d.calCompra : null, platos: d && Array.isArray(d.platos) ? d.platos.filter((p: unknown) => typeof p === "string") : [] }; } } catch (e) { /* sin almacenamiento */ } return INIT; };
 
 const ALLING: string[] = Array.from(new Set(R.flatMap((r: Rec) => r.ing.map((i: string[]) => canon(i[1]))))).filter((c: string) => c !== "Agua").sort((a: string, b: string) => a.localeCompare(b, "es"));
 
@@ -272,13 +272,18 @@ export default function App() {
 
   // Compra
   const setMeal = (fecha: string, slot: "comida" | "cena", meal: Meal | null) => {
-    const prev = st.cal[fecha] ? { ...st.cal[fecha] } : {};
-    if (meal) prev[slot] = meal; else delete prev[slot];
-    const cal = { ...st.cal };
-    if (prev.comida || prev.cena) cal[fecha] = prev; else delete cal[fecha];
-    up({ cal });
+    setSt((s: St) => {
+      const prev = s.cal[fecha] ? { ...s.cal[fecha] } : {};
+      if (meal) prev[slot] = meal; else delete prev[slot];
+      const cal = { ...s.cal };
+      if (prev.comida || prev.cena) cal[fecha] = prev; else delete cal[fecha];
+      const nombre = meal && meal.tipo === "texto" ? meal.valor.trim() : "";
+      const platos = nombre && !(s.platos || []).some((p: string) => norm(p) === norm(nombre)) ? [...(s.platos || []), nombre] : (s.platos || []);
+      return { ...s, cal, platos };
+    });
     setEditSlot("");
   };
+  const quitarPlato = (nombre: string) => setSt((s: St) => ({ ...s, platos: (s.platos || []).filter((p: string) => norm(p) !== norm(nombre)) }));
   const recetasSemana = (lunes: string): Rec[] => {
     const out: Rec[] = [];
     for (let i = 0; i < 7; i++) {
@@ -293,12 +298,26 @@ export default function App() {
     }
     return out;
   };
+  const textosSemana = (lunes: string): { valor: string; cuando: string }[] => {
+    const out: { valor: string; cuando: string }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const fecha = shiftDay(lunes, i);
+      const day = st.cal[fecha];
+      if (!day) continue;
+      for (const slot of ["comida", "cena"] as const) {
+        const m = day[slot];
+        if (m && m.tipo === "texto" && m.valor.trim()) out.push({ valor: m.valor.trim(), cuando: tituloDia(fecha) + " · " + slot });
+      }
+    }
+    return out;
+  };
   const enviarSemana = () => {
     const n = recetasSemana(semanaElegida).length;
-    if (!n) { setMsg("Esa semana no tiene recetas del recetario. El texto libre no entra en la compra."); return; }
+    const t = textosSemana(semanaElegida).length;
+    if (!n && !t) { setMsg("Esa semana está vacía. Abre un día y escribe un plato o elige una receta."); return; }
     up({ calCompra: semanaElegida, checks: [] });
     setVista("compra");
-    setMsg("Lista actualizada con " + n + " receta(s) del calendario. El texto libre no cuenta.");
+    setMsg(t ? "Lista actualizada. Los platos inventados van como recordatorio, sin ingredientes." : "Lista actualizada con " + n + " receta(s) del calendario.");
   };
 
   const compra = useMemo(() => {
@@ -319,6 +338,7 @@ export default function App() {
       sumar(r, src.rac / r.rac);
     }
     if (st.calCompra) for (const r of recetasSemana(st.calCompra)) sumar(r, 1);
+    const avisos = st.calCompra ? textosSemana(st.calCompra) : [];
     const out: Record<string, { c: string; qty: string; de: string[] }[]> = {};
     for (const it of Object.values(g)) {
       const parts = Object.entries(it.amts).map(([u, v]: [string, number]) => u === "g" && v >= 1000 ? fmt(v / 1000) + " kg" : u === "ml" && v >= 1000 ? fmt(v / 1000) + " l" : fmt(v) + " " + u);
@@ -327,9 +347,10 @@ export default function App() {
       (out[k] = out[k] || []).push({ c: it.c, qty, de: it.de });
     }
     for (const m of st.manual) (out[m.cat] = out[m.cat] || []).push({ c: m.t, qty: "añadido a mano", de: [] });
+    for (const a of avisos) (out["Recordatorio"] = out["Recordatorio"] || []).push({ c: a.valor, qty: "sin ingredientes · " + a.cuando, de: [] });
     return out;
   }, [st.confirmado, st.manual, st.cal, st.calCompra]);
-  const CATS = ["Verduras y fruta", "Proteínas", "Lácteos", "Despensa", "Básicos"];
+  const CATS = ["Verduras y fruta", "Proteínas", "Lácteos", "Despensa", "Básicos", "Recordatorio"];
   const textoCompra = (): string => CATS.filter((c: string) => compra[c]).map((c: string) => c.toUpperCase() + "\n" + compra[c].map((i: { c: string; qty: string }) => `${st.checks.includes(i.c) ? "[x]" : "[ ]"} ${i.c}: ${i.qty}`).join("\n")).join("\n\n");
 
   // Nevera
@@ -491,7 +512,7 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4, marginTop: 12 }}>
             {["L", "M", "X", "J", "V", "S", "D"].map((d: string) => <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: C.muted }}>{d}</div>)}
             {monthCells(mes).map((fecha: string | null, i: number) => fecha ? (
-              <button key={fecha} onClick={() => { setDiaCal(fecha); setSemanaElegida(weekStart(fecha)); setEditSlot(""); }} aria-label={tituloDia(fecha)} style={{ minHeight: 58, borderRadius: 10, padding: 3, textAlign: "left", cursor: "pointer", border: fecha === diaCal ? `2px solid ${C.green}` : fecha === hoy ? `2px solid ${C.kicker}` : `1px solid ${C.line}`, background: fecha >= semanaElegida && fecha <= shiftDay(semanaElegida, 6) ? C.soft : C.card, color: C.text }}>
+              <button type="button" key={fecha} onClick={() => { setDiaCal(fecha); setSemanaElegida(weekStart(fecha)); setEditSlot(""); window.setTimeout(() => document.getElementById("cal-dia")?.scrollIntoView({ block: "start" }), 40); }} aria-label={tituloDia(fecha)} style={{ minHeight: 64, borderRadius: 10, padding: 3, textAlign: "left", cursor: "pointer", border: fecha === diaCal ? `2px solid ${C.green}` : fecha === hoy ? `2px solid ${C.kicker}` : `1px solid ${C.line}`, background: fecha >= semanaElegida && fecha <= shiftDay(semanaElegida, 6) ? C.soft : C.card, color: C.text }}>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>{Number(fecha.slice(8))}</div>
                 {(["comida", "cena"] as const).map((slot) => { const m = st.cal[fecha]?.[slot]; return m ? <div key={slot} style={{ fontSize: 9, lineHeight: 1.15, overflow: "hidden", whiteSpace: "nowrap", color: m.tipo === "receta" ? C.green : C.muted }}>{slot === "comida" ? "C " : "N "}{corto(m)}</div> : null; })}
               </button>
@@ -511,28 +532,35 @@ export default function App() {
                   <div style={{ fontWeight: 700, letterSpacing: 1 }}>{slot === "comida" ? "COMIDA" : "CENA"}</div>
                   {meal && !abiertaEd ? (
                     <div style={{ marginTop: 8 }}>
-                      <div style={{ fontSize: 16 }}>{meal.valor}</div>
-                      <div style={{ ...muted, marginTop: 4 }}>{meal.tipo === "receta" ? "Receta del recetario" : "Texto libre"}</div>
-                      <div style={{ ...row, marginTop: 8 }}>
-                        {meal.tipo === "receta" && R.some((r: Rec) => r.n === meal.valor) ? <Button label="Ver receta" variant="primary" onClick={() => { setAbierta(meal.valor); setRacR(0); setVista("rec"); }} /> : null}
-                        <Button label="Editar" onClick={() => { setEditSlot(slot); setQCal(""); setTxtCal(meal.tipo === "texto" ? meal.valor : ""); }} />
-                        <Button label="Vaciar" onClick={() => setMeal(diaCal, slot, null)} />
+                      <div style={{ fontSize: 18 }}>{meal.valor}</div>
+                      <div style={{ ...muted, marginTop: 4 }}>{meal.tipo === "receta" ? "Receta del recetario" : "Plato propio"}</div>
+                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        {meal.tipo === "receta" && R.some((r: Rec) => r.n === meal.valor) ? <button type="button" onClick={() => { setAbierta(meal.valor); setRacR(0); setVista("rec"); }} style={{ minHeight: 48, flex: 1, borderRadius: 999, border: "none", background: C.green, color: "#fff", fontWeight: 700, fontSize: 16 }}>Ver receta</button> : null}
+                        <button type="button" onClick={() => { setEditSlot(slot); setQCal(""); setTxtCal(meal.tipo === "texto" ? meal.valor : ""); }} style={{ minHeight: 48, flex: 1, borderRadius: 999, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700, fontSize: 16 }}>Editar</button>
+                        <button type="button" onClick={() => setMeal(diaCal, slot, null)} style={{ minHeight: 48, flex: 1, borderRadius: 999, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700, fontSize: 16 }}>Borrar</button>
                       </div>
                     </div>
                   ) : !abiertaEd ? (
-                    <div style={{ marginTop: 8 }}><button onClick={() => { setEditSlot(slot); setQCal(""); setTxtCal(""); }} style={{ minHeight: 48, width: "100%", borderRadius: 999, border: `1px solid ${C.line}`, background: C.soft, color: C.green, fontWeight: 700, fontSize: 16, cursor: "pointer" }}>Añadir</button></div>
+                    <div style={{ marginTop: 8 }}><button type="button" onClick={() => { setEditSlot(slot); setQCal(""); setTxtCal(""); window.setTimeout(() => document.getElementById("plato-libre")?.focus(), 40); }} style={{ minHeight: 48, width: "100%", borderRadius: 999, border: `1px solid ${C.line}`, background: C.soft, color: C.green, fontWeight: 700, fontSize: 16, cursor: "pointer" }}>Añadir</button></div>
                   ) : (
                     <div style={{ marginTop: 8 }}>
-                      <Input value={qCal} onChange={setQCal} placeholder="Buscar receta…" />
+                      <label htmlFor="plato-libre" style={{ fontSize: 13, color: C.muted }}>Plato inventado</label>
+                      <input id="plato-libre" enterKeyHint="done" value={txtCal} placeholder="Tortilla de la abuela" onChange={(e: ChangeEvent<HTMLInputElement>) => setTxtCal(e.target.value)} onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter" && txtCal.trim()) setMeal(diaCal, slot, { tipo: "texto", valor: txtCal.trim() }); }} style={{ width: "100%", minHeight: 48, fontSize: 16, borderRadius: 12, border: `1px solid ${C.line}`, padding: "10px 12px", marginTop: 6, boxSizing: "border-box" }} />
+                      <button type="button" onClick={() => { if (txtCal.trim()) setMeal(diaCal, slot, { tipo: "texto", valor: txtCal.trim() }); }} style={{ minHeight: 48, width: "100%", marginTop: 8, borderRadius: 999, border: "none", background: C.green, color: "#fff", fontWeight: 700, fontSize: 16 }}>Guardar este plato</button>
+                      {(st.platos || []).filter((p: string) => !filtro || norm(p).includes(filtro)).length > 0 ? <div style={{ marginTop: 16, fontWeight: 700 }}>Mis platos</div> : null}
+                      {(st.platos || []).filter((p: string) => !filtro || norm(p).includes(filtro)).map((p: string) => (
+                        <div key={p} style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                          <button type="button" onClick={() => setMeal(diaCal, slot, { tipo: "texto", valor: p })} style={{ flex: 1, minHeight: 48, textAlign: "left", borderRadius: 12, border: `1px solid ${C.line}`, background: "#F3E2C7", padding: "8px 12px", fontSize: 16, fontWeight: 700 }}>Plato propio · {p}</button>
+                          <button type="button" aria-label={"Quitar " + p + " de Mis platos"} onClick={() => quitarPlato(p)} style={{ minWidth: 72, minHeight: 48, borderRadius: 12, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700 }}>Quitar</button>
+                        </div>
+                      ))}
+                      <div style={{ marginTop: 16, fontWeight: 700 }}>Recetas del libro</div>
+                      <div style={{ marginTop: 8 }}><Input value={qCal} onChange={setQCal} placeholder="Buscar receta…" /></div>
                       <div style={{ maxHeight: 220, overflowY: "auto", marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-                        {opciones.map((r: Rec) => <button key={r.n} onClick={() => setMeal(diaCal, slot, { tipo: "receta", valor: r.n })} style={{ minHeight: 44, textAlign: "left", borderRadius: 12, border: `1px solid ${C.line}`, background: C.card, padding: "8px 12px", cursor: "pointer", color: C.text }}>{r.n}</button>)}
+                        {opciones.map((r: Rec) => <button type="button" key={r.n} onClick={() => setMeal(diaCal, slot, { tipo: "receta", valor: r.n })} style={{ minHeight: 48, textAlign: "left", borderRadius: 12, border: `1px solid ${C.line}`, background: C.card, padding: "8px 12px", cursor: "pointer", color: C.text, fontSize: 16 }}>{r.n}</button>)}
                         {opciones.length === 0 ? <div style={muted}>Ninguna receta con ese nombre.</div> : null}
                       </div>
-                      <div style={{ ...row, marginTop: 8 }}>
-                        <Input value={txtCal} onChange={setTxtCal} placeholder="O escribe un texto libre" />
-                        <Button label="Guardar texto" onClick={() => { if (txtCal.trim()) setMeal(diaCal, slot, { tipo: "texto", valor: txtCal.trim() }); }} />
-                        {abiertaEd ? <Button label="Cancelar" onClick={() => setEditSlot("")} /> : null}
-                      </div>
+                      <button type="button" onClick={() => setEditSlot("")} style={{ minHeight: 48, width: "100%", marginTop: 8, borderRadius: 999, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700, fontSize: 16 }}>Cancelar</button>
                     </div>
                   )}
                 </div>
@@ -546,7 +574,7 @@ export default function App() {
         <Section heading="La compra, hecha">
           {!st.confirmado && !st.calCompra && <Callout tone="warning">Guarda un menú en «Menú semanal» o envía una semana del calendario para generar la lista. Mientras tanto puedes añadir productos a mano.</Callout>}
           {st.confirmado && <div style={muted}>{`Semana ${st.confirmado.semana} · ${st.confirmado.rac} raciones por plato. Se suman las unidades compatibles (g, kg, ml, l, cucharadas…); las incompatibles van separadas con «+».`}</div>}
-          {st.calCompra && <div style={{ ...muted, marginTop: 8 }}>{`También las recetas del calendario, semana del ${tituloDia(st.calCompra).replace(/^[^,]+, /, "")}, con las raciones de cada receta. El texto libre no entra.`}</div>}
+          {st.calCompra && <div style={{ ...muted, marginTop: 8 }}>{`Calendario, semana del ${tituloDia(st.calCompra).replace(/^[^,]+, /, "")}. Las recetas suman sus ingredientes. Los platos inventados salen en Recordatorio, sin ingredientes.`}</div>}
           {st.calCompra ? <div style={{ marginTop: 8 }}><Button label="Quitar la semana del calendario" onClick={() => up({ calCompra: null })} /></div> : null}
           <div style={{ ...row, marginTop: 12 }}>
             <Button label="Imprimir" onClick={() => { try { window.print(); } catch (e) { setMsg("La impresión no está disponible aquí: usa Exportar y copia el texto."); } }} />
