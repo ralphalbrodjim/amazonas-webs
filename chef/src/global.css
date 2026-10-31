@@ -111,6 +111,73 @@ button {
 .dot.media { background: #C4A15A; }
 .dot.dificil { background: #8C3F2A; }
 
+.buscar { position: relative; margin-top: 4px; }
+.buscar-input {
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
+  border-radius: 12px;
+  border: 1px solid #E4DDCF;
+  background: #fff;
+  color: #1E2B27;
+  padding: 10px 12px;
+  box-sizing: border-box;
+}
+.sugerencias {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  max-height: 50vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #FFFDF7;
+  border: 1px solid #E4DDCF;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(30, 43, 39, 0.12);
+}
+.sug-h { padding: 8px 12px 2px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6B746F; }
+.sugerencias button {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+  border: none;
+  border-top: 1px solid #E4DDCF;
+  background: transparent;
+  color: #1E2B27;
+  font-size: 16px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.sugerencias button span { color: #6B746F; font-size: 13px; }
+.tipo-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 12px;
+  padding-bottom: 4px;
+}
+.tipo-chip {
+  flex: none;
+  min-height: 40px;
+  border-radius: 999px;
+  border: 1px solid #E4DDCF;
+  background: #fff;
+  color: #1F3B34;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.tipo-chip span { color: #6B746F; font-weight: 600; margin-left: 4px; }
+.tipo-chip.on { background: #1F3B34; color: #fff; border-color: #1F3B34; }
+.tipo-chip.on span { color: #E6EEE7; }
+
 .rec-legend {
   display: flex;
   flex-wrap: wrap;

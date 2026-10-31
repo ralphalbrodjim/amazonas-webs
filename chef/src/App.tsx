@@ -78,7 +78,6 @@ const CAT: Record<string, string[]> = {
 };
 const catOf = (c: string): string => { for (const k of Object.keys(CAT)) if (CAT[k].includes(c)) return k; return "Despensa"; };
 
-const isOpt = (q: string, n: string): boolean => /opcional/i.test(q) || /opcional/i.test(n);
 const NOSCALE = /al gusto|pizca|chorrito|puñado|hilo|opcional|para servir/i;
 const FR: Record<string, string> = { "0.25": "1/4", "0.5": "1/2", "0.75": "3/4", "0.33": "1/3", "0.67": "2/3" };
 const pnum = (m: string): number => { if (m.includes("/")) { const [a, b] = m.split("/"); return Number(a) / Number(b); } return Number(m.replace(",", ".")); };
@@ -197,7 +196,25 @@ const loadSt = (): St => {
   return INIT;
 };
 
-const ALLING: string[] = Array.from(new Set(R.flatMap((r: Rec) => r.ing.map((i: string[]) => canon(i[1]))))).filter((c: string) => c !== "Agua").sort((a: string, b: string) => a.localeCompare(b, "es"));
+const BASIC = new Set(["Agua", "Sal", "Pimienta", "Aceite"]);
+const ING_OPTS: [string, number][] = (() => {
+  const map = new Map<string, number>();
+  for (const r of R) {
+    const seen = new Set<string>();
+    for (const ing of r.ing) {
+      const c = canon(ing[1]);
+      if (BASIC.has(c) || seen.has(c)) continue;
+      seen.add(c);
+      map.set(c, (map.get(c) || 0) + 1);
+    }
+  }
+  return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"));
+})();
+const TIPO_OPTS: [string, number][] = (() => {
+  const map = new Map<string, number>();
+  for (const r of R) map.set(r.pr, (map.get(r.pr) || 0) + 1);
+  return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"));
+})();
 
 export default function App() {
   const [orden, setOrden] = useState<string>("nombre");
@@ -208,6 +225,9 @@ export default function App() {
 
   const [vista, setVista] = useState<string>("rec");
   const [q, setQ] = useState<string>("");
+  const [qOn, setQOn] = useState(false);
+  const [fIng, setFIng] = useState("");
+  const [fTipo, setFTipo] = useState("");
   const [fCC, setFCC] = useState<string>("todas");
   const [fSana, setFSana] = useState<string>("todas");
   const [fDif, setFDif] = useState<string>("todas");
@@ -223,8 +243,6 @@ export default function App() {
   const [pedirLimpia, setPedirLimpia] = useState(false);
   const [manT, setManT] = useState<string>("");
   const [manC, setManC] = useState<string>("Despensa");
-  const [nevT, setNevT] = useState<string>("");
-  const [nevCC, setNevCC] = useState<string>("todas");
   const [io, setIo] = useState<string>("");
   const [ioMsg, setIoMsg] = useState<string>("");
   const hoy = hoyMadrid();
@@ -248,11 +266,15 @@ export default function App() {
   if (fTM !== "todas") filtros.push({ k: "tm", label: "Thermomix: " + fTM, clear: () => setFTM("todas") });
   if (fCong !== "todas") filtros.push({ k: "co", label: fCong === "Sí" ? "Se congela" : "No se congela", clear: () => setFCong("todas") });
   if (fFav) filtros.push({ k: "f", label: "Favoritos", clear: () => setFFav(false) });
-  const limpiar = () => { setFCC("todas"); setFSana("todas"); setFDif("todas"); setFT("todas"); setFTM("todas"); setFCong("todas"); setFFav(false); setQ(""); };
+  if (fIng) filtros.push({ k: "ing", label: fIng, clear: () => setFIng("") });
+  if (fTipo) filtros.push({ k: "tipo", label: fTipo, clear: () => setFTipo("") });
+  const limpiar = () => { setFCC("todas"); setFSana("todas"); setFDif("todas"); setFT("todas"); setFTM("todas"); setFCong("todas"); setFFav(false); setFIng(""); setFTipo(""); setQ(""); setQOn(false); };
 
   const lista = useMemo(() => R.filter((r: Rec) => {
     const nq = norm(q);
     if (nq && !norm(r.n + " " + r.pr + " " + r.ing.map((i: string[]) => i[1]).join(" ")).includes(nq)) return false;
+    if (fIng && !r.ing.some((i: string[]) => canon(i[1]) === fIng)) return false;
+    if (fTipo && r.pr !== fTipo) return false;
     if (fCC !== "todas" && !r.cc.startsWith(fCC)) return false;
     if (fSana !== "todas" && r.sana !== fSana) return false;
     if (fDif !== "todas" && r.dif !== fDif) return false;
@@ -261,7 +283,7 @@ export default function App() {
     if (fCong !== "todas" && !r.cong.startsWith(fCong)) return false;
     if (fFav && !st.fav.includes(r.n)) return false;
     return true;
-  }), [q, fCC, fSana, fDif, fT, fTM, fCong, fFav, st.fav]);
+  }), [q, fCC, fSana, fDif, fT, fTM, fCong, fFav, fIng, fTipo, st.fav]);
 
   const toggleFav = (n: string) => up({ fav: st.fav.includes(n) ? st.fav.filter((x: string) => x !== n) : [...st.fav, n] });
 
@@ -441,22 +463,9 @@ export default function App() {
   const CATS = ["Verduras y fruta", "Proteínas", "Lácteos", "Despensa", "Básicos", "Recordatorio"];
   const textoCompra = (): string => CATS.filter((c: string) => compra[c]).map((c: string) => c.toUpperCase() + "\n" + compra[c].map((i: { c: string; qty: string }) => `${st.checks.includes(i.c) ? "[x]" : "[ ]"} ${i.c}: ${i.qty}`).join("\n")).join("\n\n");
 
-  // Nevera
-  const nevera = useMemo(() => {
-    const have = new Set(st.nevera);
-    const basic = ["Sal", "Pimienta", "Agua", "Aceite"];
-    return R.filter((r: Rec) => nevCC === "todas" || r.cc.startsWith(nevCC)).map((r: Rec) => {
-      const req = Array.from(new Set(r.ing.filter((i: string[]) => !isOpt(i[0], i[1])).map((i: string[]) => canon(i[1])))).filter((c: string) => !(st.basicos && basic.includes(c)));
-      const tiene = req.filter((c: string) => have.has(c));
-      const falta = req.filter((c: string) => !have.has(c));
-      return { r, tiene, falta, total: req.length };
-    }).sort((a: { falta: string[]; tiene: string[] }, b: { falta: string[]; tiene: string[] }) => a.falta.length - b.falta.length || b.tiene.length - a.tiene.length);
-  }, [st.nevera, st.basicos, nevCC]);
-  const addNevera = () => { if (!nevT.trim()) return; const c = canon(nevT); if (!st.nevera.includes(c)) up({ nevera: [...st.nevera, c] }); setNevT(""); };
-  const faltaACompra = (falta: string[]) => {
-    const nuevos = falta.filter((c: string) => !st.manual.some((m: { t: string }) => m.t === c)).map((c: string) => ({ cat: catOf(c), t: c }));
-    up({ manual: [...st.manual, ...nuevos] }); setMsg(`Añadido a la compra: ${falta.join(", ")}.`);
-  };
+  const nq = norm(q);
+  const sugPlatos = nq ? R.filter((r: Rec) => norm(r.n).includes(nq)).slice(0, 6) : [];
+  const sugIng = nq ? ING_OPTS.filter(([name]) => norm(name).includes(nq)).slice(0, 6) : [];
 
   const rec = R.find((r: Rec) => r.n === abierta);
   const factor = rec ? (racR || rec.rac) / rec.rac : 1;
@@ -482,8 +491,8 @@ export default function App() {
   const taStyle = { width: "100%", minHeight: 120, fontFamily: th.font.mono, fontSize: 12, color: th.text.primary, background: th.bg.subtle, border: `1px solid ${th.border.default}`, borderRadius: 8, padding: 8, boxSizing: "border-box" } as const;
 
   return (
-    <Page title="El Chef de Antracita · Recetario" summary="Tu recetario personal: 25 recetas, calendario, lista de la compra automática y qué puedes cocinar con lo que tienes en la nevera." width="wide" palette={["#B8742A", "#7A4A2A", "#C9A26B"]}>
-      <Segmented value={vista} onChange={setVista} options={[{ value: "rec", label: "🍲 Recetario" }, { value: "cal", label: "📅 Calendario" }, { value: "compra", label: "🛒 Lista de compra" }, { value: "nevera", label: "🧊 Mi nevera" }, { value: "datos", label: "⚙️ Datos y pendiente" }]} />
+    <Page title="El Chef de Antracita · Recetario" summary="Tu recetario personal: 25 recetas, calendario y lista de la compra." width="wide" palette={["#B8742A", "#7A4A2A", "#C9A26B"]}>
+      <Segmented value={vista} onChange={setVista} options={[{ value: "rec", label: "🍲 Recetario" }, { value: "cal", label: "📅 Calendario" }, { value: "compra", label: "🛒 Lista de compra" }, { value: "datos", label: "⚙️ Datos y pendiente" }]} />
       {msg && <Callout tone="info">{msg}</Callout>}
 
       {vista === "rec" && (
@@ -499,18 +508,36 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, margin: "20px 0" }}>
             {[[R.length, "Recetas propias"], [R.filter((r: Rec) => r.sana === "Sí").length, "Marcadas sanas"], [R.filter((r: Rec) => r.tm === "Sí").length, "Con Thermomix"]].map((k: (string | number)[]) => <div key={String(k[1])} style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, padding: "16px 18px" }}><div style={{ fontFamily: SERIF, fontSize: 30, color: C.text }}>{k[0]}</div><div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>{k[1]}</div></div>)}
           </div>
-          <div style={row}>
-          <Input value={q} onChange={setQ} placeholder="Buscar plato o ingrediente…" />
-            {sel(orden, setOrden, [["nombre", "Por nombre"], ["tiempo", "Por tiempo"], ["fav", "Favoritos primero"]], "Ordenar")}
+          <div className="buscar">
+            <input className="buscar-input" aria-label="Buscar plato o ingrediente" aria-autocomplete="list" aria-expanded={qOn && (sugPlatos.length + sugIng.length) > 0} value={q} placeholder="Buscar plato o ingrediente…" onChange={(e: ChangeEvent<HTMLInputElement>) => { setQ(e.target.value); setQOn(true); }} onFocus={() => setQOn(true)} onBlur={() => window.setTimeout(() => setQOn(false), 250)} />
+            {qOn && (sugPlatos.length + sugIng.length) > 0 ? (
+              <div className="sugerencias" role="listbox">
+                {sugPlatos.length > 0 ? <div className="sug-h">Platos</div> : null}
+                {sugPlatos.map((r: Rec) => <button type="button" key={r.n} role="option" onMouseDown={(e: MouseEvent<HTMLButtonElement>) => e.preventDefault()} onClick={() => { setQ(r.n); setQOn(false); }}>{r.n}</button>)}
+                {sugIng.length > 0 ? <div className="sug-h">Ingredientes</div> : null}
+                {sugIng.map(([name, count]) => <button type="button" key={name} role="option" onMouseDown={(e: MouseEvent<HTMLButtonElement>) => e.preventDefault()} onClick={() => { setFIng(name); setQ(""); setQOn(false); }}>{name} <span>{count}</span></button>)}
+              </div>
+            ) : null}
           </div>
           <div style={{ ...row, marginTop: 12 }}>
+            {sel(orden, setOrden, [["nombre", "Por nombre"], ["tiempo", "Por tiempo"], ["fav", "Favoritos primero"]], "Ordenar")}
             {sel(fCC, setFCC, [["todas", "Comida y cena"], ["Comida", "Comida"], ["Cena", "Cena"]], "Comida / Cena")}
+            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: C.muted, flex: "1 1 180px" }}>Por ingrediente
+              <select style={ctl} aria-label="Por ingrediente" value={fIng} onChange={(e: ChangeEvent<HTMLSelectElement>) => setFIng(e.target.value)}>
+                <option value="">Todos</option>
+                {ING_OPTS.map(([name, count]) => <option key={name} value={name}>{name} ({count})</option>)}
+              </select>
+            </label>
             {sel(fSana, setFSana, [["todas", "Todas"], ["Sí", "Sana"], ["Moderado", "Moderada"]], "Saludable")}
             {sel(fDif, setFDif, [["todas", "Todas"], ["Fácil", "Fácil"], ["Media", "Media"]], "Dificultad")}
             {sel(fT, setFT, [["todas", "Sin límite"], ["20", "≤ 20 min"], ["30", "≤ 30 min"], ["45", "≤ 45 min"]], "Tiempo máximo")}
             {sel(fTM, setFTM, [["todas", "Todas"], ["Sí", "Con Thermomix"], ["No", "Sin Thermomix"]], "Thermomix")}
             {sel(fCong, setFCong, [["todas", "Todas"], ["Sí", "Se congela"], ["No", "No se congela"]], "Conservación")}
             <Toggle label="Solo favoritos" value={fFav} onChange={setFFav} />
+          </div>
+          <div className="tipo-row" aria-label="Por tipo de plato">
+            <button type="button" className={"tipo-chip" + (fTipo === "" ? " on" : "")} onClick={() => setFTipo("")}>Todos</button>
+            {TIPO_OPTS.map(([name, count]) => <button type="button" key={name} className={"tipo-chip" + (fTipo === name ? " on" : "")} onClick={() => setFTipo(fTipo === name ? "" : name)}>{name} <span>{count}</span></button>)}
           </div>
           {filtros.length > 0 && <div style={{ ...row, marginTop: 12 }}>
             {filtros.map((f: { k: string; label: string; clear: () => void }) => <button key={f.k} style={chip(true)} onClick={f.clear}>{f.label} ✕</button>)}
@@ -683,41 +710,9 @@ export default function App() {
         </Section>
       )}
 
-      {vista === "nevera" && (
-        <Section heading="¿Qué hay en mi nevera?">
-          <Text>Sirve para ver qué recetas puedes hacer con lo que marcas que tienes en casa. Toca un ingrediente para decir que lo tienes. Abajo, una receta solo sale como «Lista para cocinar» si no te falta ninguno de los ingredientes obligatorios; si faltan uno o dos, pone «Casi la tienes», y si faltan más, «Para otro día». Con la opción marcada, sal, pimienta, agua y aceite no cuentan.</Text>
-          <div style={row}>
-            <Input label="Añadir ingrediente" value={nevT} onChange={setNevT} placeholder="tomates, huevo, calabacin…" />
-            <Button label="Añadir" onClick={addNevera} />
-            <Toggle label="No contar básicos (sal, pimienta, agua, aceite)" value={st.basicos} onChange={(v: boolean) => up({ basicos: v })} />
-            {sel(nevCC, setNevCC, [["todas", "Comida y cena"], ["Comida", "Comida"], ["Cena", "Cena"]], "Filtrar")}
-            <Button label="Vaciar nevera" onClick={() => up({ nevera: [] })} />
-          </div>
-          <div style={{ ...muted, marginTop: 12 }}>Marca lo que tienes (singular/plural y tildes se normalizan). Seleccionados: {st.nevera.length}</div>
-          <div style={{ ...row, marginTop: 8 }}>
-            {Array.from(new Set([...ALLING, ...st.nevera])).map((c: string) => { const on = st.nevera.includes(c); return <button key={c} style={chip(on)} onClick={() => up({ nevera: on ? st.nevera.filter((x: string) => x !== c) : [...st.nevera, c] })}>{on ? "✓ " : ""}{c}</button>; })}
-          </div>
-          <Callout>Regla: una receta solo figura como «Lista para cocinar» si no falta ningún ingrediente obligatorio; las coincidencias parciales nunca cuentan como completa.</Callout>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12, marginTop: 12 }}>
-            {nevera.map((x: { r: Rec; tiene: string[]; falta: string[]; total: number }) => (
-              <div key={x.r.n} style={card}>
-                <div style={{ fontSize: 12, letterSpacing: 1, color: x.falta.length === 0 ? th.text.success : th.text.secondary }}>{x.falta.length === 0 ? "LISTA PARA COCINAR" : x.falta.length <= 2 ? "CASI LA TIENES" : "PARA OTRO DÍA"}</div>
-                <div style={{ fontWeight: 600, marginTop: 4, color: th.text.primary }}>{x.r.n}</div>
-                <div style={{ ...muted, marginTop: 4 }}>Coinciden {x.tiene.length} de {x.total} ingredientes</div>
-                {x.falta.length > 0 && <div style={{ fontSize: 13, marginTop: 4, color: th.text.primary }}>Faltan: {x.falta.join(", ")}</div>}
-                <div style={{ ...row, marginTop: 8 }}>
-                  <Button label="Ver receta" onClick={() => abrirReceta(x.r.n)} />
-                  {x.falta.length > 0 && <Button label="Añadir lo que falta a la compra" onClick={() => faltaACompra(x.falta)} />}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
-
       {vista === "datos" && (
         <Section heading="Copia de seguridad (JSON) y exportación">
-          <Text>{persist ? "Tus favoritos, menús, calendario, nevera y lista de la compra se guardan en este navegador. Exporta una copia para pasarlos a otro dispositivo." : "Este visor no permite guardar datos entre visitas: exporta el JSON antes de cerrar y vuelve a importarlo después."}</Text>
+          <Text>{persist ? "Tus favoritos, calendario y lista de la compra se guardan en este navegador. Exporta una copia para pasarlos a otro dispositivo." : "Este visor no permite guardar datos entre visitas: exporta el JSON antes de cerrar y vuelve a importarlo después."}</Text>
           <div style={row}>
             <Button label="Exportar JSON" variant="primary" onClick={() => { setIo(JSON.stringify(st, null, 1)); setIoMsg("JSON listo: cópialo y guárdalo."); }} />
             <Button label="Copiar al portapapeles" onClick={() => { try { navigator.clipboard.writeText(io).then(() => setIoMsg("Copiado."), () => setIoMsg("No se pudo copiar: selecciona el texto y cópialo a mano.")); } catch (e) { setIoMsg("No se pudo copiar: selecciona el texto y cópialo a mano."); } }} />
