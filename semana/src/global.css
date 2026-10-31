@@ -362,6 +362,73 @@ h2 {
 .tap.done-on { background: var(--soft); color: var(--green); }
 .tap.done-off { background: var(--miss-bg); color: var(--miss); }
 
+.day-title { margin: 0 0 8px; font-family: var(--serif); font-size: 20px; font-weight: 500; }
+
+.franja { margin-top: 10px; }
+.franja-label { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+
+.slot-row { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+
+.slot-select {
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  padding: 8px 12px;
+}
+
+.hecho-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.hecho-check input {
+  width: 28px;
+  height: 28px;
+  accent-color: var(--green);
+}
+
+.ws-sum { margin-top: 10px; }
+.ws-row, .ws-sum > .ws-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 4px;
+  align-items: stretch;
+  margin-top: 4px;
+}
+.ws-h { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.ws-day { font-size: 12px; font-weight: 700; display: flex; align-items: center; }
+.ws-day.is-today { color: var(--green); }
+.ws-cell {
+  min-height: 36px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+  font-size: 12px;
+  line-height: 1.25;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+.ws-item { display: block; }
+.sum-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .week { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
 
 .week-day.is-today { outline: 2px solid var(--green); }
