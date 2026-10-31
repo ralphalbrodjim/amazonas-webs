@@ -18,6 +18,7 @@ export type Entry = {
   categoria: CatId | null;
   texto: string;
   hecho: boolean;
+  origen: string | null;
 };
 
 type Draft = {
@@ -29,7 +30,10 @@ type Draft = {
   categoria: CatId | null;
   texto: string;
   hecho: boolean;
+  origen: string | null;
 };
+
+type Cita = (typeof agenda.citas)[number];
 
 const CATS: { id: CatId; label: string; emoji: string; color: string; bg: string }[] = [
   { id: "ingles", label: "Inglés", emoji: "🗣️", color: "#1F4E79", bg: "#E5F0F8" },
@@ -63,16 +67,6 @@ function uid(): string {
   return `e-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function loadEntradas(): Entry[] {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as { entradas?: unknown };
-    return normalize(parsed.entradas);
-  } catch {
-    return [];
-  }
-}
 
 function normalize(value: unknown): Entry[] {
   if (!Array.isArray(value)) throw new Error("sin entradas");
@@ -91,8 +85,34 @@ function normalize(value: unknown): Entry[] {
       categoria,
       texto: typeof row.texto === "string" ? row.texto : "",
       hecho: row.hecho === true,
+      origen: typeof row.origen === "string" ? row.origen : null,
     };
   });
+}
+
+function citaId(cita: { fecha: string; titulo: string; hora: string | null }): string {
+  return cita.fecha + "|" + cita.titulo + "|" + (cita.hora ?? "");
+}
+
+function catDeTipo(tipo: string): CatId {
+  if (tipo === "ingles") return "ingles";
+  if (tipo === "deporte") return "running";
+  if (tipo === "tarea") return "hogar";
+  return "otro";
+}
+
+function loadBag(): { entradas: Entry[]; ocultas: string[] } {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return { entradas: [], ocultas: [] };
+    const parsed = JSON.parse(raw) as { entradas?: unknown; ocultas?: unknown };
+    return {
+      entradas: normalize(Array.isArray(parsed.entradas) ? parsed.entradas : []),
+      ocultas: Array.isArray(parsed.ocultas) ? parsed.ocultas.filter((item): item is string => typeof item === "string") : [],
+    };
+  } catch {
+    return { entradas: [], ocultas: [] };
+  }
 }
 
 function franjaDe(hora: string | null): Exclude<Franja, "hora"> | "sin-hora" {
@@ -116,7 +136,9 @@ function enViaje(fecha: string): boolean {
 export function Planner(props: { hoy: string }) {
   const [vista, setVista] = useState<Vista>("semana");
   const [dia, setDia] = useState(props.hoy);
-  const [entradas, setEntradas] = useState<Entry[]>(loadEntradas);
+  const bag = loadBag();
+  const [entradas, setEntradas] = useState<Entry[]>(bag.entradas);
+  const [ocultas, setOcultas] = useState<string[]>(bag.ocultas);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState("");
   const [borrar, setBorrar] = useState<string | null>(null);
@@ -126,11 +148,11 @@ export function Planner(props: { hoy: string }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(KEY, JSON.stringify({ entradas }));
+      localStorage.setItem(KEY, JSON.stringify({ entradas, ocultas }));
     } catch {
       setAviso("Este navegador no guarda los cambios. Exporta el JSON antes de salir.");
     }
-  }, [entradas]);
+  }, [entradas, ocultas]);
 
   const semana = weekStart(dia);
   const diasSemana = Array.from({ length: 7 }, (_, i) => shiftDay(semana, i));
@@ -142,11 +164,52 @@ export function Planner(props: { hoy: string }) {
     setError("");
   }
 
+  function vacio(): Draft {
+    return { id: null, fecha: dia, franja: "manana", inicio: "", fin: "", categoria: null, texto: "", hecho: false, origen: null };
+  }
   function nuevo(fecha: string, franja: Franja, inicio = "", fin = "") {
-    setDraft({ id: null, fecha, franja, inicio, fin, categoria: null, texto: "", hecho: false });
+    setDraft({ ...vacio(), fecha, franja, inicio, fin });
     setError("");
     setVista("dia");
     setDia(fecha);
+    window.setTimeout(() => document.getElementById("franja-" + franja)?.scrollIntoView({ block: "start" }), 60);
+  }
+  function visibleCitas(fecha: string): Cita[] {
+    return agenda.citas.filter((cita) => cita.fecha === fecha && !ocultas.includes(citaId(cita)) && !entradas.some((item) => item.origen === citaId(cita)));
+  }
+  function abrirFranja(fecha: string, franja: Franja) {
+    const hay = visibleCitas(fecha).some((cita) => franjaDe(cita.hora) === franja) || entradas.some((item) => item.fecha === fecha && item.franja === franja);
+    setDia(fecha);
+    setVista("dia");
+    setError("");
+    setBorrar(null);
+    setDraft(hay ? null : { ...vacio(), fecha, franja });
+    window.setTimeout(() => document.getElementById("franja-" + franja)?.scrollIntoView({ block: "start" }), 60);
+  }
+  function editarFija(cita: Cita) {
+    const id = citaId(cita);
+    const ya = entradas.find((item) => item.origen === id);
+    const franja = franjaDe(cita.hora);
+    setDraft({
+      id: ya?.id ?? null,
+      fecha: cita.fecha,
+      franja: franja === "sin-hora" ? "manana" : franja,
+      inicio: "",
+      fin: "",
+      categoria: ya?.categoria ?? catDeTipo(cita.tipo),
+      texto: ya?.texto ?? cita.titulo,
+      hecho: ya?.hecho ?? false,
+      origen: id,
+    });
+    setVista("dia");
+    setDia(cita.fecha);
+    setError("");
+  }
+  function quitarFija(cita: Cita) {
+    const id = citaId(cita);
+    setOcultas((list) => list.includes(id) ? list : [...list, id]);
+    setEntradas((list) => list.filter((item) => item.origen !== id));
+    setBorrar(null);
   }
 
   function guardar() {
@@ -168,6 +231,7 @@ export function Planner(props: { hoy: string }) {
       categoria: draft.categoria,
       texto: draft.texto.trim(),
       hecho: draft.hecho,
+      origen: draft.origen,
     };
     setEntradas((list) => draft.id ? list.map((item) => item.id === draft.id ? entry : item) : [...list, entry]);
     setDraft(null);
@@ -175,16 +239,18 @@ export function Planner(props: { hoy: string }) {
   }
 
   function exportar() {
-    setIo(JSON.stringify({ entradas }, null, 1));
+    setIo(JSON.stringify({ entradas, ocultas }, null, 1));
     setIoMsg("JSON listo: cópialo para llevarlo a otro dispositivo.");
   }
 
   function importar() {
     try {
-      const parsed = JSON.parse(io) as { entradas?: unknown };
+      const parsed = JSON.parse(io) as { entradas?: unknown; ocultas?: unknown };
       const list = normalize(Array.isArray(parsed) ? parsed : parsed.entradas);
+      const hidden = !Array.isArray(parsed) && Array.isArray(parsed.ocultas) ? parsed.ocultas.filter((item): item is string => typeof item === "string") : [];
       setEntradas(list);
-      setIoMsg("Entradas importadas. La agenda original no se ha tocado.");
+      setOcultas(hidden);
+      setIoMsg("Entradas importadas.");
     } catch {
       setIoMsg("El texto no es un JSON válido de esta agenda.");
     }
@@ -197,7 +263,7 @@ export function Planner(props: { hoy: string }) {
     <section>
       <div className="kicker">{agenda.fuente}</div>
       <h2>Tu semana</h2>
-      <p className="lead">Las citas que ya venían en la agenda se ven junto a las tuyas y no se pueden editar. Lo que añadas empieza como no hecho.</p>
+      <p className="lead">Toca Mañana, Tarde o Noche. Elige Inglés, Gimnasio, Running, Hogar u Otro, o escribe un texto. Las citas que ya estaban se pueden cambiar o quitar. Lo nuevo empieza como no hecho.</p>
       {aviso ? <p className="callout">{aviso}</p> : null}
       <div className="subtabs" style={{ marginTop: 14 }}>
         {([
@@ -226,19 +292,24 @@ export function Planner(props: { hoy: string }) {
                 </button>
                 {enViaje(fecha) ? <p className="note">{VIAJE.motivo}</p> : null}
                 {FRANJAS.map((franja) => {
-                  const fijas = citasDia(fecha).filter((cita) => franjaDe(cita.hora) === franja.id);
+                  const fijas = visibleCitas(fecha).filter((cita) => franjaDe(cita.hora) === franja.id);
                   const propias = miasDia(fecha).filter((item) => item.franja === franja.id);
                   return (
-                    <div key={franja.id} className="slot-line">
+                    <button type="button" key={franja.id} className="slot-hit" onClick={() => abrirFranja(fecha, franja.id)}>
                       <span className="slot-name">{franja.label}</span>
-                      {fijas.map((cita) => <span key={cita.titulo} className="chip readonly">{cita.titulo}</span>)}
+                      {fijas.map((cita) => <span key={cita.titulo} className="chip">{cita.titulo}</span>)}
                       {propias.map((item) => <ItemChip key={item.id} item={item} />)}
-                      {fijas.length + propias.length === 0 ? <span className="empty-slot">Libre</span> : null}
-                    </div>
+                      {fijas.length + propias.length === 0 ? <span className="empty-slot">Libre · tocar</span> : <span className="slot-go">Editar</span>}
+                    </button>
                   );
                 })}
                 {miasDia(fecha).filter((item) => item.franja === "hora").map((item) => <ItemChip key={item.id} item={item} />)}
-                {citasDia(fecha).filter((cita) => franjaDe(cita.hora) === "sin-hora").map((cita) => <span key={cita.titulo} className="chip readonly">{cita.titulo}</span>)}
+                {visibleCitas(fecha).filter((cita) => franjaDe(cita.hora) === "sin-hora").map((cita) => (
+                  <button type="button" key={cita.titulo} className="slot-hit" onClick={() => editarFija(cita)}>
+                    <span className="chip">{cita.titulo}</span>
+                    <span className="slot-go">Editar</span>
+                  </button>
+                ))}
               </article>
             ))}
           </div>
@@ -249,7 +320,7 @@ export function Planner(props: { hoy: string }) {
         <Dia
           fecha={dia}
           hoy={props.hoy}
-          citas={citasDia(dia)}
+          citas={visibleCitas(dia)}
           entradas={miasDia(dia)}
           draft={draft}
           error={error}
@@ -258,6 +329,8 @@ export function Planner(props: { hoy: string }) {
           onNext={() => setDia(shiftDay(dia, 1))}
           onHoy={() => setDia(props.hoy)}
           onNuevo={nuevo}
+          onEditFija={editarFija}
+          onQuitarFija={quitarFija}
           onEdit={(item) => {
             setDraft({
               id: item.id,
@@ -268,13 +341,16 @@ export function Planner(props: { hoy: string }) {
               categoria: item.categoria,
               texto: item.texto,
               hecho: item.hecho,
+              origen: item.origen,
             });
             setError("");
           }}
           onToggle={(id) => setEntradas((list) => list.map((item) => item.id === id ? { ...item, hecho: !item.hecho } : item))}
           onAskDelete={setBorrar}
           onDelete={(id) => {
-            setEntradas((list) => list.filter((item) => item.id !== id));
+            const item = entradas.find((entry) => entry.id === id);
+            setEntradas((list) => list.filter((entry) => entry.id !== id));
+            if (item?.origen) setOcultas((list) => list.includes(item.origen as string) ? list : [...list, item.origen as string]);
             setBorrar(null);
             if (draft?.id === id) setDraft(null);
           }}
@@ -285,12 +361,12 @@ export function Planner(props: { hoy: string }) {
       ) : null}
 
       {vista === "lista" ? (
-        <Lista entradas={entradas} hoy={props.hoy} onOpen={abrirDia} />
+        <Lista entradas={entradas} hoy={props.hoy} citas={(fecha) => visibleCitas(fecha)} onOpen={abrirDia} onEditFija={editarFija} onQuitarFija={quitarFija} borrar={borrar} onAskDelete={setBorrar} />
       ) : null}
 
       <div className="kicker">Copia de tus entradas</div>
       <article className="card">
-        <p className="note">Se guardan en este navegador. Exporta el JSON para pasarlas a otro dispositivo. La agenda importada no entra en el archivo.</p>
+        <p className="note">Se guardan en este navegador, también los cambios sobre las citas que ya estaban. Exporta el JSON para pasarlas a otro dispositivo.</p>
         <div className="actions">
           <button className="tap primary" onClick={exportar}>Exportar JSON</button>
           <button className="tap" onClick={importar}>Importar JSON</button>
@@ -316,7 +392,7 @@ function ItemChip(props: { item: Entry }) {
 function Dia(props: {
   fecha: string;
   hoy: string;
-  citas: typeof agenda.citas;
+  citas: Cita[];
   entradas: Entry[];
   draft: Draft | null;
   error: string;
@@ -325,6 +401,8 @@ function Dia(props: {
   onNext: () => void;
   onHoy: () => void;
   onNuevo: (fecha: string, franja: Franja, inicio?: string, fin?: string) => void;
+  onEditFija: (cita: Cita) => void;
+  onQuitarFija: (cita: Cita) => void;
   onEdit: (item: Entry) => void;
   onToggle: (id: string) => void;
   onAskDelete: (id: string | null) => void;
@@ -347,6 +425,7 @@ function Dia(props: {
       {FRANJAS.map((franja) => (
         <Slot
           key={franja.id}
+          id={"franja-" + franja.id}
           title={franja.label}
           citas={props.citas.filter((cita) => franjaDe(cita.hora) === franja.id)}
           entradas={props.entradas.filter((item) => item.franja === franja.id)}
@@ -354,9 +433,11 @@ function Dia(props: {
           error={props.error}
           borrar={props.borrar}
           onAdd={() => props.onNuevo(props.fecha, franja.id)}
+          onEditFija={props.onEditFija}
+          onQuitarFija={props.onQuitarFija}
+          onAskDelete={props.onAskDelete}
           onEdit={props.onEdit}
           onToggle={props.onToggle}
-          onAskDelete={props.onAskDelete}
           onDelete={props.onDelete}
           onDraft={props.onDraft}
           onSave={props.onSave}
@@ -368,6 +449,7 @@ function Dia(props: {
         return (
           <Slot
             key={key}
+            id={"franja-hora-" + key}
             title={`${inicio}–${fin}`}
             citas={[]}
             entradas={props.entradas.filter((item) => item.franja === "hora" && item.inicio === inicio && item.fin === fin)}
@@ -375,6 +457,8 @@ function Dia(props: {
             error={props.error}
             borrar={props.borrar}
             onAdd={() => props.onNuevo(props.fecha, "hora", inicio, fin)}
+            onEditFija={props.onEditFija}
+            onQuitarFija={props.onQuitarFija}
             onEdit={props.onEdit}
             onToggle={props.onToggle}
             onAskDelete={props.onAskDelete}
@@ -386,9 +470,9 @@ function Dia(props: {
         );
       })}
       {sinHora.length > 0 ? (
-        <div className="slot">
+        <div className="slot" id="franja-sin-hora">
           <h3>Sin hora</h3>
-          {sinHora.map((cita) => <CitaFija key={cita.titulo} cita={cita} />)}
+          {sinHora.filter((cita) => props.draft?.origen !== citaId(cita)).map((cita) => <CitaFija key={cita.titulo} cita={cita} confirmar={props.borrar === "fija:" + citaId(cita)} onEdit={() => props.onEditFija(cita)} onAsk={() => props.onAskDelete(props.borrar === "fija:" + citaId(cita) ? null : "fija:" + citaId(cita))} onQuitar={() => props.onQuitarFija(cita)} />)}
         </div>
       ) : null}
       <div className="slot">
@@ -405,13 +489,16 @@ function Dia(props: {
 }
 
 function Slot(props: {
+  id: string;
   title: string;
-  citas: typeof agenda.citas;
+  citas: Cita[];
   entradas: Entry[];
   draft: Draft | null;
   error: string;
   borrar: string | null;
   onAdd: () => void;
+  onEditFija: (cita: Cita) => void;
+  onQuitarFija: (cita: Cita) => void;
   onEdit: (item: Entry) => void;
   onToggle: (id: string) => void;
   onAskDelete: (id: string | null) => void;
@@ -421,9 +508,11 @@ function Slot(props: {
   onCancel: () => void;
 }) {
   return (
-    <div className="slot">
+    <div className="slot" id={props.id}>
       <h3>{props.title}</h3>
-      {props.citas.map((cita) => <CitaFija key={`${cita.titulo}-${cita.hora}`} cita={cita} />)}
+      {props.citas.filter((cita) => props.draft?.origen !== citaId(cita)).map((cita) => (
+        <CitaFija key={`${cita.titulo}-${cita.hora}`} cita={cita} confirmar={props.borrar === "fija:" + citaId(cita)} onEdit={() => props.onEditFija(cita)} onAsk={() => props.onAskDelete(props.borrar === "fija:" + citaId(cita) ? null : "fija:" + citaId(cita))} onQuitar={() => props.onQuitarFija(cita)} />
+      ))}
       {props.entradas.map((item) => props.draft?.id === item.id ? (
         <EntryForm key={item.id} draft={props.draft} error={props.error} showTime={props.draft.franja === "hora"} onDraft={props.onDraft} onSave={props.onSave} onCancel={props.onCancel} />
       ) : (
@@ -440,24 +529,27 @@ function Slot(props: {
       {props.draft && !props.draft.id ? (
         <EntryForm draft={props.draft} error={props.error} showTime={props.draft.franja === "hora"} onDraft={props.onDraft} onSave={props.onSave} onCancel={props.onCancel} />
       ) : (
-        <button className="tap" onClick={props.onAdd}>Añadir</button>
+        <button type="button" className="tap" onClick={props.onAdd}>Añadir</button>
       )}
     </div>
   );
 }
 
-function CitaFija(props: { cita: (typeof agenda.citas)[number] }) {
+function CitaFija(props: { cita: Cita; confirmar: boolean; onEdit: () => void; onAsk: () => void; onQuitar: () => void }) {
   const cita = props.cita;
   return (
-    <article className="card readonly-card">
+    <article className="card own-card">
       <h3>{cita.titulo}</h3>
       <div className="meta">
-        <span>Agenda · solo lectura</span>
         <span>{TIPO[cita.tipo] ?? cita.tipo}</span>
         <span>Hora: {pend(cita.hora)}</span>
         <span>Lugar: {pend(cita.lugar)}</span>
       </div>
       {cita.nota ? <p className="note">{cita.nota}</p> : null}
+      <div className="actions">
+        <button type="button" className="tap" onClick={props.onEdit}>Editar</button>
+        {props.confirmar ? <button type="button" className="tap danger" onClick={props.onQuitar}>Confirmar quitar</button> : <button type="button" className="tap" onClick={props.onAsk}>Quitar</button>}
+      </div>
     </article>
   );
 }
@@ -536,14 +628,14 @@ function EntryForm(props: {
       </button>
       {props.error ? <p className="note" style={{ color: "#8C3F2A" }}>{props.error}</p> : null}
       <div className="actions">
-        <button className="tap primary" onClick={props.onSave}>Guardar</button>
-        <button className="tap" onClick={props.onCancel}>Cancelar</button>
+        <button type="button" className="tap primary" onClick={props.onSave}>Guardar</button>
+        <button type="button" className="tap" onClick={props.onCancel}>Cancelar</button>
       </div>
     </div>
   );
 }
 
-function Lista(props: { entradas: Entry[]; hoy: string; onOpen: (fecha: string) => void }) {
+function Lista(props: { entradas: Entry[]; hoy: string; citas: (fecha: string) => Cita[]; onOpen: (fecha: string) => void; onEditFija: (cita: Cita) => void; onQuitarFija: (cita: Cita) => void; borrar: string | null; onAskDelete: (id: string | null) => void }) {
   const fechas = [...new Set([...agenda.citas.map((cita) => cita.fecha), ...props.entradas.map((item) => item.fecha)])].sort();
   return (
     <div>
@@ -555,7 +647,7 @@ function Lista(props: { entradas: Entry[]; hoy: string; onOpen: (fecha: string) 
             {fecha === props.hoy ? <span className="hoy-tag">Hoy</span> : null}
           </div>
           <div className="grid">
-            {agenda.citas.filter((cita) => cita.fecha === fecha).map((cita) => <CitaFija key={`${cita.titulo}-${cita.hora}`} cita={cita} />)}
+            {props.citas(fecha).map((cita) => <CitaFija key={`${cita.titulo}-${cita.hora}`} cita={cita} confirmar={props.borrar === "fija:" + citaId(cita)} onEdit={() => props.onEditFija(cita)} onAsk={() => props.onAskDelete(props.borrar === "fija:" + citaId(cita) ? null : "fija:" + citaId(cita))} onQuitar={() => props.onQuitarFija(cita)} />)}
             {props.entradas.filter((item) => item.fecha === fecha).map((item) => {
               const cat = catOf(item.categoria);
               return (

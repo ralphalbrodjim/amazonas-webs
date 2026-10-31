@@ -33,6 +33,11 @@ body {
 }
 
 button, input, select, textarea { font-family: inherit; }
+button {
+  touch-action: manipulation;
+  -webkit-appearance: none;
+  appearance: none;
+}
 
 button { -webkit-tap-highlight-color: transparent; }
 
@@ -381,8 +386,25 @@ h2 {
 .slot { margin-top: 16px; }
 .slot h3 { margin: 0 0 8px; font-size: 18px; }
 
-.slot-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
-.slot-name { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); min-width: 64px; }
+.slot-hit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.slot-go { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--green); }
+.slot-name { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--green); min-width: 72px; }
 .empty-slot { color: var(--muted); font-size: 13px; }
 
 .chip {
