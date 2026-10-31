@@ -103,7 +103,13 @@
     },
     "noviembre_2026": {
       "objetivo_km": 40,
-      "estado": "Propuesta de Rocky, pendiente de confirmar por Alberto",
+      "estado": "Confirmado por Alberto",
+      "viaje_japon": {
+        "destino": "Japón",
+        "desde": "2026-11-19",
+        "hasta": "2026-12-02",
+        "nota": "Alberto confirmó el plan de 40 km de noviembre antes de este viaje."
+      },
       "criterio": "2 salidas por semana (miércoles suave y sábado más larga), subida progresiva; horas por definir",
       "plan": [
         {

@@ -1,97 +1,10 @@
-import { useMemo, useState } from "react";
-import agenda from "../data/agenda.json";
+import { useState } from "react";
 import ingles from "../data/ingles.json";
 import deporte from "../data/deporte.json";
+import { formatDay, formatWhen, kg, km, madridToday, pend, signedKg } from "./dates";
+import { Planner } from "./planner";
 
 type Tab = "agenda" | "ingles" | "deporte";
-type AgendaVista = "lista" | "calendario";
-
-const WEEK = ["L", "M", "X", "J", "V", "S", "D"];
-
-function madridToday(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: agenda.zona_horaria,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
-function pend(value: string | number | null | undefined): string {
-  if (value === null || value === undefined) return "Pendiente";
-  return String(value);
-}
-
-function capital(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
-function formatDay(iso: string, withWeekday = true): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  return capital(new Intl.DateTimeFormat("es-ES", {
-    timeZone: "UTC",
-    weekday: withWeekday ? "long" : undefined,
-    day: "numeric",
-    month: "long",
-  }).format(date));
-}
-
-function formatMonth(iso: string): string {
-  const [y, m] = iso.split("-").map(Number);
-  return capital(new Intl.DateTimeFormat("es-ES", { timeZone: "UTC", month: "long", year: "numeric" }).format(new Date(Date.UTC(y, m - 1, 1))));
-}
-
-function formatWhen(iso: string): string {
-  return new Intl.DateTimeFormat("es-ES", {
-    timeZone: agenda.zona_horaria,
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(iso));
-}
-
-function addDay(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d + 1));
-  return date.toISOString().slice(0, 10);
-}
-
-function eachDay(desde: string, hasta: string): string[] {
-  const days: string[] = [];
-  for (let day = desde; day <= hasta; day = addDay(day)) days.push(day);
-  return days;
-}
-
-function mondayIndex(iso: string): number {
-  const [y, m, d] = iso.split("-").map(Number);
-  const sunday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-  return (sunday + 6) % 7;
-}
-
-function km(value: number): string {
-  return value.toLocaleString("es-ES", { maximumFractionDigits: 2 });
-}
-
-function kg(value: number): string {
-  return value.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-}
-
-function signedKg(value: number): string {
-  const text = kg(Math.abs(value));
-  if (value > 0) return `+${text} kg`;
-  if (value < 0) return `−${text} kg`;
-  return `${text} kg`;
-}
-
-const TIPO: Record<string, string> = {
-  personal: "Personal",
-  ingles: "Inglés",
-  tarea: "Tarea",
-  deporte: "Deporte",
-};
 
 function Pill(props: { kind: "miss" | "wait" | "neutral" | "recorded"; children: string }) {
   return <span className={`pill ${props.kind}`}>{props.children}</span>;
@@ -112,19 +25,6 @@ function deberEstado(estado: string): { kind: "miss" | "wait"; label: string } {
 export default function App() {
   const hoy = madridToday();
   const [tab, setTab] = useState<Tab>("agenda");
-  const [vista, setVista] = useState<AgendaVista>("lista");
-  const enRango = hoy >= agenda.rango.desde && hoy <= agenda.rango.hasta;
-  const [dia, setDia] = useState(enRango ? hoy : agenda.rango.desde);
-
-  const porDia = useMemo(() => {
-    const map = new Map<string, typeof agenda.citas>();
-    for (const cita of agenda.citas) {
-      const list = map.get(cita.fecha) ?? [];
-      list.push(cita);
-      map.set(cita.fecha, list);
-    }
-    return map;
-  }, []);
 
   return (
     <div className="app">
@@ -146,122 +46,11 @@ export default function App() {
             </button>
           ))}
         </div>
-        {tab === "agenda" ? <Agenda vista={vista} setVista={setVista} hoy={hoy} dia={dia} setDia={setDia} porDia={porDia} /> : null}
+        {tab === "agenda" ? <Planner hoy={hoy} /> : null}
         {tab === "ingles" ? <Ingles /> : null}
         {tab === "deporte" ? <Deporte /> : null}
       </main>
     </div>
-  );
-}
-
-function Agenda(props: {
-  vista: AgendaVista;
-  setVista: (vista: AgendaVista) => void;
-  hoy: string;
-  dia: string;
-  setDia: (dia: string) => void;
-  porDia: Map<string, typeof agenda.citas>;
-}) {
-  const days = eachDay(agenda.rango.desde, agenda.rango.hasta);
-  const months = [...new Set(days.map((day) => day.slice(0, 7)))];
-  const seleccion = props.porDia.get(props.dia) ?? [];
-
-  return (
-    <section>
-      <div className="kicker">{agenda.fuente}</div>
-      <h2>Del {formatDay(agenda.rango.desde, false)} al {formatDay(agenda.rango.hasta, false)}</h2>
-      <p className="lead">Hoy se marca con la hora de {agenda.zona_horaria}. Una cita sin hora o sin lugar sale como Pendiente.</p>
-      <p className="callout">{agenda.aviso}</p>
-      <div className="subtabs" style={{ marginTop: 14 }}>
-        <button className="subtab" aria-selected={props.vista === "lista"} onClick={() => props.setVista("lista")}>Lista</button>
-        <button className="subtab" aria-selected={props.vista === "calendario"} onClick={() => props.setVista("calendario")}>Calendario</button>
-      </div>
-
-      {props.vista === "lista" ? (
-        <div>
-          {[...props.porDia.entries()].map(([fecha, citas]) => (
-            <div key={fecha}>
-              <div className="day-head">
-                <h3>{formatDay(fecha)}</h3>
-                {fecha === props.hoy ? <span className="hoy-tag">Hoy</span> : null}
-              </div>
-              <div className="grid">
-                {citas.map((cita) => <CitaCard key={`${cita.fecha}-${cita.titulo}-${cita.hora}`} cita={cita} />)}
-              </div>
-            </div>
-          ))}
-          <div className="kicker">Sin fecha</div>
-          <div className="grid">
-            {agenda.pendientes_sin_fecha.map((item) => (
-              <article key={item.titulo} className="card">
-                <h3>{item.titulo}</h3>
-                <div className="meta">
-                  <span>{TIPO[item.tipo] ?? item.tipo}</span>
-                  <Pill kind="wait">Pendiente</Pill>
-                </div>
-                <p className="note">{item.nota}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div>
-          {months.map((month) => {
-            const inMonth = days.filter((day) => day.startsWith(month));
-            const blanks = mondayIndex(inMonth[0]);
-            return (
-              <div key={month} className="month">
-                <h3>{formatMonth(inMonth[0])}</h3>
-                <div className="cal-head">{WEEK.map((day) => <span key={day}>{day}</span>)}</div>
-                <div className="cal-grid">
-                  {Array.from({ length: blanks }, (_, i) => <span key={`b${i}`} className="day out" />)}
-                  {inMonth.map((fecha) => {
-                    const count = props.porDia.get(fecha)?.length ?? 0;
-                    const today = fecha === props.hoy;
-                    return (
-                      <button
-                        key={fecha}
-                        className={`day${count ? " has" : ""}${today ? " today" : ""}${fecha === props.dia ? " selected" : ""}`}
-                        onClick={() => props.setDia(fecha)}
-                        aria-label={`${formatDay(fecha)}${today ? ", hoy" : ""}${count ? `, ${count} citas` : ", nada registrado"}`}
-                        aria-pressed={fecha === props.dia}
-                      >
-                        {Number(fecha.slice(8))}
-                        {count ? <span className="dot" /> : <span className="dot" style={{ visibility: "hidden" }} />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-          <div className="day-head">
-            <h3>{formatDay(props.dia)}</h3>
-            {props.dia === props.hoy ? <span className="hoy-tag">Hoy</span> : null}
-          </div>
-          {seleccion.length === 0 ? <p className="empty">Nada registrado este día.</p> : (
-            <div className="grid">
-              {seleccion.map((cita) => <CitaCard key={`${cita.titulo}-${cita.hora}`} cita={cita} />)}
-            </div>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function CitaCard(props: { cita: (typeof agenda.citas)[number] }) {
-  const cita = props.cita;
-  return (
-    <article className="card">
-      <h3>{cita.titulo}</h3>
-      <div className="meta">
-        <span>{TIPO[cita.tipo] ?? cita.tipo}</span>
-        <span>Hora: {pend(cita.hora)}</span>
-        <span>Lugar: {pend(cita.lugar)}</span>
-      </div>
-      {cita.nota ? <p className="note">{cita.nota}</p> : null}
-    </article>
   );
 }
 
@@ -381,6 +170,8 @@ function Deporte() {
   const peso = deporte.peso;
   const octubrePct = Math.min(100, (octubre.total_km / octubre.objetivo_km) * 100);
   const noviembrePct = Math.min(100, (noviembre.realizados_km / noviembre.objetivo_km) * 100);
+  const viaje = noviembre.viaje_japon;
+  const duranteViaje = (fecha: string) => fecha >= viaje.desde && fecha <= viaje.hasta;
 
   return (
     <section>
@@ -466,9 +257,12 @@ function Deporte() {
           <div className="fill" style={{ width: `${noviembrePct}%` }} />
         </div>
         <p className="note">{km(noviembre.realizados_km)} de {km(noviembre.objetivo_km)} km hechos. Planificado: {km(noviembre.total_planificado_km)} km.</p>
-        <p className="note">{noviembre.estado}</p>
         <p className="note">{noviembre.criterio}</p>
-        <div className="meta"><Pill kind="miss">No hecha</Pill></div>
+        <p className="note">{viaje.nota} Del {formatDay(viaje.desde, false)} al {formatDay(viaje.hasta, false)}.</p>
+        <div className="meta">
+          <Pill kind="recorded">{noviembre.estado}</Pill>
+          <Pill kind="miss">Kilómetros no hechos</Pill>
+        </div>
       </article>
       <div className="kicker">Plan de sesiones</div>
       <div className="grid">
@@ -481,6 +275,7 @@ function Deporte() {
               <span>{sesion.tipo}</span>
               <Pill kind="miss">No hecha</Pill>
             </div>
+            {duranteViaje(sesion.fecha) ? <p className="note">Durante el viaje a Japón.</p> : null}
           </article>
         ))}
       </div>
@@ -521,6 +316,7 @@ function Deporte() {
           <article key={fecha} className="card">
             <h3>{formatDay(fecha)}</h3>
             <div className="meta"><Pill kind="miss">No hecha</Pill></div>
+            {duranteViaje(fecha) ? <p className="note">Coincide con el viaje a Japón.</p> : null}
           </article>
         ))}
       </div>
