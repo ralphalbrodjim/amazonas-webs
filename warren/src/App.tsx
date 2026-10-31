@@ -141,6 +141,18 @@ function BpaChart(props: { rows: BpaRow[] }) {
 export default function App() {
   const [cos, setCos] = useState<Co[]>(INITIAL);
   const [view, setView] = useState<string>("resumen");
+  const irA = (v: string) => {
+    setView(v);
+    const run = (tries: number) => {
+      const el = document.getElementById("sec-" + v);
+      if (!el) { if (tries > 0) window.setTimeout(() => run(tries - 1), 40); return; }
+      const nav = document.getElementById("warren-nav");
+      const alto = nav ? nav.getBoundingClientRect().height : 0;
+      const y = el.getBoundingClientRect().top + window.scrollY - alto - 8;
+      window.scrollTo(0, Math.max(0, y));
+    };
+    window.setTimeout(() => run(8), 0);
+  };
   const [sel, setSel] = useState<string>("META");
   const [scK, setScK] = useState<ScKey>("war");
   const [req, setReq] = useState<number>(0.15);
@@ -243,15 +255,15 @@ export default function App() {
     <div style={{ background: NAVY, color: INK, minHeight: "100vh", padding: wide ? "28px 32px 60px" : "18px 14px 60px", boxSizing: "border-box", fontFamily: "Inter, -apple-system, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+        <div id="warren-nav" style={{ position: "sticky", top: 0, zIndex: 20, background: NAVY, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, padding: "10px 0 12px", marginLeft: wide ? -32 : -14, marginRight: wide ? -32 : -14, paddingLeft: wide ? 32 : 14, paddingRight: wide ? 32 : 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg," + BLUE + "," + CYAN + ")", color: NAVY, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>W</div>
             <div><div style={{ fontWeight: 900, letterSpacing: "0.18em", fontSize: 15 }}>WARREN</div><div style={{ fontSize: 10, letterSpacing: "0.2em", color: INK3 }}>INVESTMENT INTELLIGENCE</div></div>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {navItems.map((n: { v: string; n: string; l: string }) => (
-              <button key={n.v} onClick={() => setView(n.v)} style={{ cursor: "pointer", padding: "8px 14px", borderRadius: 999, border: "1px solid " + (view === n.v ? BLUE : LINE), background: view === n.v ? BLUE : PANEL, color: view === n.v ? NAVY : INK2, fontWeight: 700, fontSize: 13 }}>
-                <span style={{ opacity: 0.6, marginRight: 6 }}>{n.n}</span>{n.l}
+              <button type="button" key={n.v} onClick={() => irA(n.v)} style={{ cursor: "pointer", minHeight: 44, padding: "8px 14px", borderRadius: 999, border: "1px solid " + (view === n.v ? BLUE : LINE), background: view === n.v ? BLUE : PANEL, color: view === n.v ? NAVY : INK2, fontWeight: 700, fontSize: 15 }}>
+                <span style={{ opacity: 0.6, marginRight: 6 }}>{n.n}</span> {n.l}
               </button>
             ))}
           </div>
@@ -292,7 +304,7 @@ export default function App() {
         </div>
 
         {view === "resumen" ? (
-          <div>
+          <div id="sec-resumen">
             {sectionHead("00 · Resumen general", "Resumen ejecutivo", "Todas mis empresas · calidad, valoración y oportunidades en una sola vista")}
             <div style={grid(wide ? 220 : 150)}>
               <Kpi label="Empresas analizadas" value={String(cos.length)} detail="Universo editable" />
@@ -307,7 +319,7 @@ export default function App() {
         ) : null}
 
         {view === "radar" ? (
-          <div>
+          <div id="sec-radar">
             {sectionHead("01 · Radar de oportunidades", "Dónde puede estar la mejor inversión a 3 años", "Bajista, TIKR, Warren y Media lado a lado. Bajista y Optimista del Excel son valores razonables CCB.")}
             <div style={grid(wide ? 220 : 150)}>
               <Kpi label="CAGR más alto (Warren)" value={best ? best.d : "N/D"} detail={best ? best.l + " · sin TIKR" : "Sin datos"} accent={CYAN} />
@@ -336,7 +348,7 @@ export default function App() {
         ) : null}
 
         {view === "cartera" ? (
-          <div>
+          <div id="sec-cartera">
             {sectionHead("02 · Mi cartera", "Qué tengo, cuánto he ganado y qué potencial queda", "Según el Excel («En cartera»). P/L = (precio − precio medio) × acciones, antes de costes e impuestos.")}
             <div style={grid(wide ? 220 : 150)}>
               <Kpi label="Posiciones" value={String(cartera.length)} detail="En cartera según el Excel" />
@@ -364,7 +376,7 @@ export default function App() {
         ) : null}
 
         {view === "watch" ? (
-          <div>
+          <div id="sec-watch">
             {sectionHead("03 · Watchlist", "Futuras compras", "Precio máximo para ganar " + pct(req).replace("+", "") + " anual a 3 años sobre la media TIKR + Warren.")}
             {watch.length > 0 ? table(["Ticker", "Precio", "P. máx. (media)", "P. máx. (Warren)", "Descuento", "Estado"], watch.map((x: Co) => { const k = calc(x, req); const mm = k.maxP(k.media); return [x.t, fmt(x.price), fmt(mm), fmt(k.maxP(k.wa)), mm !== null && x.price ? pct((mm - x.price) / mm) : "N/D", <Pill text={estado(x, req).l} col={estado(x, req).col} />]; })) : (
               <div style={{ ...card, color: INK2 }}>Las 7 empresas del PDF están en cartera según el Excel. Pasa una a Watchlist en el editor (campo «Tipo») o añade un ticker nuevo.</div>
