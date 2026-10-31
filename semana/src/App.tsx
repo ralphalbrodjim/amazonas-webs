@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import ingles from "../data/ingles.json";
 import deporte from "../data/deporte.json";
-import { formatDay, formatWhen, kg, km, madridToday, pend, signedKg } from "./dates";
+import { formatDay, formatWhen, kg, km, madridToday, pend, shiftDay, signedKg, weekStart } from "./dates";
 import { Planner } from "./planner";
 
 type Tab = "agenda" | "ingles" | "deporte";
@@ -180,8 +180,67 @@ function kmDePlan(plan: string): number {
   return match ? Number(match[1].replace(",", ".")) : 0;
 }
 
+const HECHO_COLOR = "#1F3B34";
+const PLAN_COLOR = "#C5D0C8";
+
+function nombreMes(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  const text = new Intl.DateTimeFormat("es-ES", { timeZone: "UTC", month: "long", year: "numeric" }).format(new Date(Date.UTC(y, m - 1, 1)));
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function semanasDelMes(ym: string): { start: string; end: string; label: string }[] {
+  const [y, m] = ym.split("-").map(Number);
+  const first = ym + "-01";
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const last = ym + "-" + String(lastDay).padStart(2, "0");
+  const weeks: { start: string; end: string; label: string }[] = [];
+  for (let cursor = weekStart(first); cursor <= last; cursor = shiftDay(cursor, 7)) {
+    const weekEnd = shiftDay(cursor, 6);
+    const from = cursor < first ? first : cursor;
+    const to = weekEnd > last ? last : weekEnd;
+    weeks.push({ start: cursor, end: weekEnd, label: `${Number(from.slice(8))}–${Number(to.slice(8))}` });
+  }
+  return weeks;
+}
+
+function Barras(props: { aria: string; weeks: { label: string; hecho: number; plan: number }[]; format: (n: number) => string }) {
+  if (props.weeks.length === 0) return <p className="note">Sin plan este mes</p>;
+  const width = 360;
+  const height = 188;
+  const padL = 34;
+  const padR = 6;
+  const padT = 16;
+  const padB = 26;
+  const max = Math.max(...props.weeks.flatMap((week) => [week.hecho, week.plan]), 1);
+  const innerW = width - padL - padR;
+  const innerH = height - padT - padB;
+  const groupW = innerW / props.weeks.length;
+  const barW = Math.min(16, Math.max(8, (groupW - 18) / 2));
+  const y = (value: number) => padT + (1 - value / max) * innerH;
+  const base = padT + innerH;
+  return (
+    <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={props.aria}>
+      <line x1={padL} x2={width - padR} y1={base} y2={base} stroke="#E4DDCF" />
+      <text x={padL - 4} y={y(max) + 4} textAnchor="end" fontSize="11" fill="#6B746F">{props.format(max)}</text>
+      <text x={padL - 4} y={base} textAnchor="end" fontSize="11" fill="#6B746F">0</text>
+      {props.weeks.map((week, index) => {
+        const cx = padL + index * groupW + groupW / 2;
+        return (
+          <g key={week.label}>
+            <rect x={cx - barW - 2} y={y(week.plan)} width={barW} height={week.plan > 0 ? Math.max(1, base - y(week.plan)) : 0} rx={3} fill={PLAN_COLOR} />
+            <rect x={cx + 2} y={y(week.hecho)} width={barW} height={week.hecho > 0 ? Math.max(1, base - y(week.hecho)) : 0} rx={3} fill={HECHO_COLOR} />
+            <text x={cx} y={height - 8} textAnchor="middle" fontSize="12" fill="#1E2B27">{week.label}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 function Deporte() {
   const hoy = madridToday();
+  const [mes, setMes] = useState(hoy.slice(0, 7));
   const [hechas, setHechas] = useState<string[]>(loadHechas);
   useEffect(() => {
     try { localStorage.setItem(DEPORTE_KEY, JSON.stringify(hechas)); } catch { /* sin almacenamiento */ }
@@ -205,6 +264,44 @@ function Deporte() {
   const planNov = noviembre.plan.filter((sesion) => visible(sesion.fecha, "run:" + sesion.fecha));
   const noHechasGym = gym.no_hechas.filter((item) => visible(item.fecha, "gym:" + item.fecha));
   const planGym = gym.planificadas_noviembre.sesiones.filter((sesion) => visible(sesion.fecha, "gym:" + sesion.fecha));
+  const fechasMes = [
+    ...octubre.registros.map((item) => item.fecha),
+    ...octubre.no_hechas.map((item) => item.fecha),
+    ...noviembre.plan.map((item) => item.fecha),
+    ...gym.no_hechas.map((item) => item.fecha),
+    ...gym.planificadas_noviembre.sesiones.map((item) => item.fecha),
+  ];
+  const meses = [...new Set([...fechasMes.map((fecha) => fecha.slice(0, 7)), hoy.slice(0, 7)])].sort();
+  const dentro = (fecha: string, week: { start: string; end: string }) => fecha.slice(0, 7) === mes && fecha >= week.start && fecha <= week.end;
+  const semanasRun = semanasDelMes(mes).map((week) => {
+    let hecho = 0;
+    let plan = 0;
+    for (const item of octubre.registros) if (dentro(item.fecha, week)) hecho += item.km;
+    for (const item of octubre.no_hechas) if (dentro(item.fecha, week)) {
+      const cantidad = kmDePlan(item.plan);
+      plan += cantidad;
+      if (hecha("run:" + item.fecha)) hecho += cantidad;
+    }
+    for (const item of noviembre.plan) if (dentro(item.fecha, week)) {
+      plan += item.km;
+      if (hecha("run:" + item.fecha)) hecho += item.km;
+    }
+    return { label: week.label, hecho, plan };
+  }).filter((week) => week.hecho > 0 || week.plan > 0);
+  const semanasGym = semanasDelMes(mes).map((week) => {
+    let hecho = 0;
+    let plan = 0;
+    for (const item of [...gym.no_hechas, ...gym.planificadas_noviembre.sesiones]) if (dentro(item.fecha, week)) {
+      plan += 1;
+      if (hecha("gym:" + item.fecha)) hecho += 1;
+    }
+    return { label: week.label, hecho, plan };
+  }).filter((week) => week.hecho > 0 || week.plan > 0);
+  const kmHechosMes = semanasRun.reduce((sum, week) => sum + week.hecho, 0);
+  const objetivo = mes === "2026-10" ? octubre.objetivo_km : mes === "2026-11" ? noviembre.objetivo_km : null;
+  const antesDe = mes === "2026-11" ? sinSalidas.desde : null;
+  const ariaRun = semanasRun.length === 0 ? "Sin plan de running este mes" : "Running por semana. Verde oscuro es hecho, gris es planificado. " + semanasRun.map((week) => `${week.label}: ${km(week.hecho)} km hechos, ${km(week.plan)} planificados`).join(". ");
+  const ariaGym = semanasGym.length === 0 ? "Sin plan de gimnasio este mes" : "Gimnasio por semana. Verde oscuro es hecho, gris es planificado. " + semanasGym.map((week) => `${week.label}: ${week.hecho} hechas, ${week.plan} planificadas`).join(". ");
 
   return (
     <section>
@@ -212,6 +309,32 @@ function Deporte() {
       <h2>Running y gimnasio</h2>
       <p className="source">{deporte.fuente}</p>
       <p className="lead">Las sesiones de días anteriores que no marques como hechas no se muestran. Las hechas se quedan y son las únicas que suman kilómetros.</p>
+
+      <div id="graficas-mes">
+        <label className="mes-label">Mes
+          <select aria-label="Mes de las gráficas" value={mes} onChange={(event) => setMes(event.target.value)}>
+            {meses.map((item) => <option key={item} value={item}>{nombreMes(item)}</option>)}
+          </select>
+        </label>
+        <article className="card" style={{ marginTop: 12 }}>
+          <h3>Running</h3>
+          <div className="chart-legend">
+            <span><i className="swatch hecho" /> Hecho</span>
+            <span><i className="swatch plan" /> Planificado</span>
+          </div>
+          <Barras aria={ariaRun} weeks={semanasRun} format={(value) => km(value)} />
+          {semanasRun.length > 0 && objetivo !== null ? <p className="note">Acumulado: {km(kmHechosMes)} de {km(objetivo)} km{antesDe ? `, antes del ${formatDay(antesDe, false)}` : ""}.</p> : null}
+        </article>
+        <article className="card" style={{ marginTop: 12 }}>
+          <h3>Gimnasio</h3>
+          <div className="chart-legend">
+            <span><i className="swatch hecho" /> Hecho</span>
+            <span><i className="swatch plan" /> Planificado</span>
+          </div>
+          <Barras aria={ariaGym} weeks={semanasGym} format={(value) => String(value)} />
+          {semanasGym.length > 0 ? <p className="note">Hechas {semanasGym.reduce((sum, week) => sum + week.hecho, 0)} de {semanasGym.reduce((sum, week) => sum + week.plan, 0)} sesiones planificadas.</p> : null}
+        </article>
+      </div>
 
       <div className="kicker">Octubre 2026</div>
       <div className="stats">
