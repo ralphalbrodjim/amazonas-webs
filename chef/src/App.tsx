@@ -120,9 +120,9 @@ const emptyMenu = (): Record<string, string> => Object.fromEntries(SLOTS.map((s:
 type Saved = { semana: string; menu: Record<string, string>; rac: number };
 type Meal = { tipo: "receta" | "texto"; valor: string };
 type CalDay = { comida?: Meal; cena?: Meal };
-type St = { fav: string[]; menu: Record<string, string>; locked: string[]; rac: number; semana: string; saved: Saved[]; confirmado: Saved | null; checks: string[]; manual: { cat: string; t: string }[]; nevera: string[]; basicos: boolean; cal: Record<string, CalDay>; calCompra: string | null; platos: string[] };
+type St = { fav: string[]; menu: Record<string, string>; locked: string[]; rac: number; semana: string; saved: Saved[]; confirmado: Saved | null; checks: string[]; manual: { cat: string; t: string }[]; nevera: string[]; basicos: boolean; cal: Record<string, CalDay>; calCompra: string | null; platos: string[]; anadidas: string[] };
 const KEY = "chef-antracita-v1";
-const INIT: St = { fav: [], menu: emptyMenu(), locked: [], rac: 2, semana: "2026-11-02", saved: [], confirmado: null, checks: [], manual: [], nevera: [], basicos: true, cal: {}, calCompra: null, platos: [] };
+const INIT: St = { fav: [], menu: emptyMenu(), locked: [], rac: 2, semana: "2026-11-02", saved: [], confirmado: null, checks: [], manual: [], nevera: [], basicos: true, cal: {}, calCompra: null, platos: [], anadidas: [] };
 
 function hoyMadrid(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -163,7 +163,18 @@ function corto(m: Meal | undefined): string {
   if (!m || !m.valor) return "";
   return m.valor.length > 7 ? m.valor.slice(0, 6) + "…" : m.valor;
 }
-const loadSt = (): St => { try { const s = window.localStorage.getItem(KEY); if (s) { const d = JSON.parse(s); return { ...INIT, ...d, cal: d && d.cal && typeof d.cal === "object" ? d.cal : {}, calCompra: d && typeof d.calCompra === "string" ? d.calCompra : null, platos: d && Array.isArray(d.platos) ? d.platos.filter((p: unknown) => typeof p === "string") : [] }; } } catch (e) { /* sin almacenamiento */ } return INIT; };
+function puntosDif(dif: string): number | null {
+  if (dif === "Fácil") return 1;
+  if (dif === "Media") return 2;
+  if (dif === "Difícil") return 3;
+  return null;
+}
+function diaCorto(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const wd = new Intl.DateTimeFormat("es-ES", { timeZone: "UTC", weekday: "narrow" }).format(new Date(Date.UTC(y, m - 1, d)));
+  return wd.toUpperCase() + " " + d;
+}
+const loadSt = (): St => { try { const s = window.localStorage.getItem(KEY); if (s) { const d = JSON.parse(s); return { ...INIT, ...d, cal: d && d.cal && typeof d.cal === "object" ? d.cal : {}, calCompra: d && typeof d.calCompra === "string" ? d.calCompra : null, platos: d && Array.isArray(d.platos) ? d.platos.filter((p: unknown) => typeof p === "string") : [], anadidas: d && Array.isArray(d.anadidas) ? d.anadidas.filter((p: unknown) => typeof p === "string") : [] }; } } catch (e) { /* sin almacenamiento */ } return INIT; };
 
 const ALLING: string[] = Array.from(new Set(R.flatMap((r: Rec) => r.ing.map((i: string[]) => canon(i[1]))))).filter((c: string) => c !== "Agua").sort((a: string, b: string) => a.localeCompare(b, "es"));
 
@@ -186,11 +197,7 @@ export default function App() {
   const [abierta, setAbierta] = useState<string>("");
   const [racR, setRacR] = useState<number>(0);
   const [msg, setMsg] = useState<string>("");
-  const [gT, setGT] = useState<string>("todas");
-  const [gSana, setGSana] = useState<boolean>(false);
-  const [gTM, setGTM] = useState<boolean>(false);
-  const [gFacil, setGFacil] = useState<boolean>(false);
-  const [excl, setExcl] = useState<string>("");
+  const [undoGen, setUndoGen] = useState<{ fecha: string; slot: "comida" | "cena" }[] | null>(null);
   const [manT, setManT] = useState<string>("");
   const [manC, setManC] = useState<string>("Despensa");
   const [nevT, setNevT] = useState<string>("");
@@ -235,39 +242,46 @@ export default function App() {
 
   const toggleFav = (n: string) => up({ fav: st.fav.includes(n) ? st.fav.filter((x: string) => x !== n) : [...st.fav, n] });
 
-  // Menú
-  const candidatos = (s: Slot, usados: string[]): Rec[] => {
-    const ex = excl.split(",").map((x: string) => norm(x)).filter((x: string) => x);
-    return R.filter((r: Rec) => fitsSlot(r, s) && !usados.includes(r.n)
-      && (gT === "todas" || r.t <= Number(gT)) && (!gSana || r.sana === "Sí") && (!gTM || r.tm === "Sí") && (!gFacil || r.dif === "Fácil")
-      && !ex.some((e: string) => norm(r.n).includes(e)));
-  };
-  const generar = () => {
-    const m: Record<string, string> = {};
-    const usados: string[] = SLOTS.filter((s: string) => st.locked.includes(s) && st.menu[s]).map((s: string) => st.menu[s]);
-    let faltan = 0;
-    for (const s of SLOTS) {
-      if (st.locked.includes(s) && st.menu[s]) { m[s] = st.menu[s]; continue; }
-      const c = candidatos(s, usados);
-      if (!c.length) { m[s] = ""; faltan++; continue; }
-      const p = c[Math.floor(Math.random() * c.length)];
-      m[s] = p.n; usados.push(p.n);
+  const sorprender = () => {
+    const cal: Record<string, CalDay> = { ...st.cal };
+    const usados = new Set<string>();
+    const filled: { fecha: string; slot: "comida" | "cena" }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const fecha = shiftDay(semanaElegida, i);
+      for (const slot of ["comida", "cena"] as const) if (cal[fecha]?.[slot]?.tipo === "receta") usados.add(cal[fecha]![slot]!.valor);
     }
-    up({ menu: m });
-    setMsg(faltan ? `No hay recetas suficientes para ${faltan} hueco(s) sin repetir con estos filtros. Relaja los filtros (tiempo, sana, Thermomix, fácil o excluidos) y vuelve a generar.` : "Vista previa generada: 14 platos sin repetir. Revisa, bloquea lo que te guste y pulsa «Guardar menú».");
+    for (let i = 0; i < 7; i++) {
+      const fecha = shiftDay(semanaElegida, i);
+      for (const slot of ["comida", "cena"] as const) {
+        if (cal[fecha]?.[slot]) continue;
+        const want = slot === "comida" ? "Comida" : "Cena";
+        const pool = R.filter((r: Rec) => r.cc.startsWith(want) && !usados.has(r.n));
+        if (!pool.length) continue;
+        const p = pool[Math.floor(Math.random() * pool.length)];
+        usados.add(p.n);
+        const prev = cal[fecha] ? { ...cal[fecha] } : {};
+        prev[slot] = { tipo: "receta", valor: p.n };
+        cal[fecha] = prev;
+        filled.push({ fecha, slot });
+      }
+    }
+    setSt((s: St) => ({ ...s, cal }));
+    setUndoGen(filled.length ? filled : null);
+    setMsg(filled.length ? "Rellenados " + filled.length + " huecos vacíos. Lo que ya estaba no se ha tocado." : "No quedaban huecos vacíos, o no hay más recetas de ese turno sin repetir.");
   };
-  const cambiarUno = (s: Slot) => {
-    const usados = SLOTS.filter((x: string) => x !== s && st.menu[x]).map((x: string) => st.menu[x]);
-    const c = candidatos(s, usados).filter((r: Rec) => r.n !== st.menu[s]);
-    if (!c.length) { setMsg(`No hay otra receta disponible para ${s.replace("|", " · ")} sin repetir. Relaja los filtros.`); return; }
-    up({ menu: { ...st.menu, [s]: c[Math.floor(Math.random() * c.length)].n } });
-  };
-  const guardar = () => {
-    const exist = st.saved.find((x: Saved) => x.semana === st.semana);
-    if (exist && st.confirmado && st.confirmado.semana === st.semana && !window.confirm("Ya hay un menú guardado para esta semana. ¿Sobrescribirlo?")) return;
-    const s: Saved = { semana: st.semana, menu: { ...st.menu }, rac: st.rac };
-    up({ saved: [...st.saved.filter((x: Saved) => x.semana !== st.semana), s], confirmado: s, checks: [] });
-    setMsg("Menú guardado. La lista de la compra se ha recalculado.");
+  const deshacerGen = () => {
+    if (!undoGen) return;
+    setSt((s: St) => {
+      const cal = { ...s.cal };
+      for (const f of undoGen) {
+        const day = cal[f.fecha] ? { ...cal[f.fecha] } : {};
+        delete day[f.slot];
+        if (day.comida || day.cena) cal[f.fecha] = day; else delete cal[f.fecha];
+      }
+      return { ...s, cal };
+    });
+    setUndoGen(null);
+    setMsg("Deshecho: esos huecos vuelven a estar vacíos.");
   };
 
   // Compra
@@ -311,6 +325,15 @@ export default function App() {
     }
     return out;
   };
+  const claveHueco = (fecha: string, slot: "comida" | "cena") => fecha + "|" + slot;
+  const yaAnadida = (fecha: string, slot: "comida" | "cena") => (st.anadidas || []).includes(claveHueco(fecha, slot)) || (!!st.calCompra && fecha >= st.calCompra && fecha <= shiftDay(st.calCompra, 6));
+  const anadirHueco = (fecha: string, slot: "comida" | "cena") => {
+    const m = st.cal[fecha]?.[slot];
+    if (!m) return;
+    const k = claveHueco(fecha, slot);
+    if (!(st.anadidas || []).includes(k)) up({ anadidas: [...(st.anadidas || []), k] });
+    setMsg(m.tipo === "texto" ? "Añadida como recordatorio, sin ingredientes." : "Añadida a la lista de la compra.");
+  };
   const enviarSemana = () => {
     const n = recetasSemana(semanaElegida).length;
     const t = textosSemana(semanaElegida).length;
@@ -337,8 +360,17 @@ export default function App() {
       const r = R.find((x: Rec) => x.n === src.menu[s]); if (!r) continue;
       sumar(r, src.rac / r.rac);
     }
-    if (st.calCompra) for (const r of recetasSemana(st.calCompra)) sumar(r, 1);
-    const avisos = st.calCompra ? textosSemana(st.calCompra) : [];
+    const claves = new Set<string>();
+    if (st.calCompra) for (let i = 0; i < 7; i++) { const fecha = shiftDay(st.calCompra, i); claves.add(fecha + "|comida"); claves.add(fecha + "|cena"); }
+    for (const k of st.anadidas || []) claves.add(k);
+    const avisos: { valor: string; cuando: string }[] = [];
+    for (const k of claves) {
+      const [fecha, slot] = k.split("|") as [string, "comida" | "cena"];
+      const m = st.cal[fecha]?.[slot];
+      if (!m) continue;
+      if (m.tipo === "receta") { const r = R.find((x: Rec) => x.n === m.valor); if (r) sumar(r, 1); }
+      else if (m.valor.trim()) avisos.push({ valor: m.valor.trim(), cuando: tituloDia(fecha) + " · " + slot });
+    }
     const out: Record<string, { c: string; qty: string; de: string[] }[]> = {};
     for (const it of Object.values(g)) {
       const parts = Object.entries(it.amts).map(([u, v]: [string, number]) => u === "g" && v >= 1000 ? fmt(v / 1000) + " kg" : u === "ml" && v >= 1000 ? fmt(v / 1000) + " l" : fmt(v) + " " + u);
@@ -349,7 +381,7 @@ export default function App() {
     for (const m of st.manual) (out[m.cat] = out[m.cat] || []).push({ c: m.t, qty: "añadido a mano", de: [] });
     for (const a of avisos) (out["Recordatorio"] = out["Recordatorio"] || []).push({ c: a.valor, qty: "sin ingredientes · " + a.cuando, de: [] });
     return out;
-  }, [st.confirmado, st.manual, st.cal, st.calCompra]);
+  }, [st.confirmado, st.manual, st.cal, st.calCompra, st.anadidas]);
   const CATS = ["Verduras y fruta", "Proteínas", "Lácteos", "Despensa", "Básicos", "Recordatorio"];
   const textoCompra = (): string => CATS.filter((c: string) => compra[c]).map((c: string) => c.toUpperCase() + "\n" + compra[c].map((i: { c: string; qty: string }) => `${st.checks.includes(i.c) ? "[x]" : "[ ]"} ${i.c}: ${i.qty}`).join("\n")).join("\n\n");
 
@@ -381,7 +413,7 @@ export default function App() {
 
   return (
     <Page title="El Chef de Antracita · Recetario" summary="Tu recetario personal: 21 recetas importadas del Google Sheet, menú semanal sin repetir, lista de la compra automática y qué puedes cocinar con lo que tienes en la nevera." width="wide" palette={["#B8742A", "#7A4A2A", "#C9A26B"]}>
-      <Segmented value={vista} onChange={setVista} options={[{ value: "rec", label: "🍲 Recetario" }, { value: "menu", label: "🗓️ Menú semanal" }, { value: "cal", label: "📅 Calendario" }, { value: "compra", label: "🛒 Lista de compra" }, { value: "nevera", label: "🧊 Mi nevera" }, { value: "datos", label: "⚙️ Datos y pendiente" }]} />
+      <Segmented value={vista} onChange={setVista} options={[{ value: "rec", label: "🍲 Recetario" }, { value: "cal", label: "📅 Calendario" }, { value: "compra", label: "🛒 Lista de compra" }, { value: "nevera", label: "🧊 Mi nevera" }, { value: "datos", label: "⚙️ Datos y pendiente" }]} />
       {msg && <Callout tone="info">{msg}</Callout>}
 
       {vista === "rec" && (
@@ -392,7 +424,7 @@ export default function App() {
               <h1 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: "clamp(32px, 6vw, 46px)", color: C.text, margin: "6px 0" }}>¿Qué cocinamos hoy?</h1>
               <div style={{ color: C.muted, fontSize: 15 }}>Todas tus recetas, paso a paso y listas para llevar a la mesa.</div>
             </div>
-            <Button label="Planificar semana →" onClick={() => setVista("menu")} />
+            <Button label="Planificar semana →" onClick={() => setVista("cal")} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, margin: "20px 0" }}>
             {[[R.length, "Recetas propias"], [R.filter((r: Rec) => r.sana === "Sí").length, "Marcadas sanas"], [R.filter((r: Rec) => r.tm === "Sí").length, "Con Thermomix"]].map((k: (string | number)[]) => <div key={String(k[1])} style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, padding: "16px 18px" }}><div style={{ fontFamily: SERIF, fontSize: 30, color: C.text }}>{k[0]}</div><div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>{k[1]}</div></div>)}
@@ -414,7 +446,13 @@ export default function App() {
             {filtros.map((f: { k: string; label: string; clear: () => void }) => <button key={f.k} style={chip(true)} onClick={f.clear}>{f.label} ✕</button>)}
             <Button label="Limpiar filtros" onClick={limpiar} />
           </div>}
-          <div style={{ ...muted, marginTop: 12 }}>{lista.length} de {R.length} recetas</div>
+          <div className="rec-legend" aria-label="Leyenda">
+            <span>🥗 Sana</span>
+            <span className="legend-dif"><i className="dot facil" /> Fácil</span>
+            <span className="legend-dif"><i className="dot media" /><i className="dot media" /> Media</span>
+            <span className="legend-dif"><i className="dot dificil" /><i className="dot dificil" /><i className="dot dificil" /> Difícil</span>
+          </div>
+          <div style={{ ...muted, marginTop: 8 }}>{lista.length} de {R.length} recetas</div>
           {lista.length === 0 && <div style={{ ...card, marginTop: 12 }}><div>Ninguna receta cumple todos los filtros.</div><div style={{ marginTop: 8 }}><Button label="Limpiar filtros" variant="primary" onClick={limpiar} /></div></div>}
           <div className="rec-grid">
             {[...lista].sort((a: Rec, b: Rec) => orden === "tiempo" ? a.t - b.t : orden === "fav" ? Number(st.fav.includes(b.n)) - Number(st.fav.includes(a.n)) || a.n.localeCompare(b.n, "es") : a.n.localeCompare(b.n, "es")).map((r: Rec) => (
@@ -423,6 +461,7 @@ export default function App() {
                 <span className="rec-body">
                   <span className="rec-name">{r.n}</span>
                   <span className="rec-meta">{r.t} min{r.tm === "Sí" ? " · TM" : ""}</span>
+                  {(r.sana === "Sí" || puntosDif(r.dif) !== null) ? <span className="rec-badges">{r.sana === "Sí" ? <span className="badge-sana">🥗 Sana</span> : null}{puntosDif(r.dif) !== null ? <span className="legend-dif" aria-label={r.dif}>{Array.from({ length: puntosDif(r.dif) as number }, (_, i: number) => <i key={i} className={"dot " + (r.dif === "Fácil" ? "facil" : r.dif === "Media" ? "media" : "dificil")} />)}</span> : null}</span> : null}
                 </span>
                 <span role="button" aria-label={"Favorito " + r.n} className="rec-fav" onClick={(e: MouseEvent) => { e.stopPropagation(); e.preventDefault(); toggleFav(r.n); }}>{st.fav.includes(r.n) ? "★" : "☆"}</span>
               </button>
@@ -452,45 +491,6 @@ export default function App() {
         </Section>
       )}
 
-      {vista === "menu" && (
-        <Section heading="Tu menú de la semana">
-          <div style={row}>
-            <Input label="Semana que empieza el" value={st.semana} onChange={(v: string) => up({ semana: v })} placeholder="AAAA-MM-DD" />
-            <Input label="Raciones" type="number" value={String(st.rac)} onChange={(v: string) => up({ rac: Math.max(1, Number(v) || 1) })} />
-            {st.saved.length > 0 && <Select label="Recuperar semana guardada" value="" placeholder="Elegir…" options={st.saved.map((s: Saved) => ({ value: s.semana, label: s.semana }))} onChange={(v: string) => { const s = st.saved.find((x: Saved) => x.semana === v); if (s) up({ menu: { ...s.menu }, rac: s.rac, semana: s.semana, confirmado: s }); }} />}
-          </div>
-          <div style={{ ...row, marginTop: 12 }}>
-            {sel(gT, setGT, [["todas", "Sin límite"], ["20", "≤ 20 min"], ["30", "≤ 30 min"], ["45", "≤ 45 min"]], "Tiempo máximo")}
-            <Toggle label="Solo sanas" value={gSana} onChange={setGSana} />
-            <Toggle label="Solo fáciles" value={gFacil} onChange={setGFacil} />
-            <Toggle label="Solo Thermomix" value={gTM} onChange={setGTM} />
-            <Input label="Excluir platos (separa con comas)" value={excl} onChange={setExcl} placeholder="pizza, tortilla" />
-          </div>
-          <div style={{ ...row, marginTop: 12 }}>
-            <Button label="✨ Sorpréndeme / Generar semana" variant="primary" onClick={generar} />
-            <Button label="Regenerar semana" onClick={generar} />
-            <Button label="Guardar menú" onClick={guardar} />
-            <Button label="Vaciar no bloqueados" onClick={() => up({ menu: Object.fromEntries(SLOTS.map((s: string) => [s, st.locked.includes(s) ? st.menu[s] : ""])) })} />
-          </div>
-          <div style={{ ...muted, marginTop: 8 }}>{st.confirmado ? `Menú confirmado: semana ${st.confirmado.semana}, ${st.confirmado.rac} raciones.` : "Aún no hay menú confirmado."} Sin IA: elige al azar entre tus recetas, respeta Comida/Cena y no repite.</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 12, marginTop: 12 }}>
-            {DIAS.map((d: string) => (
-              <div key={d} style={card}>
-                <div style={{ fontWeight: 600, letterSpacing: 1, color: th.text.primary }}>{d.toUpperCase()}</div>
-                {["Comida", "Cena"].map((t: string) => { const s = d + "|" + t; const lk = st.locked.includes(s); return (
-                  <div key={s} style={{ marginTop: 10 }}>
-                    <Select label={t} value={st.menu[s] || ""} placeholder="Libre" options={[{ value: "", label: "Libre" }, ...R.filter((r: Rec) => fitsSlot(r, s)).map((r: Rec) => ({ value: r.n, label: r.n }))]} onChange={(v: string) => up({ menu: { ...st.menu, [s]: v } })} />
-                    <div style={{ ...row, marginTop: 6 }}>
-                      <button style={chip(lk)} onClick={() => up({ locked: lk ? st.locked.filter((x: string) => x !== s) : [...st.locked, s] })}>{lk ? "🔒 Bloqueado" : "Bloquear plato"}</button>
-                      {!lk && <button style={chip(false)} onClick={() => cambiarUno(s)}>Cambiar solo este plato</button>}
-                    </div>
-                  </div>); })}
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
-
       {vista === "cal" && (
         <Section heading="Calendario">
           <div style={{ ...muted, marginBottom: 12 }}>Mes en hora de Madrid. Cada día tiene Comida y Cena: una receta del recetario o un texto libre.</div>
@@ -499,20 +499,50 @@ export default function App() {
             <div style={{ flex: 1, textAlign: "center", fontFamily: SERIF, fontSize: 26 }}>{tituloMes(mes)}</div>
             <button aria-label="Mes siguiente" onClick={() => setMes(shiftMonth(mes, 1))} style={{ minWidth: 48, minHeight: 48, borderRadius: 14, border: `1px solid ${C.line}`, background: C.card, fontSize: 20, cursor: "pointer" }}>›</button>
           </div>
-          <div style={{ ...row, marginTop: 12 }}>
-            <button aria-label="Semana anterior" onClick={() => setSemanaElegida(shiftDay(semanaElegida, -7))} style={{ minWidth: 48, minHeight: 48, borderRadius: 14, border: `1px solid ${C.line}`, background: C.card, cursor: "pointer" }}>‹</button>
-            <div style={{ ...muted, flex: 1, textAlign: "center" }}>Semana del {tituloDia(semanaElegida).replace(/^[^,]+, /, "")}</div>
-            <button aria-label="Semana siguiente" onClick={() => setSemanaElegida(shiftDay(semanaElegida, 7))} style={{ minWidth: 48, minHeight: 48, borderRadius: 14, border: `1px solid ${C.line}`, background: C.card, cursor: "pointer" }}>›</button>
-          </div>
-          <div style={{ marginTop: 8 }}><Button label="Enviar esta semana a la lista de compra" variant="primary" onClick={enviarSemana} /></div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4, marginTop: 12 }}>
             {["L", "M", "X", "J", "V", "S", "D"].map((d: string) => <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: C.muted }}>{d}</div>)}
             {monthCells(mes).map((fecha: string | null, i: number) => fecha ? (
-              <button type="button" key={fecha} onClick={() => { setDiaCal(fecha); setSemanaElegida(weekStart(fecha)); setEditSlot(""); window.setTimeout(() => document.getElementById("cal-dia")?.scrollIntoView({ block: "start" }), 40); }} aria-label={tituloDia(fecha)} style={{ minHeight: 64, borderRadius: 10, padding: 3, textAlign: "left", cursor: "pointer", border: fecha === diaCal ? `2px solid ${C.green}` : fecha === hoy ? `2px solid ${C.kicker}` : `1px solid ${C.line}`, background: fecha >= semanaElegida && fecha <= shiftDay(semanaElegida, 6) ? C.soft : C.card, color: C.text }}>
+              <button type="button" key={fecha} onClick={() => { setDiaCal(fecha); setSemanaElegida(weekStart(fecha)); setEditSlot(""); window.setTimeout(() => document.getElementById("cal-semana")?.scrollIntoView({ block: "start" }), 40); }} aria-label={tituloDia(fecha)} style={{ minHeight: 64, borderRadius: 10, padding: 3, textAlign: "left", cursor: "pointer", border: fecha === diaCal ? `2px solid ${C.green}` : fecha === hoy ? `2px solid ${C.kicker}` : `1px solid ${C.line}`, background: fecha >= semanaElegida && fecha <= shiftDay(semanaElegida, 6) ? C.soft : C.card, color: C.text }}>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>{Number(fecha.slice(8))}</div>
                 {(["comida", "cena"] as const).map((slot) => { const m = st.cal[fecha]?.[slot]; return m ? <div key={slot} style={{ fontSize: 9, lineHeight: 1.15, overflow: "hidden", whiteSpace: "nowrap", color: m.tipo === "receta" ? C.green : C.muted }}>{slot === "comida" ? "C " : "N "}{corto(m)}</div> : null; })}
               </button>
             ) : <div key={"v" + i} />)}
+          </div>
+          <div id="cal-semana" style={{ ...card, marginTop: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button type="button" aria-label="Semana anterior" onClick={() => setSemanaElegida(shiftDay(semanaElegida, -7))} style={{ minWidth: 48, minHeight: 48, borderRadius: 14, border: `1px solid ${C.line}`, background: C.card, fontSize: 20 }}>‹</button>
+              <div style={{ flex: 1, textAlign: "center" }}>
+                <div style={{ fontFamily: SERIF, fontSize: 20 }}>Semana del {tituloDia(semanaElegida).replace(/^[^,]+, /, "")}</div>
+                <div style={muted}>Toca un día del mes para elegir su semana.</div>
+              </div>
+              <button type="button" aria-label="Semana siguiente" onClick={() => setSemanaElegida(shiftDay(semanaElegida, 7))} style={{ minWidth: 48, minHeight: 48, borderRadius: 14, border: `1px solid ${C.line}`, background: C.card, fontSize: 20 }}>›</button>
+            </div>
+            <div className="ws" style={{ marginTop: 10 }}>
+              <span />
+              <span className="ws-h">Comida</span>
+              <span className="ws-h">Cena</span>
+              {Array.from({ length: 7 }, (_, i: number) => shiftDay(semanaElegida, i)).map((fecha: string) => (
+                <div key={fecha} style={{ display: "contents" }}>
+                  <button type="button" className="ws-day" onClick={() => { setDiaCal(fecha); setEditSlot(""); }}>{diaCorto(fecha)}</button>
+                  {(["comida", "cena"] as const).map((slot) => {
+                    const m = st.cal[fecha]?.[slot];
+                    const puesta = yaAnadida(fecha, slot);
+                    return (
+                      <div key={slot} className="ws-cell">
+                        <span className="ws-name">{m ? m.valor : "—"}</span>
+                        {m ? <button type="button" className="ws-cart" aria-label={(puesta ? "Añadida: " : "Enviar a la compra: ") + m.valor} onClick={() => anadirHueco(fecha, slot)}>{puesta ? "✓" : "🛒"}</button> : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+              <button type="button" onClick={sorprender} style={{ minHeight: 48, flex: "1 1 160px", borderRadius: 999, border: "none", background: C.green, color: "#fff", fontWeight: 700, fontSize: 15 }}>Sorpréndeme / Generar menú</button>
+              {undoGen ? <button type="button" onClick={deshacerGen} style={{ minHeight: 48, flex: "1 1 120px", borderRadius: 999, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700 }}>Deshacer</button> : null}
+              <button type="button" onClick={enviarSemana} style={{ minHeight: 48, flex: "1 1 160px", borderRadius: 999, border: `1px solid ${C.green}`, background: C.soft, color: C.green, fontWeight: 700, fontSize: 15 }}>Enviar toda la semana</button>
+            </div>
+            {msg ? <div style={{ ...muted, marginTop: 8 }}>{msg}</div> : null}
           </div>
           <div id="cal-dia" style={{ ...card, marginTop: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
@@ -568,7 +598,7 @@ export default function App() {
 
       {vista === "compra" && (
         <Section heading="La compra, hecha">
-          {!st.confirmado && !st.calCompra && <Callout tone="warning">Guarda un menú en «Menú semanal» o envía una semana del calendario para generar la lista. Mientras tanto puedes añadir productos a mano.</Callout>}
+          {!st.confirmado && !st.calCompra && !(st.anadidas || []).length && <Callout tone="warning">Desde el calendario, envía un hueco o toda la semana. Mientras tanto puedes añadir productos a mano.</Callout>}
           {st.confirmado && <div style={muted}>{`Semana ${st.confirmado.semana} · ${st.confirmado.rac} raciones por plato. Se suman las unidades compatibles (g, kg, ml, l, cucharadas…); las incompatibles van separadas con «+».`}</div>}
           {st.calCompra && <div style={{ ...muted, marginTop: 8 }}>{`Calendario, semana del ${tituloDia(st.calCompra).replace(/^[^,]+, /, "")}. Las recetas suman sus ingredientes. Los platos inventados salen en Recordatorio, sin ingredientes.`}</div>}
           {st.calCompra ? <div style={{ marginTop: 8 }}><Button label="Quitar la semana del calendario" onClick={() => up({ calCompra: null })} /></div> : null}
@@ -600,6 +630,7 @@ export default function App() {
 
       {vista === "nevera" && (
         <Section heading="¿Qué hay en mi nevera?">
+          <Text>Sirve para ver qué recetas puedes hacer con lo que marcas que tienes en casa. Toca un ingrediente para decir que lo tienes. Abajo, una receta solo sale como «Lista para cocinar» si no te falta ninguno de los ingredientes obligatorios; si faltan uno o dos, pone «Casi la tienes», y si faltan más, «Para otro día». Con la opción marcada, sal, pimienta, agua y aceite no cuentan.</Text>
           <div style={row}>
             <Input label="Añadir ingrediente" value={nevT} onChange={setNevT} placeholder="tomates, huevo, calabacin…" />
             <Button label="Añadir" onClick={addNevera} />

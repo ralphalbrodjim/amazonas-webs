@@ -82,6 +82,96 @@ button {
   color: #6B746F;
 }
 
+.rec-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.badge-sana { color: #2F5A4B; font-weight: 700; white-space: nowrap; }
+
+.legend-dif { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot.facil { background: #2F5A4B; }
+.dot.media { background: #C4A15A; }
+.dot.dificil { background: #8C3F2A; }
+
+.rec-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: #6B746F;
+}
+
+.ws {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 4px;
+  align-items: stretch;
+}
+
+.ws-h { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6B746F; padding: 0 4px; }
+
+.ws-day {
+  min-height: 44px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  padding: 0;
+  color: #1E2B27;
+}
+
+.ws-cell {
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: #fff;
+  border: 1px solid #E4DDCF;
+  border-radius: 8px;
+  padding: 2px 2px 2px 4px;
+}
+
+.ws-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ws-cart {
+  flex: none;
+  width: 36px;
+  min-height: 40px;
+  border: none;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.1;
+  padding: 2px;
+  color: #1F3B34;
+}
+
 .rec-fav {
   position: absolute;
   top: 4px;
