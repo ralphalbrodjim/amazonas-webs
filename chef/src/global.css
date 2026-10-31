@@ -50,6 +50,10 @@ button {
   cursor: pointer;
 }
 
+.rec-card:focus {
+  outline: none;
+}
+
 .rec-emoji {
   height: 48px;
   display: flex;
@@ -194,12 +198,18 @@ button.ws-link {
 
 .rec-sheet {
   position: fixed;
-  inset: 0;
-  z-index: 80;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
   background: #F5F1E8;
   color: #1E2B27;
 }

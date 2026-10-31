@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import type { ChangeEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 
 const C = { green: "#1F3B34", green2: "#2F5A4B", kicker: "#4F7A63", cream: "#F5F1E8", card: "#FFFDF7", line: "#E4DDCF", text: "#1E2B27", muted: "#6B746F", soft: "#E6EEE7" };
@@ -455,23 +456,15 @@ export default function App() {
   const abrirReceta = (n: string) => { setAbierta(n); setRacR(0); };
   useEffect(() => {
     if (!abierta) return;
-    const y = window.scrollY;
-    const body = document.body;
-    body.style.position = "fixed";
-    body.style.top = `-${y}px`;
-    body.style.left = "0";
-    body.style.right = "0";
-    body.style.width = "100%";
     const sheet = document.getElementById("rec-sheet-body");
     if (sheet) sheet.scrollTop = 0;
-    return () => {
-      body.style.position = "";
-      body.style.top = "";
-      body.style.left = "";
-      body.style.right = "";
-      body.style.width = "";
-      window.scrollTo(0, y);
+    const block = (e: TouchEvent) => {
+      const el = document.getElementById("rec-sheet-body");
+      if (el && e.target instanceof Node && el.contains(e.target)) return;
+      e.preventDefault();
     };
+    document.addEventListener("touchmove", block, { passive: false });
+    return () => document.removeEventListener("touchmove", block);
   }, [abierta]);
   useEffect(() => { setPedirLimpia(false); }, [semanaElegida]);
 
@@ -743,7 +736,7 @@ export default function App() {
           <Text>Esta Page usa las recetas tal como estaban en la hoja el 31/10/2026, más las cuatro añadidas después. Si cambias la hoja, pídeme que la vuelva a importar.</Text>
         </Section>
       )}
-      {rec && (
+      {rec && createPortal(
         <div className="rec-sheet" role="dialog" aria-modal="true" aria-labelledby="rec-sheet-title">
           <div className="rec-sheet-bar">
             <button type="button" className="rec-sheet-close" onClick={() => setAbierta("")}>← Volver</button>
@@ -771,7 +764,8 @@ export default function App() {
               { label: "Valoración", value: rec.val || "Sin valorar todavía" },
             ]} />
           </div>
-        </div>
+        </div>,
+        document.documentElement
       )}
     </Page>
   );
