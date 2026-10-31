@@ -24,12 +24,13 @@ export type Entry = {
 
 type Cita = (typeof agenda.citas)[number];
 
-const CATS: { id: Exclude<CatId, "otro">; label: string; emoji: string; short: string }[] = [
-  { id: "ingles", label: "Inglés", emoji: "🗣️", short: "Ing" },
-  { id: "gimnasio", label: "Gimnasio", emoji: "💪", short: "Gym" },
-  { id: "running", label: "Running", emoji: "🏃", short: "Run" },
-  { id: "hogar", label: "Hogar", emoji: "🏠", short: "Hog" },
+const CATS: { id: Exclude<CatId, "otro">; label: string; emoji: string }[] = [
+  { id: "ingles", label: "Inglés", emoji: "🇬🇧" },
+  { id: "gimnasio", label: "Gimnasio", emoji: "💪" },
+  { id: "running", label: "Running", emoji: "🏃" },
+  { id: "hogar", label: "Hogar", emoji: "🏠" },
 ];
+const ICONO_TEXTO = "📌";
 
 const FRANJAS: { id: Exclude<Franja, "hora">; label: string; short: string }[] = [
   { id: "manana", label: "Mañana", short: "Mañ" },
@@ -147,6 +148,7 @@ export function Planner(props: { hoy: string }) {
   const [ioMsg, setIoMsg] = useState("");
   const [aviso, setAviso] = useState("");
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [detalle, setDetalle] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -359,9 +361,7 @@ export function Planner(props: { hoy: string }) {
               {FRANJAS.map((franja) => {
                 const rows = filas(fecha, franja.id).filter((fila) => fila.value);
                 return (
-                  <span key={franja.id} className="ws-cell">
-                    {rows.length === 0 ? "—" : rows.map((fila) => <span key={fila.key} className="ws-item">{marca(fila.value, fila.texto)}{fila.hecho ? " ✓" : ""}</span>)}
-                  </span>
+                  <CeldaResumen key={franja.id} rows={rows} abierto={detalle} onTexto={(texto) => setDetalle(detalle === texto ? null : texto)} />
                 );
               })}
             </div>
@@ -373,12 +373,13 @@ export function Planner(props: { hoy: string }) {
             const done = items.filter((item) => item.hecho).length;
             return <span key={cat.id}>{cat.emoji} {cat.label} {done}/{items.length}</span>;
           })}
-          {hechos.some((item) => item.value === "texto") ? <span>✏️ Texto {hechos.filter((item) => item.value === "texto" && item.hecho).length}/{hechos.filter((item) => item.value === "texto").length}</span> : null}
+          {hechos.some((item) => item.value === "texto") ? <span>{ICONO_TEXTO} Texto {hechos.filter((item) => item.value === "texto" && item.hecho).length}/{hechos.filter((item) => item.value === "texto").length}</span> : null}
           {(() => {
             const clases = resumenIngles(diasSemana[0], diasSemana[6], loadInglesHechos());
-            return clases.total > 0 ? <span>🗣️ Clases {clases.hechas}/{clases.total}</span> : null;
+            return clases.total > 0 ? <span>🇬🇧 Clases {clases.hechas}/{clases.total}</span> : null;
           })()}
         </div>
+        {detalle ? <p className="ws-tip">{ICONO_TEXTO} {detalle}</p> : null}
       </article>
 
       {agenda.pendientes_sin_fecha.length > 0 ? (
@@ -404,11 +405,28 @@ export function Planner(props: { hoy: string }) {
   );
 }
 
-function marca(value: SlotValue, texto: string): string {
-  const cat = CATS.find((item) => item.id === value);
-  if (cat) return `${cat.emoji} ${cat.short}`;
-  const corto = texto.trim();
-  return corto ? `✏️ ${corto.length > 12 ? corto.slice(0, 12) + "…" : corto}` : "✏️";
+function icono(value: SlotValue): string {
+  if (value === "texto") return ICONO_TEXTO;
+  return CATS.find((item) => item.id === value)?.emoji ?? ICONO_TEXTO;
+}
+
+function CeldaResumen(props: { rows: Fila[]; abierto: string | null; onTexto: (texto: string) => void }) {
+  if (props.rows.length === 0) return <span className="ws-cell">—</span>;
+  const textos = props.rows.filter((fila) => fila.value === "texto").map((fila) => fila.texto.trim()).filter(Boolean);
+  const icons = (
+    <span className="ws-icons">
+      {props.rows.map((fila) => (
+        <span key={fila.key} className={fila.hecho ? "ws-em done" : "ws-em"}>{icono(fila.value)}{fila.hecho ? <span className="ws-ok">✓</span> : null}</span>
+      ))}
+    </span>
+  );
+  if (!textos.length) return <span className="ws-cell">{icons}</span>;
+  const texto = textos.join(" · ");
+  return (
+    <button type="button" className={"ws-cell ws-cell-btn" + (props.abierto === texto ? " on" : "")} aria-label={texto} onClick={() => props.onTexto(texto)}>
+      {icons}
+    </button>
+  );
 }
 
 function SlotSelect(props: {
@@ -431,11 +449,11 @@ function SlotSelect(props: {
         onChange={(event) => props.onValue(event.target.value as SlotValue)}
       >
         <option value="">— Libre —</option>
-        <option value="ingles">Inglés</option>
-        <option value="gimnasio">Gimnasio</option>
-        <option value="running">Running</option>
-        <option value="hogar">Hogar</option>
-        <option value="texto">Texto libre…</option>
+        <option value="ingles">🇬🇧 Inglés</option>
+        <option value="gimnasio">💪 Gimnasio</option>
+        <option value="running">🏃 Running</option>
+        <option value="hogar">🏠 Hogar</option>
+        <option value="texto">📌 Texto libre…</option>
       </select>
       {props.value === "texto" ? (
         <input
