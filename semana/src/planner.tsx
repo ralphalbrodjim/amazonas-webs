@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import agenda from "../data/agenda.json";
 import deporte from "../data/deporte.json";
 import { formatDay, shiftDay, shortDay, weekStart } from "./dates";
+import { loadInglesHechos, resumenIngles } from "./inglesChecks";
 
 const KEY = "semana-agenda-v1";
 
@@ -373,6 +374,10 @@ export function Planner(props: { hoy: string }) {
             return <span key={cat.id}>{cat.emoji} {cat.label} {done}/{items.length}</span>;
           })}
           {hechos.some((item) => item.value === "texto") ? <span>✏️ Texto {hechos.filter((item) => item.value === "texto" && item.hecho).length}/{hechos.filter((item) => item.value === "texto").length}</span> : null}
+          {(() => {
+            const clases = resumenIngles(diasSemana[0], diasSemana[6], loadInglesHechos());
+            return clases.total > 0 ? <span>🗣️ Clases {clases.hechas}/{clases.total}</span> : null;
+          })()}
         </div>
       </article>
 

@@ -3,11 +3,21 @@ import ingles from "../data/ingles.json";
 import deporte from "../data/deporte.json";
 import { formatDay, formatWhen, kg, km, madridToday, pend, shiftDay, signedKg, weekStart } from "./dates";
 import { Planner } from "./planner";
+import { INGLES_KEY, idClase, idDeber, idPrueba, loadInglesHechos, resumenIngles, semanaDe } from "./inglesChecks";
 
 type Tab = "agenda" | "ingles" | "deporte";
 
-function Pill(props: { kind: "miss" | "wait" | "neutral" | "recorded"; children: string }) {
+function Pill(props: { kind: "miss" | "wait" | "neutral" | "recorded" | "completo"; children: string }) {
   return <span className={`pill ${props.kind}`}>{props.children}</span>;
+}
+
+function CheckCompleto(props: { on: boolean; onToggle: () => void }) {
+  return (
+    <label className="hecho-check">
+      <input type="checkbox" checked={props.on} onChange={props.onToggle} />
+      {props.on ? "Completo" : "Marcar"}
+    </label>
+  );
 }
 
 function claseEstado(estado: string): { kind: "miss" | "wait" | "neutral"; label: string } {
@@ -55,15 +65,26 @@ export default function App() {
 }
 
 function Ingles() {
+  const hoy = madridToday();
+  const semana = semanaDe(hoy);
+  const [hechos, setHechos] = useState<string[]>(loadInglesHechos);
+  useEffect(() => {
+    try { localStorage.setItem(INGLES_KEY, JSON.stringify(hechos)); } catch { /* sin almacenamiento */ }
+  }, [hechos]);
+  const on = (id: string) => hechos.includes(id);
+  const toggle = (id: string) => setHechos((list) => list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
+  const cuenta = resumenIngles(semana.desde, semana.hasta, hechos);
   const prueba = ingles.prueba_de_nivel;
   const posteriores = ingles["clases_posteriores_hasta_2026-11-30"];
   const pruebaEstado = claseEstado(prueba.estado);
+  const pruebaOn = on(idPrueba());
 
   return (
     <section>
       <div className="kicker">Actualizado {formatWhen(ingles.actualizado)}</div>
       <h2>Inglés</h2>
       <p className="source">{ingles.fuente}</p>
+      <p className="lead">{cuenta.hechas} de {cuenta.total} completas esta semana.</p>
       <div className="stats">
         <article className="card">
           <div className="stat-label">Nivel actual</div>
@@ -91,26 +112,30 @@ function Ingles() {
         <div className="meta">
           <span>{formatDay(prueba.fecha_prevista)}</span>
           <span>{prueba.hora}</span>
-          <Pill kind={pruebaEstado.kind}>{pruebaEstado.label}</Pill>
+          {pruebaOn ? <Pill kind="completo">Completo</Pill> : <Pill kind={pruebaEstado.kind}>{pruebaEstado.label}</Pill>}
         </div>
         <p className="note">Resultado: {pend(prueba.resultado)}</p>
         <p className="note">{prueba.nota}</p>
+        <CheckCompleto on={pruebaOn} onToggle={() => toggle(idPrueba())} />
       </article>
 
       <div className="kicker">Clases</div>
       <div className="grid">
         {ingles.clases_programadas.map((clase) => {
           const estado = claseEstado(clase.estado);
+          const id = idClase(clase);
+          const marcado = on(id);
           return (
-            <article key={`${clase.profesor}-${clase.destreza}`} className="card">
+            <article key={id} className="card">
               <h3>{clase.destreza}</h3>
               <div className="meta">
                 <span>{clase.profesor}</span>
                 <span>{clase.fecha ? formatDay(clase.fecha) : "Fecha: Pendiente"}</span>
                 <span>Hora: {pend(clase.hora)}</span>
-                <Pill kind={estado.kind}>{estado.label}</Pill>
+                {marcado ? <Pill kind="completo">Completo</Pill> : <Pill kind={estado.kind}>{estado.label}</Pill>}
               </div>
               {"nota" in clase && clase.nota ? <p className="note">{clase.nota}</p> : null}
+              <CheckCompleto on={marcado} onToggle={() => toggle(id)} />
             </article>
           );
         })}
@@ -122,15 +147,18 @@ function Ingles() {
       <div className="grid">
         {ingles.deberes_pendientes.map((deber) => {
           const estado = deberEstado(deber.estado);
+          const id = idDeber(deber);
+          const marcado = on(id);
           return (
-            <article key={deber.profesor} className="card">
+            <article key={id} className="card">
               <h3>{deber.profesor}</h3>
               <div className="meta">
-                <Pill kind={estado.kind}>{estado.label}</Pill>
+                {marcado ? <Pill kind="completo">Completo</Pill> : <Pill kind={estado.kind}>{estado.label}</Pill>}
               </div>
               <p className="note">{deber.tarea}</p>
               <p className="note">Hacer: {deber.hacer}</p>
               <p className="note">Entrega: {formatWhen(deber.entrega)}</p>
+              <CheckCompleto on={marcado} onToggle={() => toggle(id)} />
             </article>
           );
         })}

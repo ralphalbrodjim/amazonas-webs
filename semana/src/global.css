@@ -184,6 +184,7 @@ h2 {
 .pill.wait { color: var(--wait); background: var(--wait-bg); }
 .pill.neutral { color: var(--green2); background: var(--soft); }
 .pill.recorded { color: var(--green); background: var(--soft); }
+.pill.completo { color: #fff; background: #1F3B34; }
 
 .day-head {
   display: flex;
