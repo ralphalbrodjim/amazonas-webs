@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import type { ChangeEvent, KeyboardEvent, ReactNode } from "react";
+import type { ChangeEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 
 const C = { green: "#1F3B34", green2: "#2F5A4B", kicker: "#4F7A63", cream: "#F5F1E8", card: "#FFFDF7", line: "#E4DDCF", text: "#1E2B27", muted: "#6B746F", soft: "#E6EEE7" };
 const SERIF = "Georgia, 'Times New Roman', serif";
@@ -416,20 +416,16 @@ export default function App() {
           </div>}
           <div style={{ ...muted, marginTop: 12 }}>{lista.length} de {R.length} recetas</div>
           {lista.length === 0 && <div style={{ ...card, marginTop: 12 }}><div>Ninguna receta cumple todos los filtros.</div><div style={{ marginTop: 8 }}><Button label="Limpiar filtros" variant="primary" onClick={limpiar} /></div></div>}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12, marginTop: 12 }}>
+          <div className="rec-grid">
             {[...lista].sort((a: Rec, b: Rec) => orden === "tiempo" ? a.t - b.t : orden === "fav" ? Number(st.fav.includes(b.n)) - Number(st.fav.includes(a.n)) || a.n.localeCompare(b.n, "es") : a.n.localeCompare(b.n, "es")).map((r: Rec) => (
-              <div key={r.n} style={{ ...card, padding: 0, overflow: "hidden", borderColor: abierta === r.n ? C.green : th.border.default }}>
-                <div style={{ background: GRADS[R.indexOf(r) % GRADS.length], height: 110, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 44 }}>{EMO(r)}</div>
-                <div style={{ padding: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                  <div style={{ fontWeight: 600, color: th.text.primary }}>{r.n}</div>
-                  <button aria-label="Favorito" style={{ ...chip(st.fav.includes(r.n)), padding: "2px 8px" }} onClick={() => toggleFav(r.n)}>{st.fav.includes(r.n) ? "★" : "☆"}</button>
-                </div>
-                <div style={{ ...muted, marginTop: 6 }}>{r.cc} · {r.t} min · {r.rac} raciones · {r.dif}{r.tm === "Sí" ? " · Thermomix" : ""}</div>
-                <div style={{ ...muted, marginTop: 4 }}>Sana: {r.sana} · Congelar: {r.cong.split(" (")[0]} · Nevera: {r.nev.split(" (")[0]} días{r.val ? " · " + r.val : ""}</div>
-                <div style={{ marginTop: 10 }}><Button label={abierta === r.n ? "Cerrar receta" : "Ver receta"} variant={abierta === r.n ? "quiet" : "primary"} onClick={() => { setAbierta(abierta === r.n ? "" : r.n); setRacR(0); }} /></div>
-                </div>
-              </div>
+              <button type="button" key={r.n} className="rec-card" aria-pressed={abierta === r.n} onClick={() => { setAbierta(abierta === r.n ? "" : r.n); setRacR(0); }} style={{ borderColor: abierta === r.n ? C.green : C.line }}>
+                <span className="rec-emoji" style={{ background: GRADS[R.indexOf(r) % GRADS.length] }}>{EMO(r)}</span>
+                <span className="rec-body">
+                  <span className="rec-name">{r.n}</span>
+                  <span className="rec-meta">{r.t} min{r.tm === "Sí" ? " · TM" : ""}</span>
+                </span>
+                <span role="button" aria-label={"Favorito " + r.n} className="rec-fav" onClick={(e: MouseEvent) => { e.stopPropagation(); e.preventDefault(); toggleFav(r.n); }}>{st.fav.includes(r.n) ? "★" : "☆"}</span>
+              </button>
             ))}
           </div>
         </Section>
