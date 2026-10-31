@@ -54,6 +54,42 @@ button {
   outline: none;
 }
 
+.rec-open {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.stars {
+  display: flex;
+  justify-content: center;
+  padding: 0 2px 6px;
+}
+
+.stars button {
+  border: none;
+  background: transparent;
+  color: #C8BBA8;
+  font-size: 16px;
+  line-height: 1;
+  width: 20px;
+  height: 28px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.stars button[aria-pressed="true"] { color: #C4A15A; }
+
+.stars.lg { justify-content: flex-start; padding: 2px 0 8px; }
+.stars.lg button { width: 44px; height: 44px; font-size: 30px; }
+
 .rec-emoji {
   height: 48px;
   display: flex;

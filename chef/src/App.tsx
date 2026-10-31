@@ -120,9 +120,9 @@ const emptyMenu = (): Record<string, string> => Object.fromEntries(SLOTS.map((s:
 type Saved = { semana: string; menu: Record<string, string>; rac: number };
 type Meal = { tipo: "receta" | "texto"; valor: string };
 type CalDay = { comida?: Meal; cena?: Meal };
-type St = { fav: string[]; menu: Record<string, string>; locked: string[]; rac: number; semana: string; saved: Saved[]; confirmado: Saved | null; checks: string[]; manual: { cat: string; t: string }[]; nevera: string[]; basicos: boolean; cal: Record<string, CalDay>; calCompra: string | null; platos: string[]; anadidas: string[] };
+type St = { fav: string[]; menu: Record<string, string>; locked: string[]; rac: number; semana: string; saved: Saved[]; confirmado: Saved | null; checks: string[]; manual: { cat: string; t: string }[]; nevera: string[]; basicos: boolean; cal: Record<string, CalDay>; calCompra: string | null; platos: string[]; anadidas: string[]; notas: Record<string, number> };
 const KEY = "chef-antracita-v1";
-const INIT: St = { fav: [], menu: emptyMenu(), locked: [], rac: 2, semana: "2026-11-02", saved: [], confirmado: null, checks: [], manual: [], nevera: [], basicos: true, cal: {}, calCompra: null, platos: [], anadidas: [] };
+const INIT: St = { fav: [], menu: emptyMenu(), locked: [], rac: 2, semana: "2026-11-02", saved: [], confirmado: null, checks: [], manual: [], nevera: [], basicos: true, cal: {}, calCompra: null, platos: [], anadidas: [], notas: {} };
 
 function hoyMadrid(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -169,6 +169,33 @@ function puntosDif(dif: string): number | null {
   if (dif === "Difícil") return 3;
   return null;
 }
+function notaBase(val: string): number {
+  const n = (val.match(/⭐/g) || []).length;
+  return n >= 1 && n <= 5 ? n : 0;
+}
+function notaDe(r: Rec, notas: Record<string, number> | undefined): number {
+  const map = notas || {};
+  if (Object.prototype.hasOwnProperty.call(map, r.n)) {
+    const n = map[r.n];
+    return n >= 1 && n <= 5 ? n : 0;
+  }
+  return notaBase(r.val);
+}
+function notasGuardadas(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== "object") return {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) if (typeof v === "number" && v >= 0 && v <= 5) out[k] = v;
+  return out;
+}
+function Estrellas(props: { value: number; onSet: (n: number) => void; grande?: boolean }) {
+  return (
+    <span className={props.grande ? "stars lg" : "stars"} role="group" aria-label={props.value ? props.value + " de 5" : "Sin valorar"}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button type="button" key={n} aria-label={n + (n === 1 ? " estrella" : " estrellas")} aria-pressed={props.value >= n} onClick={() => props.onSet(props.value === n ? 0 : n)}>{n <= props.value ? "★" : "☆"}</button>
+      ))}
+    </span>
+  );
+}
 function diaCorto(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   const wd = new Intl.DateTimeFormat("es-ES", { timeZone: "UTC", weekday: "narrow" }).format(new Date(Date.UTC(y, m - 1, d)));
@@ -191,7 +218,7 @@ const loadSt = (): St => {
         }
       }
     }
-    return { ...INIT, ...d, cal, calCompra: null, platos: d && Array.isArray(d.platos) ? d.platos.filter((p: unknown) => typeof p === "string") : [], anadidas };
+    return { ...INIT, ...d, cal, calCompra: null, platos: d && Array.isArray(d.platos) ? d.platos.filter((p: unknown) => typeof p === "string") : [], anadidas, notas: notasGuardadas(d && d.notas) };
   } catch (e) { /* sin almacenamiento */ }
   return INIT;
 };
@@ -235,6 +262,7 @@ export default function App() {
   const [fTM, setFTM] = useState<string>("todas");
   const [fCong, setFCong] = useState<string>("todas");
   const [fFav, setFFav] = useState<boolean>(false);
+  const [fTop, setFTop] = useState(false);
   const [abierta, setAbierta] = useState<string>("");
   const [racR, setRacR] = useState<number>(0);
   const [msg, setMsg] = useState<string>("");
@@ -266,9 +294,10 @@ export default function App() {
   if (fTM !== "todas") filtros.push({ k: "tm", label: "Thermomix: " + fTM, clear: () => setFTM("todas") });
   if (fCong !== "todas") filtros.push({ k: "co", label: fCong === "Sí" ? "Se congela" : "No se congela", clear: () => setFCong("todas") });
   if (fFav) filtros.push({ k: "f", label: "Favoritos", clear: () => setFFav(false) });
+  if (fTop) filtros.push({ k: "top", label: "Mejor valoradas", clear: () => setFTop(false) });
   if (fIng) filtros.push({ k: "ing", label: fIng, clear: () => setFIng("") });
   if (fTipo) filtros.push({ k: "tipo", label: fTipo, clear: () => setFTipo("") });
-  const limpiar = () => { setFCC("todas"); setFSana("todas"); setFDif("todas"); setFT("todas"); setFTM("todas"); setFCong("todas"); setFFav(false); setFIng(""); setFTipo(""); setQ(""); setQOn(false); };
+  const limpiar = () => { setFCC("todas"); setFSana("todas"); setFDif("todas"); setFT("todas"); setFTM("todas"); setFCong("todas"); setFFav(false); setFTop(false); setFIng(""); setFTipo(""); setQ(""); setQOn(false); };
 
   const lista = useMemo(() => R.filter((r: Rec) => {
     const nq = norm(q);
@@ -282,10 +311,12 @@ export default function App() {
     if (fTM !== "todas" && r.tm !== fTM) return false;
     if (fCong !== "todas" && !r.cong.startsWith(fCong)) return false;
     if (fFav && !st.fav.includes(r.n)) return false;
+    if (fTop && notaDe(r, st.notas) < 4) return false;
     return true;
-  }), [q, fCC, fSana, fDif, fT, fTM, fCong, fFav, fIng, fTipo, st.fav]);
+  }), [q, fCC, fSana, fDif, fT, fTM, fCong, fFav, fTop, fIng, fTipo, st.fav, st.notas]);
 
   const toggleFav = (n: string) => up({ fav: st.fav.includes(n) ? st.fav.filter((x: string) => x !== n) : [...st.fav, n] });
+  const puntuar = (nombre: string, n: number) => up({ notas: { ...(st.notas || {}), [nombre]: n } });
 
   const sorprender = () => {
     const cal: Record<string, CalDay> = { ...st.cal };
@@ -534,6 +565,7 @@ export default function App() {
             {sel(fTM, setFTM, [["todas", "Todas"], ["Sí", "Con Thermomix"], ["No", "Sin Thermomix"]], "Thermomix")}
             {sel(fCong, setFCong, [["todas", "Todas"], ["Sí", "Se congela"], ["No", "No se congela"]], "Conservación")}
             <Toggle label="Solo favoritos" value={fFav} onChange={setFFav} />
+            <button type="button" className={"tipo-chip" + (fTop ? " on" : "")} onClick={() => setFTop(!fTop)}>Mejor valoradas</button>
           </div>
           <div className="tipo-row" aria-label="Por tipo de plato">
             <button type="button" className={"tipo-chip" + (fTipo === "" ? " on" : "")} onClick={() => setFTipo("")}>Todos</button>
@@ -553,15 +585,18 @@ export default function App() {
           {lista.length === 0 && <div style={{ ...card, marginTop: 12 }}><div>Ninguna receta cumple todos los filtros.</div><div style={{ marginTop: 8 }}><Button label="Limpiar filtros" variant="primary" onClick={limpiar} /></div></div>}
           <div className="rec-grid">
             {[...lista].sort((a: Rec, b: Rec) => orden === "tiempo" ? a.t - b.t : orden === "fav" ? Number(st.fav.includes(b.n)) - Number(st.fav.includes(a.n)) || a.n.localeCompare(b.n, "es") : a.n.localeCompare(b.n, "es")).map((r: Rec) => (
-              <button type="button" key={r.n} className="rec-card" onClick={() => abrirReceta(r.n)}>
-                <span className="rec-emoji" style={{ background: GRADS[R.indexOf(r) % GRADS.length] }}>{EMO(r)}</span>
-                <span className="rec-body">
-                  <span className="rec-name">{r.n}</span>
-                  <span className="rec-meta">{r.t} min{r.tm === "Sí" ? " · TM" : ""}</span>
-                  {(r.sana === "Sí" || puntosDif(r.dif) !== null) ? <span className="rec-badges">{r.sana === "Sí" ? <span className="badge-sana">🥗 Sana</span> : null}{puntosDif(r.dif) !== null ? <span className="legend-dif" aria-label={r.dif}>{Array.from({ length: puntosDif(r.dif) as number }, (_, i: number) => <i key={i} className={"dot " + (r.dif === "Fácil" ? "facil" : r.dif === "Media" ? "media" : "dificil")} />)}</span> : null}</span> : null}
-                </span>
+              <div key={r.n} className="rec-card">
+                <button type="button" className="rec-open" onClick={() => abrirReceta(r.n)}>
+                  <span className="rec-emoji" style={{ background: GRADS[R.indexOf(r) % GRADS.length] }}>{EMO(r)}</span>
+                  <span className="rec-body">
+                    <span className="rec-name">{r.n}</span>
+                    <span className="rec-meta">{r.t} min{r.tm === "Sí" ? " · TM" : ""}</span>
+                    {(r.sana === "Sí" || puntosDif(r.dif) !== null) ? <span className="rec-badges">{r.sana === "Sí" ? <span className="badge-sana">🥗 Sana</span> : null}{puntosDif(r.dif) !== null ? <span className="legend-dif" aria-label={r.dif}>{Array.from({ length: puntosDif(r.dif) as number }, (_, i: number) => <i key={i} className={"dot " + (r.dif === "Fácil" ? "facil" : r.dif === "Media" ? "media" : "dificil")} />)}</span> : null}</span> : null}
+                  </span>
+                </button>
+                <Estrellas value={notaDe(r, st.notas)} onSet={(n) => puntuar(r.n, n)} />
                 <span role="button" aria-label={"Favorito " + r.n} className="rec-fav" onClick={(e: MouseEvent) => { e.stopPropagation(); e.preventDefault(); toggleFav(r.n); }}>{st.fav.includes(r.n) ? "★" : "☆"}</span>
-              </button>
+              </div>
             ))}
           </div>
         </Section>
@@ -742,6 +777,7 @@ export default function App() {
           <div className="rec-sheet-body" id="rec-sheet-body">
             <h2 id="rec-sheet-title" style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 28, color: C.green, margin: "0 0 8px", lineHeight: 1.2 }}>{rec.n}</h2>
             <div style={{ ...muted, marginBottom: 4 }}>{rec.t} min · {rec.dif} · {rec.cc} · {rec.sana === "Sí" ? "Sana" : rec.sana}</div>
+            <Estrellas grande value={notaDe(rec, st.notas)} onSet={(n) => puntuar(rec.n, n)} />
             <h3 style={{ fontFamily: SERIF, fontSize: 22, color: C.green, margin: "8px 0" }}>Ingredientes</h3>
             <Table columns={["Cantidad", "Ingrediente"]} rows={rec.ing.map((i: string[]) => [scaleQty(i[0], factor) ?? i[0], i[1]])} />
             <div style={{ ...row, marginTop: 8 }}>
@@ -759,7 +795,6 @@ export default function App() {
             <Properties items={[
               { label: "Ingrediente principal", value: rec.pr }, { label: "Comida / Cena", value: rec.cc }, { label: "Tiempo", value: rec.t + " min" }, { label: "Dificultad", value: rec.dif },
               { label: "¿Es sana?", value: rec.sana }, { label: "¿Thermomix?", value: rec.tm }, { label: "¿Se congela?", value: rec.cong }, { label: "Nevera (días tras hacerla)", value: rec.nev },
-              { label: "Valoración", value: rec.val || "Sin valorar todavía" },
             ]} />
           </div>
         </div>,
