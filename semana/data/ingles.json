@@ -1,0 +1,36 @@
+{
+  "actualizado": "2026-10-31T18:00:00+01:00",
+  "fuente": "Sir Edward · The Cambridge House (registro propio; lo no reportado por Alberto cuenta como no hecho)",
+  "nivel_actual": "B2 (estimado inicial, sin medir)",
+  "nivel_objetivo": "C1 Advanced (Cambridge)",
+  "plazo_objetivo_meses": 12,
+  "prueba_de_nivel": {
+    "fecha_prevista": "2026-10-31",
+    "hora": "11:00-11:45",
+    "estado": "no_realizada",
+    "nota": "Alberto no ha enviado respuestas; cuenta como no hecha. Ya se aplazó el 25/10, el 26/10 y el 27/10.",
+    "resultado": null
+  },
+  "clases_programadas": [
+    {"fecha": "2026-10-31", "hora": "11:45-12:30", "profesor": "Sir Edward", "destreza": "Corrección de la prueba de nivel", "estado": "no_realizada"},
+    {"fecha": "2026-11-01", "hora": "11:00-11:45", "profesor": "Oliver", "destreza": "Use of English", "estado": "programada"},
+    {"fecha": "2026-11-01", "hora": "11:45-12:30", "profesor": "James", "destreza": "Speaking (diagnóstico)", "estado": "programada"},
+    {"fecha": "2026-11-02", "hora": "11:00-11:45", "profesor": "Emma", "destreza": "Writing (essay Part 1)", "estado": "programada"},
+    {"fecha": null, "hora": null, "profesor": "Richard", "destreza": "Mini test mixto", "estado": "pendiente_de_fecha", "nota": "Pasa a la semana del 2/11; día por confirmar"}
+  ],
+  "clases_posteriores_hasta_2026-11-30": null,
+  "nota_calendario": "Los días de estudio se fijan cada semana con Alberto (vía Ralph); a partir del 3/11 no hay clases programadas todavía.",
+  "deberes_pendientes": [
+    {"profesor": "James", "tarea": "Leer un artículo corto (economía, tecnología o viajes), anotar 5 expresiones y preparar una charla de 2 minutos", "hacer": "2026-10-31 (tarde)", "entrega": "2026-11-01T11:45:00+01:00", "estado": "no_reportada"},
+    {"profesor": "Emma", "tarea": "Corregir 5 frases y escribir una introducción de ensayo de 40-60 palabras (universidad vs. empezar a trabajar)", "hacer": "2026-11-01", "entrega": "2026-11-02T11:00:00+01:00", "estado": "no_reportada"}
+  ],
+  "progreso_por_destreza": {
+    "speaking": null,
+    "listening": null,
+    "reading": null,
+    "use_of_english": null,
+    "writing": null
+  },
+  "clases_completadas": 0,
+  "minutos_completados": 0
+}

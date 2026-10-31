@@ -1,0 +1,103 @@
+{
+  "rango": {
+    "desde": "2026-10-31",
+    "hasta": "2026-11-30"
+  },
+  "zona_horaria": "Europe/Madrid",
+  "fuente": "Lola · Agenda (calendario unificado)",
+  "citas": [
+    {
+      "fecha": "2026-10-31",
+      "hora": null,
+      "titulo": "Viaje a Talavera",
+      "lugar": "Talavera",
+      "tipo": "personal",
+      "nota": "Por la mañana; a las 11:00 ya está allí. Hasta el lunes 2 nov."
+    },
+    {
+      "fecha": "2026-10-31",
+      "hora": "11:00-11:45",
+      "titulo": "Inglés: prueba de nivel (Sir Edward)",
+      "lugar": "Talavera (desde el ordenador)",
+      "tipo": "ingles",
+      "nota": null
+    },
+    {
+      "fecha": "2026-10-31",
+      "hora": "11:45-12:30",
+      "titulo": "Inglés: corrección de la prueba (Sir Edward)",
+      "lugar": "Talavera (desde el ordenador)",
+      "tipo": "ingles",
+      "nota": null
+    },
+    {
+      "fecha": "2026-10-31",
+      "hora": "tarde",
+      "titulo": "Hacer tarea para James",
+      "lugar": "Talavera",
+      "tipo": "tarea",
+      "nota": "Leer un artículo, anotar 5 frases, charla de 2 min"
+    },
+    {
+      "fecha": "2026-10-31",
+      "hora": "17:30",
+      "titulo": "Correr",
+      "lugar": "Talavera",
+      "tipo": "deporte",
+      "nota": null
+    },
+    {
+      "fecha": "2026-11-01",
+      "hora": "11:00-11:45",
+      "titulo": "Inglés: Use of English, errores (Oliver)",
+      "lugar": "Talavera (desde el ordenador)",
+      "tipo": "ingles",
+      "nota": "Recupera la clase del miércoles 28"
+    },
+    {
+      "fecha": "2026-11-01",
+      "hora": "11:45-12:30",
+      "titulo": "Inglés: Speaking, diagnóstico (James)",
+      "lugar": "Talavera (desde el ordenador)",
+      "tipo": "ingles",
+      "nota": null
+    },
+    {
+      "fecha": "2026-11-01",
+      "hora": null,
+      "titulo": "Hacer tarea para Emma",
+      "lugar": "Talavera",
+      "tipo": "tarea",
+      "nota": "Corregir 5 frases + introducción de essay (40-60 palabras)"
+    },
+    {
+      "fecha": "2026-11-02",
+      "hora": null,
+      "titulo": "Festivo · fin del viaje a Talavera",
+      "lugar": "Talavera",
+      "tipo": "personal",
+      "nota": "No trabaja; hora de vuelta sin confirmar"
+    },
+    {
+      "fecha": "2026-11-02",
+      "hora": "11:00-11:45",
+      "titulo": "Inglés: Writing, essay Part 1 (Emma)",
+      "lugar": null,
+      "tipo": "ingles",
+      "nota": "Desde el ordenador"
+    }
+  ],
+  "pendientes_sin_fecha": [
+    {
+      "titulo": "Entregar tarea de James",
+      "tipo": "tarea",
+      "nota": "Hora de entrega sin confirmar"
+    },
+    {
+      "titulo": "Entregar tarea de Emma",
+      "tipo": "tarea",
+      "nota": "Hora de entrega sin confirmar"
+    }
+  ],
+  "aviso": "Del 3 al 30 de noviembre no hay nada registrado en la agenda."
+}

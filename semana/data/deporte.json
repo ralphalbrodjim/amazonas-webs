@@ -1,0 +1,239 @@
+{
+  "actualizado": "2026-10-31T18:00+01:00",
+  "fuente": "Rocky · Runner (datos reportados por Alberto; lo no reportado cuenta como no hecho)",
+  "running": {
+    "octubre_2026": {
+      "registros": [
+        {
+          "fecha": "2026-10-10",
+          "km": 5.6,
+          "tiempo": "44:45",
+          "ritmo_min_km": "7:59",
+          "nota": null
+        },
+        {
+          "fecha": "2026-10-13",
+          "km": 4.12,
+          "tiempo": "32:45",
+          "ritmo_min_km": "7:57",
+          "nota": null
+        },
+        {
+          "fecha": "2026-10-14",
+          "km": 3.01,
+          "tiempo": "25:35",
+          "ritmo_min_km": "8:30",
+          "nota": null
+        },
+        {
+          "fecha": "2026-10-18",
+          "km": 2.26,
+          "tiempo": "15:46",
+          "ritmo_min_km": "6:59",
+          "nota": null
+        },
+        {
+          "fecha": "2026-10-19",
+          "km": 4.05,
+          "tiempo": "27:07",
+          "ritmo_min_km": "6:42",
+          "nota": null
+        },
+        {
+          "fecha": "2026-10-21",
+          "km": 1.13,
+          "tiempo": "8:33",
+          "ritmo_min_km": "7:34",
+          "nota": null
+        },
+        {
+          "fecha": "2026-10-22",
+          "km": 3.06,
+          "tiempo": "20:46",
+          "ritmo_min_km": "6:47",
+          "nota": null
+        },
+        {
+          "fecha": "2026-10-25",
+          "km": 10.35,
+          "tiempo": "1:02:10",
+          "ritmo_min_km": "6:00",
+          "nota": "Derbi de las Aficiones (09:00)"
+        },
+        {
+          "fecha": "2026-10-31",
+          "km": 2.0,
+          "tiempo": null,
+          "ritmo_min_km": null,
+          "nota": "Talavera; tiempo no reportado"
+        }
+      ],
+      "excluidas": [
+        {
+          "fecha": "2026-10-15",
+          "km": 0.18,
+          "motivo": "Dudosa: GPS encendido 9:41:31, no cuenta"
+        }
+      ],
+      "total_km": 35.58,
+      "salidas_validas": 9,
+      "ritmo_medio_min_km": "7:04",
+      "ritmo_medio_nota": "Calculado sobre las 8 salidas con tiempo (33,58 km); la del 31/10 no tiene tiempo",
+      "mejor_ritmo": {
+        "fecha": "2026-10-25",
+        "km": 10.35,
+        "ritmo_min_km": "6:00"
+      },
+      "objetivo_km": 40,
+      "objetivo_cumplido": false,
+      "no_hechas": [
+        {
+          "fecha": "2026-10-27",
+          "plan": "3 km"
+        },
+        {
+          "fecha": "2026-10-28",
+          "plan": "4 km"
+        },
+        {
+          "fecha": "2026-10-29",
+          "plan": "4 km (plan B)"
+        }
+      ]
+    },
+    "noviembre_2026": {
+      "objetivo_km": 40,
+      "estado": "Propuesta de Rocky, pendiente de confirmar por Alberto",
+      "criterio": "2 salidas por semana (miércoles suave y sábado más larga), subida progresiva; horas por definir",
+      "plan": [
+        {
+          "fecha": "2026-11-04",
+          "dia": "mié",
+          "km": 4,
+          "tipo": "suave"
+        },
+        {
+          "fecha": "2026-11-07",
+          "dia": "sáb",
+          "km": 4,
+          "tipo": "suave"
+        },
+        {
+          "fecha": "2026-11-11",
+          "dia": "mié",
+          "km": 4,
+          "tipo": "suave"
+        },
+        {
+          "fecha": "2026-11-14",
+          "dia": "sáb",
+          "km": 5,
+          "tipo": "tirada larga"
+        },
+        {
+          "fecha": "2026-11-18",
+          "dia": "mié",
+          "km": 5,
+          "tipo": "suave"
+        },
+        {
+          "fecha": "2026-11-21",
+          "dia": "sáb",
+          "km": 6,
+          "tipo": "tirada larga"
+        },
+        {
+          "fecha": "2026-11-25",
+          "dia": "mié",
+          "km": 5,
+          "tipo": "suave"
+        },
+        {
+          "fecha": "2026-11-28",
+          "dia": "sáb",
+          "km": 7,
+          "tipo": "tirada larga"
+        }
+      ],
+      "total_planificado_km": 40,
+      "realizados_km": 0
+    }
+  },
+  "gimnasio": {
+    "registradas": [],
+    "no_hechas": [
+      {
+        "fecha": "2026-10-26",
+        "plan": "cuerpo completo suave",
+        "motivo": "no reportada"
+      },
+      {
+        "fecha": "2026-10-29",
+        "plan": "pierna/superior + core",
+        "motivo": "no reportada"
+      }
+    ],
+    "planificadas_noviembre": {
+      "estado": "Propuesta, horas por definir",
+      "patron_semanal": [
+        {
+          "dia": "lun",
+          "contenido": "cuerpo completo"
+        },
+        {
+          "dia": "jue",
+          "contenido": "pierna + core"
+        },
+        {
+          "dia": "vie",
+          "contenido": "tren superior + core (sin pierna, que el sábado se corre)"
+        }
+      ],
+      "fechas": [
+        "2026-11-02",
+        "2026-11-05",
+        "2026-11-06",
+        "2026-11-09",
+        "2026-11-12",
+        "2026-11-13",
+        "2026-11-16",
+        "2026-11-19",
+        "2026-11-20",
+        "2026-11-23",
+        "2026-11-26",
+        "2026-11-27",
+        "2026-11-30"
+      ],
+      "nota": "El lunes 2/11 sigue en Talavera: si no hay gym allí, esa sesión se cae"
+    },
+    "descanso": "martes y domingo"
+  },
+  "peso": {
+    "altura_cm": 177,
+    "objetivo_kg": 82,
+    "inicio": {
+      "fecha": "2026-10-25",
+      "kg": 87.0
+    },
+    "historico": [
+      {
+        "fecha": "2026-10-25",
+        "kg": 87.0
+      },
+      {
+        "fecha": "2026-10-27",
+        "kg": 87.3
+      },
+      {
+        "fecha": "2026-10-28",
+        "kg": 87.4
+      }
+    ],
+    "ultimo": {
+      "fecha": "2026-10-28",
+      "kg": 87.4,
+      "cambio_desde_inicio_kg": 0.4
+    },
+    "faltan_kg": 5.4
+  }
+}

@@ -6,11 +6,14 @@
     "typecheck": "tsc --noEmit",
     "build:chef": "vite build --config chef/vite.config.ts",
     "build:warren": "vite build --config warren/vite.config.ts",
-    "build": "npm run typecheck && npm run build:chef && npm run build:warren && node scripts/assemble.mjs",
+    "build:semana": "vite build --config semana/vite.config.ts",
+    "build": "npm run typecheck && npm run build:chef && npm run build:warren && npm run build:semana && node scripts/assemble.mjs",
     "dev:chef": "vite --config chef/vite.config.ts",
     "dev:warren": "vite --config warren/vite.config.ts",
     "preview:chef": "vite preview --config chef/vite.config.ts",
-    "preview:warren": "vite preview --config warren/vite.config.ts"
+    "preview:warren": "vite preview --config warren/vite.config.ts",
+    "dev:semana": "vite --config semana/vite.config.ts",
+    "preview:semana": "vite preview --config semana/vite.config.ts"
   },
   "dependencies": {
     "react": "^19.1.1",

@@ -10,10 +10,11 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
+    "resolveJsonModule": true,
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["chef/src", "warren/src"]
+  "include": ["chef/src", "warren/src", "semana/src", "semana/data"]
 }
