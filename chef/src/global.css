@@ -165,19 +165,44 @@ button {
   overflow: hidden;
 }
 
+.ws-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ws-ico, .ws-cart, .ws-add {
+  border-radius: 8px;
+  border: 1px solid #E4DDCF;
+  background: #F5F1E8;
+  color: #1F3B34;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ws-ico {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.ws-add {
+  min-height: 32px;
+  width: 100%;
+  font-size: 13px;
+  padding: 4px 6px;
+}
+
 .ws-cart {
   flex: none;
-  width: 100%;
-  min-height: 44px;
-  border-radius: 10px;
-  border: 1px solid #2F5A4B;
-  background: #E6EEE7;
-  color: #1F3B34;
+  width: auto;
+  min-height: 28px;
+  min-width: 28px;
+  padding: 0 6px;
   font-size: 13px;
-  font-weight: 700;
-  line-height: 1.15;
-  padding: 6px 4px;
-  cursor: pointer;
+  line-height: 1;
 }
 
 .ws-cart.on {
@@ -192,8 +217,48 @@ button.ws-link {
   color: #1F3B34;
   font-weight: 700;
   text-align: left;
-  padding: 4px 0;
+  padding: 0;
   cursor: pointer;
+}
+
+.cal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  border: none;
+  background: rgba(30, 43, 39, 0.35);
+}
+
+.cal-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 91;
+  max-height: 78dvh;
+  display: flex;
+  flex-direction: column;
+  background: #FFFDF7;
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.16);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.cal-sheet-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px 0;
+  font-size: 16px;
+}
+
+.cal-sheet-bar .ws-add { width: auto; padding: 6px 12px; }
+
+.cal-sheet-body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 14px 20px;
 }
 
 .rec-sheet {

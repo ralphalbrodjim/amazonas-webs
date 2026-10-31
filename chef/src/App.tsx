@@ -231,7 +231,7 @@ export default function App() {
   const [mes, setMes] = useState<string>(hoy.slice(0, 7));
   const [diaCal, setDiaCal] = useState<string>(hoy);
   const [semanaElegida, setSemanaElegida] = useState<string>(weekStart(hoy));
-  const [editSlot, setEditSlot] = useState<"" | "comida" | "cena">("");
+  const [editHueco, setEditHueco] = useState<{ fecha: string; slot: "comida" | "cena" } | null>(null);
   const [qCal, setQCal] = useState<string>("");
   const [txtCal, setTxtCal] = useState<string>("");
 
@@ -319,7 +319,15 @@ export default function App() {
       const anadidas = meal ? (s.anadidas || []) : (s.anadidas || []).filter((k: string) => k !== fecha + "|" + slot);
       return { ...s, cal, platos, anadidas };
     });
-    setEditSlot("");
+    setEditHueco(null);
+  };
+  const abrirHueco = (fecha: string, slot: "comida" | "cena") => {
+    const actual = st.cal[fecha]?.[slot];
+    setDiaCal(fecha);
+    setEditHueco({ fecha, slot });
+    setQCal("");
+    setTxtCal(actual && actual.tipo === "texto" ? actual.valor : "");
+    window.setTimeout(() => document.getElementById("plato-libre")?.focus(), 40);
   };
   const quitarPlato = (nombre: string) => setSt((s: St) => ({ ...s, platos: (s.platos || []).filter((p: string) => norm(p) !== norm(nombre)) }));
   const claveHueco = (fecha: string, slot: "comida" | "cena") => fecha + "|" + slot;
@@ -379,7 +387,7 @@ export default function App() {
     setUndoLimpia({ dias, anadidas: quitadas });
     setUndoGen(null);
     setPedirLimpia(false);
-    setEditSlot("");
+    setEditHueco(null);
     setMsg("Semana borrada. También se quitó de la compra.");
   };
   const deshacerLimpia = () => {
@@ -543,7 +551,7 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4, marginTop: 12 }}>
             {["L", "M", "X", "J", "V", "S", "D"].map((d: string) => <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: C.muted }}>{d}</div>)}
             {monthCells(mes).map((fecha: string | null, i: number) => fecha ? (
-              <button type="button" key={fecha} onClick={() => { setDiaCal(fecha); setSemanaElegida(weekStart(fecha)); setEditSlot(""); window.setTimeout(() => document.getElementById("cal-semana")?.scrollIntoView({ block: "start" }), 40); }} aria-label={tituloDia(fecha)} style={{ minHeight: 64, borderRadius: 10, padding: 3, textAlign: "left", cursor: "pointer", border: fecha === diaCal ? `2px solid ${C.green}` : fecha === hoy ? `2px solid ${C.kicker}` : `1px solid ${C.line}`, background: fecha >= semanaElegida && fecha <= shiftDay(semanaElegida, 6) ? C.soft : C.card, color: C.text }}>
+              <button type="button" key={fecha} onClick={() => { setDiaCal(fecha); setSemanaElegida(weekStart(fecha)); setEditHueco(null); window.setTimeout(() => document.getElementById("cal-semana")?.scrollIntoView({ block: "start" }), 40); }} aria-label={tituloDia(fecha)} style={{ minHeight: 64, borderRadius: 10, padding: 3, textAlign: "left", cursor: "pointer", border: fecha === diaCal ? `2px solid ${C.green}` : fecha === hoy ? `2px solid ${C.kicker}` : `1px solid ${C.line}`, background: fecha >= semanaElegida && fecha <= shiftDay(semanaElegida, 6) ? C.soft : C.card, color: C.text }}>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>{Number(fecha.slice(8))}</div>
                 {(["comida", "cena"] as const).map((slot) => { const m = st.cal[fecha]?.[slot]; return m ? <div key={slot} style={{ fontSize: 9, lineHeight: 1.15, overflow: "hidden", whiteSpace: "nowrap", color: m.tipo === "receta" ? C.green : C.muted }}>{slot === "comida" ? "C " : "N "}{corto(m)}</div> : null; })}
               </button>
@@ -564,14 +572,24 @@ export default function App() {
               <span className="ws-h">Cena</span>
               {Array.from({ length: 7 }, (_, i: number) => shiftDay(semanaElegida, i)).map((fecha: string) => (
                 <div key={fecha} style={{ display: "contents" }}>
-                  <button type="button" className="ws-day" onClick={() => { setDiaCal(fecha); setEditSlot(""); }}>{diaCorto(fecha)}</button>
+                  <span className="ws-day">{diaCorto(fecha)}</span>
                   {(["comida", "cena"] as const).map((slot) => {
                     const m = st.cal[fecha]?.[slot];
                     const puesta = yaAnadida(fecha, slot);
                     return (
                       <div key={slot} className="ws-cell">
-                        {m && m.tipo === "receta" ? <button type="button" className="ws-name ws-link" onClick={() => abrirReceta(m.valor)}>{m.valor}</button> : <span className="ws-name">{m ? m.valor : "—"}</span>}
-                        {m ? <button type="button" className={"ws-cart" + (puesta ? " on" : "")} aria-pressed={puesta} aria-label={(puesta ? "Quitar de la compra: " : "Añadir a la compra: ") + m.valor} onClick={() => toggleHueco(fecha, slot)}>{puesta ? "✓ En la compra" : "🛒 Añadir"}</button> : null}
+                        {m ? (
+                          <>
+                            {m.tipo === "receta" ? <button type="button" className="ws-name ws-link" onClick={() => abrirReceta(m.valor)}>{m.valor}</button> : <span className="ws-name">{m.valor}</span>}
+                            <div className="ws-actions">
+                              <button type="button" className="ws-ico" aria-label={"Editar " + m.valor} onClick={() => abrirHueco(fecha, slot)}>✏️</button>
+                              <button type="button" className="ws-ico" aria-label={"Borrar " + m.valor} onClick={() => setMeal(fecha, slot, null)}>🗑</button>
+                              <button type="button" className={"ws-cart" + (puesta ? " on" : "")} aria-pressed={puesta} aria-label={(puesta ? "Quitar de la compra: " : "Añadir a la compra: ") + m.valor} onClick={() => toggleHueco(fecha, slot)}>{puesta ? "✓" : "🛒"}</button>
+                            </div>
+                          </>
+                        ) : (
+                          <button type="button" className="ws-add" onClick={() => abrirHueco(fecha, slot)}>+ Añadir</button>
+                        )}
                       </div>
                     );
                   })}
@@ -597,55 +615,40 @@ export default function App() {
             )}
             {msg ? <div style={{ ...muted, marginTop: 8 }}>{msg}</div> : null}
           </div>
-          <div id="cal-dia" style={{ ...card, marginTop: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-              <div style={{ fontFamily: SERIF, fontSize: 22 }}>{tituloDia(diaCal)}{diaCal === hoy ? " · Hoy" : ""}</div>
-            </div>
-            {(["comida", "cena"] as const).map((slot) => {
-              const meal = st.cal[diaCal]?.[slot];
-              const abiertaEd = editSlot === slot;
-              const filtro = norm(qCal);
-              const opciones = R.filter((r: Rec) => !filtro || norm(r.n).includes(filtro));
-              return (
-                <div key={slot} style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.line}` }}>
-                  <div style={{ fontWeight: 700, letterSpacing: 1 }}>{slot === "comida" ? "COMIDA" : "CENA"}</div>
-                  {meal && !abiertaEd ? (
-                    <div style={{ marginTop: 8 }}>
-                      {meal.tipo === "receta" ? <button type="button" onClick={() => abrirReceta(meal.valor)} style={{ display: "block", width: "100%", minHeight: 48, textAlign: "left", border: "none", background: "transparent", color: C.green, fontSize: 18, fontWeight: 700, padding: 0, cursor: "pointer" }}>{meal.valor}</button> : <div style={{ fontSize: 18 }}>{meal.valor}</div>}
-                      <div style={{ ...muted, marginTop: 4 }}>{meal.tipo === "receta" ? "Receta del recetario" : "Plato propio"}</div>
-                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                        {meal.tipo === "receta" && R.some((r: Rec) => r.n === meal.valor) ? <button type="button" onClick={() => abrirReceta(meal.valor)} style={{ minHeight: 48, flex: 1, borderRadius: 999, border: "none", background: C.green, color: "#fff", fontWeight: 700, fontSize: 16 }}>Ver receta</button> : null}
-                        <button type="button" onClick={() => { setEditSlot(slot); setQCal(""); setTxtCal(meal.tipo === "texto" ? meal.valor : ""); }} style={{ minHeight: 48, flex: 1, borderRadius: 999, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700, fontSize: 16 }}>Editar</button>
-                        <button type="button" onClick={() => setMeal(diaCal, slot, null)} style={{ minHeight: 48, flex: 1, borderRadius: 999, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700, fontSize: 16 }}>Borrar</button>
+          {editHueco ? (() => {
+            const filtro = norm(qCal);
+            const opciones = R.filter((r: Rec) => !filtro || norm(r.n).includes(filtro));
+            const platos = (st.platos || []).filter((p: string) => !filtro || norm(p).includes(filtro));
+            return (
+              <>
+                <button type="button" className="cal-backdrop" aria-label="Cerrar el fondo" onClick={() => setEditHueco(null)} />
+                <div className="cal-sheet" role="dialog" aria-label={(editHueco.slot === "comida" ? "Comida" : "Cena") + " " + diaCorto(editHueco.fecha)}>
+                  <div className="cal-sheet-bar">
+                    <strong>{editHueco.slot === "comida" ? "Comida" : "Cena"} · {diaCorto(editHueco.fecha)}</strong>
+                    <button type="button" className="ws-add" onClick={() => setEditHueco(null)}>Cerrar</button>
+                  </div>
+                  <div className="cal-sheet-body">
+                    <label htmlFor="plato-libre" style={{ fontSize: 13, color: C.muted }}>Texto libre</label>
+                    <input id="plato-libre" enterKeyHint="done" value={txtCal} placeholder="Tortilla de la abuela" onChange={(e: ChangeEvent<HTMLInputElement>) => setTxtCal(e.target.value)} onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter" && txtCal.trim()) setMeal(editHueco.fecha, editHueco.slot, { tipo: "texto", valor: txtCal.trim() }); }} style={{ width: "100%", minHeight: 48, fontSize: 16, borderRadius: 12, border: `1px solid ${C.line}`, padding: "10px 12px", marginTop: 6, boxSizing: "border-box" }} />
+                    <button type="button" onClick={() => { if (txtCal.trim()) setMeal(editHueco.fecha, editHueco.slot, { tipo: "texto", valor: txtCal.trim() }); }} style={{ minHeight: 48, width: "100%", marginTop: 8, borderRadius: 999, border: "none", background: C.green, color: "#fff", fontWeight: 700, fontSize: 16 }}>Guardar este plato</button>
+                    {platos.length > 0 ? <div style={{ marginTop: 16, fontWeight: 700 }}>Mis platos</div> : null}
+                    {platos.map((p: string) => (
+                      <div key={p} style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <button type="button" onClick={() => setMeal(editHueco.fecha, editHueco.slot, { tipo: "texto", valor: p })} style={{ flex: 1, minHeight: 48, textAlign: "left", borderRadius: 12, border: `1px solid ${C.line}`, background: "#F3E2C7", padding: "8px 12px", fontSize: 16, fontWeight: 700 }}>Plato propio · {p}</button>
+                        <button type="button" aria-label={"Quitar " + p + " de Mis platos"} onClick={() => quitarPlato(p)} style={{ minWidth: 72, minHeight: 48, borderRadius: 12, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700 }}>Quitar</button>
                       </div>
+                    ))}
+                    <div style={{ marginTop: 16, fontWeight: 700 }}>Recetas del libro</div>
+                    <div style={{ marginTop: 8 }}><Input value={qCal} onChange={setQCal} placeholder="Buscar receta…" /></div>
+                    <div style={{ maxHeight: 240, overflowY: "auto", marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                      {opciones.map((r: Rec) => <button type="button" key={r.n} onClick={() => setMeal(editHueco.fecha, editHueco.slot, { tipo: "receta", valor: r.n })} style={{ minHeight: 48, textAlign: "left", borderRadius: 12, border: `1px solid ${C.line}`, background: C.card, padding: "8px 12px", cursor: "pointer", color: C.text, fontSize: 16 }}>{r.n}</button>)}
+                      {opciones.length === 0 ? <div style={muted}>Ninguna receta con ese nombre.</div> : null}
                     </div>
-                  ) : !abiertaEd ? (
-                    <div style={{ marginTop: 8 }}><button type="button" onClick={() => { setEditSlot(slot); setQCal(""); setTxtCal(""); window.setTimeout(() => document.getElementById("plato-libre")?.focus(), 40); }} style={{ minHeight: 48, width: "100%", borderRadius: 999, border: `1px solid ${C.line}`, background: C.soft, color: C.green, fontWeight: 700, fontSize: 16, cursor: "pointer" }}>Añadir</button></div>
-                  ) : (
-                    <div style={{ marginTop: 8 }}>
-                      <label htmlFor="plato-libre" style={{ fontSize: 13, color: C.muted }}>Plato inventado</label>
-                      <input id="plato-libre" enterKeyHint="done" value={txtCal} placeholder="Tortilla de la abuela" onChange={(e: ChangeEvent<HTMLInputElement>) => setTxtCal(e.target.value)} onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter" && txtCal.trim()) setMeal(diaCal, slot, { tipo: "texto", valor: txtCal.trim() }); }} style={{ width: "100%", minHeight: 48, fontSize: 16, borderRadius: 12, border: `1px solid ${C.line}`, padding: "10px 12px", marginTop: 6, boxSizing: "border-box" }} />
-                      <button type="button" onClick={() => { if (txtCal.trim()) setMeal(diaCal, slot, { tipo: "texto", valor: txtCal.trim() }); }} style={{ minHeight: 48, width: "100%", marginTop: 8, borderRadius: 999, border: "none", background: C.green, color: "#fff", fontWeight: 700, fontSize: 16 }}>Guardar este plato</button>
-                      {(st.platos || []).filter((p: string) => !filtro || norm(p).includes(filtro)).length > 0 ? <div style={{ marginTop: 16, fontWeight: 700 }}>Mis platos</div> : null}
-                      {(st.platos || []).filter((p: string) => !filtro || norm(p).includes(filtro)).map((p: string) => (
-                        <div key={p} style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                          <button type="button" onClick={() => setMeal(diaCal, slot, { tipo: "texto", valor: p })} style={{ flex: 1, minHeight: 48, textAlign: "left", borderRadius: 12, border: `1px solid ${C.line}`, background: "#F3E2C7", padding: "8px 12px", fontSize: 16, fontWeight: 700 }}>Plato propio · {p}</button>
-                          <button type="button" aria-label={"Quitar " + p + " de Mis platos"} onClick={() => quitarPlato(p)} style={{ minWidth: 72, minHeight: 48, borderRadius: 12, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700 }}>Quitar</button>
-                        </div>
-                      ))}
-                      <div style={{ marginTop: 16, fontWeight: 700 }}>Recetas del libro</div>
-                      <div style={{ marginTop: 8 }}><Input value={qCal} onChange={setQCal} placeholder="Buscar receta…" /></div>
-                      <div style={{ maxHeight: 220, overflowY: "auto", marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-                        {opciones.map((r: Rec) => <button type="button" key={r.n} onClick={() => setMeal(diaCal, slot, { tipo: "receta", valor: r.n })} style={{ minHeight: 48, textAlign: "left", borderRadius: 12, border: `1px solid ${C.line}`, background: C.card, padding: "8px 12px", cursor: "pointer", color: C.text, fontSize: 16 }}>{r.n}</button>)}
-                        {opciones.length === 0 ? <div style={muted}>Ninguna receta con ese nombre.</div> : null}
-                      </div>
-                      <button type="button" onClick={() => setEditSlot("")} style={{ minHeight: 48, width: "100%", marginTop: 8, borderRadius: 999, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700, fontSize: 16 }}>Cancelar</button>
-                    </div>
-                  )}
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+              </>
+            );
+          })() : null}
         </Section>
       )}
 
