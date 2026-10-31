@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ingles from "../data/ingles.json";
 import deporte from "../data/deporte.json";
 import { formatDay, formatWhen, kg, km, madridToday, pend, signedKg } from "./dates";
@@ -163,28 +163,62 @@ function etiquetaDestreza(key: string): string {
   return names[key] ?? key;
 }
 
+const DEPORTE_KEY = "semana-deporte-v1";
+
+function loadHechas(): string[] {
+  try {
+    const raw = localStorage.getItem(DEPORTE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function kmDePlan(plan: string): number {
+  const match = plan.match(/(\d+(?:[.,]\d+)?)/);
+  return match ? Number(match[1].replace(",", ".")) : 0;
+}
+
 function Deporte() {
+  const hoy = madridToday();
+  const [hechas, setHechas] = useState<string[]>(loadHechas);
+  useEffect(() => {
+    try { localStorage.setItem(DEPORTE_KEY, JSON.stringify(hechas)); } catch { /* sin almacenamiento */ }
+  }, [hechas]);
+  const hecha = (id: string) => hechas.includes(id);
+  const toggle = (id: string) => setHechas((list) => list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
+  const visible = (fecha: string, id: string) => fecha >= hoy || hecha(id);
+
   const octubre = deporte.running.octubre_2026;
   const noviembre = deporte.running.noviembre_2026;
   const gym = deporte.gimnasio;
   const peso = deporte.peso;
-  const octubrePct = Math.min(100, (octubre.total_km / octubre.objetivo_km) * 100);
-  const noviembrePct = Math.min(100, (noviembre.realizados_km / noviembre.objetivo_km) * 100);
+  const octExtra = octubre.no_hechas.filter((item) => hecha("run:" + item.fecha)).reduce((sum, item) => sum + kmDePlan(item.plan), 0);
+  const octKm = octubre.total_km + octExtra;
+  const novKm = noviembre.realizados_km + noviembre.plan.filter((sesion) => hecha("run:" + sesion.fecha)).reduce((sum, sesion) => sum + sesion.km, 0);
+  const octubrePct = Math.min(100, (octKm / octubre.objetivo_km) * 100);
+  const noviembrePct = Math.min(100, (novKm / noviembre.objetivo_km) * 100);
   const sinSalidas = noviembre.sin_salidas;
   const parada = gym.planificadas_noviembre.parada;
+  const noHechasRun = octubre.no_hechas.filter((item) => visible(item.fecha, "run:" + item.fecha));
+  const planNov = noviembre.plan.filter((sesion) => visible(sesion.fecha, "run:" + sesion.fecha));
+  const noHechasGym = gym.no_hechas.filter((item) => visible(item.fecha, "gym:" + item.fecha));
+  const planGym = gym.planificadas_noviembre.sesiones.filter((sesion) => visible(sesion.fecha, "gym:" + sesion.fecha));
 
   return (
     <section>
       <div className="kicker">Actualizado {formatWhen(deporte.actualizado)}</div>
       <h2>Running y gimnasio</h2>
       <p className="source">{deporte.fuente}</p>
+      <p className="lead">Las sesiones de días anteriores que no marques como hechas no se muestran. Las hechas se quedan y son las únicas que suman kilómetros.</p>
 
       <div className="kicker">Octubre 2026</div>
       <div className="stats">
         <article className="card">
           <div className="stat-label">Kilómetros</div>
-          <div className="stat-value">{km(octubre.total_km)}</div>
-          <div className="stat-label">{octubre.salidas_validas} salidas válidas</div>
+          <div className="stat-value">{km(octKm)}</div>
+          <div className="stat-label">{octubre.salidas_validas + octubre.no_hechas.filter((item) => hecha("run:" + item.fecha)).length} salidas válidas</div>
         </article>
         <article className="card">
           <div className="stat-label">Objetivo</div>
@@ -204,10 +238,10 @@ function Deporte() {
       </div>
       <article className="card" style={{ marginTop: 12 }}>
         <h3>Hacia los {km(octubre.objetivo_km)} km</h3>
-        <div className="track" role="meter" aria-valuemin={0} aria-valuemax={octubre.objetivo_km} aria-valuenow={octubre.total_km} aria-label="Kilómetros de octubre">
+        <div className="track" role="meter" aria-valuemin={0} aria-valuemax={octubre.objetivo_km} aria-valuenow={octKm} aria-label="Kilómetros de octubre">
           <div className="fill" style={{ width: `${octubrePct}%` }} />
         </div>
-        <p className="note">{km(octubre.total_km)} de {km(octubre.objetivo_km)} km. {octubre.ritmo_medio_nota}</p>
+        <p className="note">{km(octKm)} de {km(octubre.objetivo_km)} km. {octubre.ritmo_medio_nota}</p>
       </article>
       <article className="card" style={{ marginTop: 12 }}>
         <h3>Kilómetros por salida</h3>
@@ -237,15 +271,13 @@ function Deporte() {
           </article>
         ))}
       </div>
-      <div className="kicker">No hechas en octubre</div>
+      {noHechasRun.length > 0 ? <div className="kicker">No hechas en octubre</div> : null}
       <div className="grid">
-        {octubre.no_hechas.map((item) => (
+        {noHechasRun.map((item) => (
           <article key={item.fecha} className="card">
             <h3>{formatDay(item.fecha)}</h3>
-            <div className="meta">
-              <span>{item.plan}</span>
-              <Pill kind="miss">No hecha</Pill>
-            </div>
+            <div className="meta"><span>{item.plan}</span></div>
+            <Hecha id={"run:" + item.fecha} on={hecha("run:" + item.fecha)} onToggle={toggle} />
           </article>
         ))}
       </div>
@@ -253,28 +285,28 @@ function Deporte() {
       <div className="kicker">Noviembre 2026</div>
       <article className="card">
         <h3>Objetivo: {km(noviembre.objetivo_km)} km</h3>
-        <div className="track" role="meter" aria-valuemin={0} aria-valuemax={noviembre.objetivo_km} aria-valuenow={noviembre.realizados_km} aria-label="Kilómetros de noviembre">
+        <div className="track" role="meter" aria-valuemin={0} aria-valuemax={noviembre.objetivo_km} aria-valuenow={novKm} aria-label="Kilómetros de noviembre">
           <div className="fill" style={{ width: `${noviembrePct}%` }} />
         </div>
-        <p className="note">{km(noviembre.realizados_km)} de {km(noviembre.objetivo_km)} km hechos. Planificado: {km(noviembre.total_planificado_km)} km.</p>
+        <p className="note">{km(novKm)} de {km(noviembre.objetivo_km)} km hechos. Planificado: {km(noviembre.total_planificado_km)} km.</p>
         <p className="note">{noviembre.estado}</p>
         <p className="note">{noviembre.criterio}</p>
         <div className="meta">
           <Pill kind="wait">Pendiente de confirmar</Pill>
-          <Pill kind="miss">Kilómetros no hechos</Pill>
+          {novKm === 0 ? <Pill kind="miss">Kilómetros no hechos</Pill> : null}
         </div>
       </article>
       <div className="kicker">Plan de sesiones</div>
       <div className="grid">
-        {noviembre.plan.map((sesion) => (
+        {planNov.map((sesion) => (
           <article key={sesion.fecha} className="card">
             <h3>{formatDay(sesion.fecha)}</h3>
             <div className="meta">
               <span>{sesion.dia}</span>
               <span>{km(sesion.km)} km</span>
               <span>{sesion.tipo}</span>
-              <Pill kind="miss">No hecha</Pill>
             </div>
+            <Hecha id={"run:" + sesion.fecha} on={hecha("run:" + sesion.fecha)} onToggle={toggle} />
           </article>
         ))}
       </div>
@@ -290,14 +322,14 @@ function Deporte() {
         <p className="note">No hay ninguna sesión registrada. Lo que no está reportado cuenta como no hecho.</p>
       </article>
       <div className="grid" style={{ marginTop: 12 }}>
-        {gym.no_hechas.map((item) => (
+        {noHechasGym.map((item) => (
           <article key={item.fecha} className="card">
             <h3>{formatDay(item.fecha)}</h3>
             <div className="meta">
               <span>{item.plan}</span>
               <span>{item.motivo}</span>
-              <Pill kind="miss">No hecha</Pill>
             </div>
+            <Hecha id={"gym:" + item.fecha} on={hecha("gym:" + item.fecha)} onToggle={toggle} />
           </article>
         ))}
       </div>
@@ -307,13 +339,13 @@ function Deporte() {
         <p className="note">Parada del {formatDay(parada.desde, false)} al {formatDay(parada.hasta, false)}. {parada.motivo}.</p>
       </article>
       <div className="grid">
-        {gym.planificadas_noviembre.sesiones.map((sesion) => (
+        {planGym.map((sesion) => (
           <article key={sesion.fecha} className="card">
             <h3>{formatDay(sesion.fecha)}</h3>
             <div className="meta">
               <span>{sesion.contenido}</span>
-              <Pill kind="miss">No hecha</Pill>
             </div>
+            <Hecha id={"gym:" + sesion.fecha} on={hecha("gym:" + sesion.fecha)} onToggle={toggle} />
           </article>
         ))}
       </div>
@@ -354,6 +386,15 @@ function Deporte() {
         </div>
       </article>
     </section>
+  );
+}
+
+function Hecha(props: { id: string; on: boolean; onToggle: (id: string) => void }) {
+  return (
+    <label className="hecho-check">
+      <input type="checkbox" checked={props.on} onChange={() => props.onToggle(props.id)} />
+      {props.on ? "Hecha" : "No hecha"}
+    </label>
   );
 }
 
