@@ -262,11 +262,67 @@ const ING_OPTS: [string, number][] = (() => {
   }
   return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"));
 })();
+const FOTOS: Record<string, string> = {
+  "Huevos rosas en escabeche de remolacha": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Pickled_beet_eggs_large.jpg/330px-Pickled_beet_eggs_large.jpg",
+  "Huevos rellenos de hummus, zanahoria y pepino": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Deviled_Eggs_topped_with_Scallions.JPG/330px-Deviled_Eggs_topped_with_Scallions.JPG",
+  "Salmón al vapor con salsa de naranja y patatas": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/DFC_1189_Pan-seared_salmon_fillet_served_with_creamy_mashed_potatoes_a_lime_wedge_and_a_side_of_sauce.jpg/330px-DFC_1189_Pan-seared_salmon_fillet_served_with_creamy_mashed_potatoes_a_lime_wedge_and_a_side_of_sauce.jpg",
+  "Salmón teriyaki con arroz basmati y brócoli": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Grilled_Teriyaki_Salmon_%2810900376705%29.jpg/330px-Grilled_Teriyaki_Salmon_%2810900376705%29.jpg",
+  "Crema de calabacín y puerro con huevo poché": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Zucchini_soup.JPG/330px-Zucchini_soup.JPG",
+  "Bowl templado de basmati, brócoli, huevo y salsa de yogur y limón": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Healthy_Vegan_Buddha_Bowl_-_49859044753.jpg/330px-Healthy_Vegan_Buddha_Bowl_-_49859044753.jpg",
+  "Tosta de hummus con huevo, pepino y zanahoria": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Smoky_Houmous_on_Toast_-_The_Shed_2025-07-26.jpg/330px-Smoky_Houmous_on_Toast_-_The_Shed_2025-07-26.jpg",
+  "Arroz tres delicias casero (huevo, zanahoria, guisantes y jamón)": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Arroz_tres_delicias.jpg/330px-Arroz_tres_delicias.jpg",
+  "Arroz caldoso de pollo y verduras": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Arroz_caldoso%2C_Espa%C3%B1a.jpg/330px-Arroz_caldoso%2C_Espa%C3%B1a.jpg",
+  "Lentejas estofadas con verduras": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Lentejas_estilo_de_la_abuela.jpg/330px-Lentejas_estilo_de_la_abuela.jpg",
+  "Pollo al curry suave con arroz basmati": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Chicken_Curry_with_Rice.jpg/330px-Chicken_Curry_with_Rice.jpg",
+  "Albóndigas de pollo en salsa de tomate casera": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Cazuela_de_Alb%C3%B3ndigas_de_carne_con_sofrito_de_tomate%2C_cebolla%2C_ajo_y_perejil.jpg/330px-Cazuela_de_Alb%C3%B3ndigas_de_carne_con_sofrito_de_tomate%2C_cebolla%2C_ajo_y_perejil.jpg",
+  "Merluza en papillote con calabacín, zanahoria y limón": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/Branzino_al_cartoccio.jpg/330px-Branzino_al_cartoccio.jpg",
+  "Tortilla de calabacín y cebolla": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Tortilla_de_calabac%C3%ADn.jpg/330px-Tortilla_de_calabac%C3%ADn.jpg",
+  "Garbanzos salteados con espinacas, pimentón y huevo": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/GarbanzosConEspinacas.jpg/330px-GarbanzosConEspinacas.jpg",
+  "Crema de calabaza y zanahoria": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Receta_de_crema_de_calabaza_y_zanahoria_-_Vegan_Pumpkin_soup_%284995482360%29.jpg/330px-Receta_de_crema_de_calabaza_y_zanahoria_-_Vegan_Pumpkin_soup_%284995482360%29.jpg",
+  "Pasta integral con brócoli, atún y limón": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/BroccoliPasta.jpg/330px-BroccoliPasta.jpg",
+  "Fajitas de pollo y pimiento con yogur": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Chicken_fajitas.jpg/330px-Chicken_fajitas.jpg",
+  "Revuelto de champiñones, espinacas y ajo con tostada": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Raci%C3%B3n_de_tapa%2C_revuelto_de_ajos_tiernos_y_champi%C3%B1ones.jpg/330px-Raci%C3%B3n_de_tapa%2C_revuelto_de_ajos_tiernos_y_champi%C3%B1ones.jpg",
+  "Pizza de calabacín, champiñón y mozzarella": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Pizza_with_mushrooms_and_zucchini.jpg/330px-Pizza_with_mushrooms_and_zucchini.jpg",
+  "Pizza de pollo, pimiento y cebolla con tomate casero": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Kotipizza_Pollo_American_with_bell_pepper_and_one_edge_bent.jpg/330px-Kotipizza_Pollo_American_with_bell_pepper_and_one_edge_bent.jpg",
+  "Macarrones con queso gratinados (mac & cheese casero)": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/Baked_macaroni_and_cheese.jpg/330px-Baked_macaroni_and_cheese.jpg",
+  "Pollo al limón y ajo con arroz basmati y calabacín salteado": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Chicken_and_Zucchini_dinner.jpg/330px-Chicken_and_Zucchini_dinner.jpg",
+  "Salmón al horno con patatas y brócoli en una sola bandeja": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Liat_Portal_for_Foodie_Disorder_-_Oven-baked_teriyaki_salmon_with_vegetables.jpg/330px-Liat_Portal_for_Foodie_Disorder_-_Oven-baked_teriyaki_salmon_with_vegetables.jpg",
+  "Ensalada de garbanzos, atún, huevo y tomate": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/Colorful_healthy_Chickpea_Salad_-_49859083608.jpg/330px-Colorful_healthy_Chickpea_Salad_-_49859083608.jpg",
+  "Sándwich club de pollo, huevo y tomate con salsa de yogur": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/Club_sandwich%28including_egg%2C_ham%2C_chicken%29.jpg/330px-Club_sandwich%28including_egg%2C_ham%2C_chicken%29.jpg",
+  "Sándwich caliente de atún, tomate y mozzarella fundida": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Tuna_Melt_2.jpg/330px-Tuna_Melt_2.jpg",
+  "Verduras asadas al horno con huevo a la plancha": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Liat_Portal_for_Foodie_Disorder_-_Roasted_Antipasti_Vegetables.jpg/330px-Liat_Portal_for_Foodie_Disorder_-_Roasted_Antipasti_Vegetables.jpg",
+  "Judías verdes con patata, ajo y jamón": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Jud%C3%ADas_verdes_cocidas_salteadas_con_jam%C3%B3n_serrano.jpg/330px-Jud%C3%ADas_verdes_cocidas_salteadas_con_jam%C3%B3n_serrano.jpg",
+  "Ensalada de lentejas con pimiento, tomate, pepino y huevo": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/Lentil_salad_with_black_olives%2C_carrot%2C_tomatoand_red_pepper_%287520199672%29.jpg/330px-Lentil_salad_with_black_olives%2C_carrot%2C_tomatoand_red_pepper_%287520199672%29.jpg",
+  "Ensalada campera (patata, huevo, pimiento y atún)": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Ensalada_campera%2C_gastronom%C3%ADa_de_Espa%C3%B1a.jpg/330px-Ensalada_campera%2C_gastronom%C3%ADa_de_Espa%C3%B1a.jpg",
+  "Hamburguesa clásica de ternera con queso, cebolla y tomate": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Homemade_cheeseburger.jpg/330px-Homemade_cheeseburger.jpg",
+  "Hamburguesa de pollo y calabacín con salsa de yogur": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Chargrilled_Chicken_Burger_-_Leon.jpg/330px-Chargrilled_Chicken_Burger_-_Leon.jpg",
+  "Hamburguesa de salmón con salsa de yogur y limón": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Salmon_burger.jpg/330px-Salmon_burger.jpg",
+  "Pollo crujiente con miel, soja y ajo con arroz basmati": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Thai_Fried_Chicken_2026-10-20_honey_glazed.jpg/330px-Thai_Fried_Chicken_2026-10-20_honey_glazed.jpg",
+  "Gambas al ajillo con guindilla y pan tostado": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Gambas_al_ajillo.jpg/330px-Gambas_al_ajillo.jpg",
+  "Pasta cremosa de chorizo, tomate y queso": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d6/Chorizo_Pasta_Bake_%2825966929%29.jpeg/330px-Chorizo_Pasta_Bake_%2825966929%29.jpeg",
+  "Arroz seco de pollo y verduras en sartén (tipo paella)": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Arroz_con_pollo_pa.jpeg/330px-Arroz_con_pollo_pa.jpeg",
+  "Arroz de gambas al pimentón en sartén": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Paella_receta_personal.jpg/330px-Paella_receta_personal.jpg",
+  "Arroz meloso de champiñones y queso en sartén": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Mushroom_Risotto_%284789409441%29.jpg/330px-Mushroom_Risotto_%284789409441%29.jpg",
+};
+
 const TIPO_OPTS: [string, number][] = (() => {
   const map = new Map<string, number>();
   for (const r of R) map.set(r.pr, (map.get(r.pr) || 0) + 1);
   return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"));
 })();
+
+function FotoEjemplo(p: { nombre: string; emoji: string; grad: string; grande?: boolean }) {
+  const [mal, setMal] = useState(false);
+  const url = FOTOS[p.nombre];
+  if (!url || mal) return <span className={p.grande ? "rec-emoji rec-emoji-lg" : "rec-emoji"} style={{ background: p.grad }}>{p.emoji}</span>;
+  if (!p.grande) return <span className="rec-mini"><img src={url} alt="" loading="lazy" onError={() => setMal(true)} /></span>;
+  return (
+    <figure className="rec-foto">
+      <img src={url} alt="" loading="lazy" onError={() => setMal(true)} />
+      <figcaption>Foto: Wikimedia Commons</figcaption>
+    </figure>
+  );
+}
 
 export default function App() {
   const [orden, setOrden] = useState<string>("nombre");
@@ -612,7 +668,7 @@ export default function App() {
             {[...lista].sort((a: Rec, b: Rec) => orden === "tiempo" ? a.t - b.t : orden === "fav" ? Number(st.fav.includes(b.n)) - Number(st.fav.includes(a.n)) || a.n.localeCompare(b.n, "es") : a.n.localeCompare(b.n, "es")).map((r: Rec) => (
               <div key={r.n} className="rec-card">
                 <button type="button" className="rec-open" onClick={() => abrirReceta(r.n)}>
-                  <span className="rec-emoji" style={{ background: GRADS[R.indexOf(r) % GRADS.length] }}>{EMO(r)}</span>
+                  <FotoEjemplo nombre={r.n} emoji={EMO(r)} grad={GRADS[R.indexOf(r) % GRADS.length]} />
                   <span className="rec-body">
                     <span className="rec-name">{r.n}</span>
                     <span className="rec-meta">{r.t} min{r.tm === "Sí" ? " · TM" : ""}</span>
@@ -800,6 +856,7 @@ export default function App() {
             <button type="button" className="rec-sheet-close" onClick={() => setAbierta("")}>← Volver</button>
           </div>
           <div className="rec-sheet-body" id="rec-sheet-body">
+            <FotoEjemplo grande nombre={rec.n} emoji={EMO(rec)} grad={GRADS[R.indexOf(rec) % GRADS.length]} />
             <h2 id="rec-sheet-title" style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 28, color: C.green, margin: "0 0 8px", lineHeight: 1.2 }}>{rec.n}</h2>
             <div style={{ ...muted, marginBottom: 4 }}>{rec.t} min · {rec.dif} · {rec.cc} · {rec.sana === "Sí" ? "Sana" : rec.sana}</div>
             <Estrellas grande value={notaDe(rec, st.notas)} onSet={(n) => puntuar(rec.n, n)} />

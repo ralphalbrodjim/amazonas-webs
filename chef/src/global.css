@@ -106,6 +106,40 @@ button {
   font-size: 22px;
 }
 
+.rec-emoji-lg {
+  height: 180px;
+  font-size: 72px;
+  border-radius: 16px;
+  margin-bottom: 12px;
+}
+
+.rec-foto { margin: 0 0 12px; }
+
+.rec-foto img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 16px;
+  background: #E6EEE7;
+}
+
+.rec-foto figcaption {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #6B746F;
+}
+
+.rec-mini { margin: 0; }
+
+.rec-mini img {
+  display: block;
+  width: 100%;
+  height: 48px;
+  object-fit: cover;
+  background: #E6EEE7;
+}
+
 .rec-body {
   display: flex;
   flex-direction: column;
@@ -423,6 +457,7 @@ button.ws-link {
 
 .rec-fav {
   position: absolute;
+  z-index: 1;
   top: 4px;
   right: 4px;
   width: 28px;
@@ -438,6 +473,7 @@ button.ws-link {
 @media (min-width: 760px) {
   .rec-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
   .rec-emoji { height: 72px; font-size: 32px; }
+  .rec-mini img { height: 72px; }
 }
 
 @media (min-width: 1080px) {
