@@ -476,6 +476,135 @@ button.ws-cell-btn.on { outline: 2px solid var(--green); }
 .ws-em.done { opacity: 0.45; }
 .ws-ok { color: #1F3B34; font-size: 11px; font-weight: 800; margin-left: 1px; }
 .ws-tip { margin: 8px 0 0; font-size: 14px; line-height: 1.4; }
+
+.cult-filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.cult-filter {
+  min-height: 52px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cult-filter span {
+  display: inline-block;
+  min-width: 1.6em;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--green);
+}
+
+.cult-filter[aria-pressed="true"] {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+
+.cult-filter[aria-pressed="true"] span {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.cult-add { width: 100%; margin-top: 12px; }
+
+.cult-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.cult-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.cult-form input, .cult-form select, .cult-form textarea {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 500;
+  padding: 10px 12px;
+}
+
+.cult-form textarea { min-height: 88px; resize: vertical; }
+
+.cult-empty { margin-top: 14px; }
+
+.cult-card { display: flex; flex-direction: column; gap: 8px; }
+
+.cult-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cult-ico {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.cult-title h3 { font-size: 18px; }
+
+.cult-detalle {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.cult-link {
+  color: var(--green2);
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.cult-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.cult-actions > .tap { flex: 1 1 140px; }
+
+.cult-confirm {
+  flex: 1 1 100%;
+  background: var(--miss-bg);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.cult-confirm p { margin: 0 0 8px; font-size: 15px; font-weight: 700; color: var(--miss); }
+
+.cult-confirm .tap { width: 100%; margin-top: 8px; }
 .sum-counts {
   display: flex;
   flex-wrap: wrap;

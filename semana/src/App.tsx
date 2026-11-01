@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import ingles from "../data/ingles.json";
 import deporte from "../data/deporte.json";
 import { formatDay, formatWhen, kg, km, madridToday, pend, shiftDay, signedKg, weekStart } from "./dates";
+import { Cultura } from "./cultura";
 import { Planner } from "./planner";
 import { INGLES_KEY, idClase, idDeber, idPrueba, loadInglesHechos, resumenIngles, semanaDe } from "./inglesChecks";
 
-type Tab = "agenda" | "ingles" | "deporte";
+type Tab = "agenda" | "ingles" | "deporte" | "cultura";
 
 function Pill(props: { kind: "miss" | "wait" | "neutral" | "recorded" | "completo"; children: string }) {
   return <span className={`pill ${props.kind}`}>{props.children}</span>;
@@ -41,7 +42,7 @@ export default function App() {
       <header className="header">
         <div className="header-inner">
           <h1>Mi semana</h1>
-          <p>Agenda, inglés y deporte</p>
+          <p>Agenda, inglés, deporte y cultura</p>
         </div>
       </header>
       <main className="wrap">
@@ -50,6 +51,7 @@ export default function App() {
             ["agenda", "Agenda"],
             ["ingles", "Inglés"],
             ["deporte", "Running y gimnasio"],
+            ["cultura", "🎭 Cultura"],
           ] as const).map(([id, label]) => (
             <button key={id} className="tab" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
               {label}
@@ -59,6 +61,7 @@ export default function App() {
         {tab === "agenda" ? <Planner hoy={hoy} /> : null}
         {tab === "ingles" ? <Ingles /> : null}
         {tab === "deporte" ? <Deporte /> : null}
+        {tab === "cultura" ? <Cultura /> : null}
       </main>
     </div>
   );
