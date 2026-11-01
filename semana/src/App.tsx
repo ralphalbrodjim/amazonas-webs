@@ -235,14 +235,20 @@ function semanasDelMes(ym: string): { start: string; end: string; label: string 
   return weeks;
 }
 
+function cifraBarra(week: { hecho: number; plan: number }, format: (n: number) => string): string {
+  if (week.hecho > 0 && week.plan > 0) return format(week.hecho) + "/" + format(week.plan);
+  if (week.plan > 0) return format(week.plan);
+  return format(week.hecho);
+}
+
 function Barras(props: { aria: string; weeks: { label: string; hecho: number; plan: number }[]; format: (n: number) => string }) {
   if (props.weeks.length === 0) return <p className="note">Sin plan este mes</p>;
   const width = 360;
-  const height = 188;
-  const padL = 34;
-  const padR = 6;
-  const padT = 16;
-  const padB = 26;
+  const height = 210;
+  const padL = 36;
+  const padR = 8;
+  const padT = 28;
+  const padB = 28;
   const max = Math.max(...props.weeks.flatMap((week) => [week.hecho, week.plan]), 1);
   const innerW = width - padL - padR;
   const innerH = height - padT - padB;
@@ -257,10 +263,12 @@ function Barras(props: { aria: string; weeks: { label: string; hecho: number; pl
       <text x={padL - 4} y={base} textAnchor="end" fontSize="11" fill="#6B746F">0</text>
       {props.weeks.map((week, index) => {
         const cx = padL + index * groupW + groupW / 2;
+        const top = Math.min(week.plan > 0 ? y(week.plan) : base, week.hecho > 0 ? y(week.hecho) : base);
         return (
           <g key={week.label}>
             <rect x={cx - barW - 2} y={y(week.plan)} width={barW} height={week.plan > 0 ? Math.max(1, base - y(week.plan)) : 0} rx={3} fill={PLAN_COLOR} />
             <rect x={cx + 2} y={y(week.hecho)} width={barW} height={week.hecho > 0 ? Math.max(1, base - y(week.hecho)) : 0} rx={3} fill={HECHO_COLOR} />
+            <text x={cx} y={Math.max(14, top - 6)} textAnchor="middle" fontSize="15" fontWeight="700" fill="#1E2B27">{cifraBarra(week, props.format)}</text>
             <text x={cx} y={height - 8} textAnchor="middle" fontSize="12" fill="#1E2B27">{week.label}</text>
           </g>
         );
