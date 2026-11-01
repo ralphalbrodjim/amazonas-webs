@@ -1,1 +1,34 @@
-[]
+[
+  {
+    "titulo": "El verdugo (1963), de Luis García Berlanga",
+    "tipo": "película",
+    "detalle": "Comedia negra con Pepe Isbert y guion de Azcona. No confirmado si está incluida en la suscripción o es de alquiler.",
+    "fecha": "",
+    "lugar": "Filmin",
+    "enlace": "https://www.filmin.es/pelicula/el-verdugo"
+  },
+  {
+    "titulo": "El universo freudiano de Dalí",
+    "tipo": "exposición",
+    "detalle": "Del 20/10/2026 al 24/01/2027. Entrada general 14 €; sábados gratis de 21:00 a 23:00; cierra los lunes.",
+    "fecha": "2027-01-24",
+    "lugar": "Museo Nacional Thyssen-Bornemisza, Madrid",
+    "enlace": "https://www.museothyssen.org/exposiciones/universo-freudiano-dali"
+  },
+  {
+    "titulo": "Don Juan Desenmascarado",
+    "tipo": "teatro",
+    "detalle": "Tenorio en clave de humor, 1/11 a las 19:00, desde 16 €.",
+    "fecha": "2026-11-01",
+    "lugar": "Nave 73, Madrid",
+    "enlace": "https://teatromadrid.com/espectaculo/don-juan-desenmascarado"
+  },
+  {
+    "titulo": "Martha",
+    "tipo": "restaurante",
+    "detalle": "Casa de comidas mediterránea y argentina, abierta este otoño; unos 25-30 € por persona. Propuesto para cenar el sábado 7/11.",
+    "fecha": "",
+    "lugar": "Calle Miguel Servet 15, Lavapiés, Madrid",
+    "enlace": "https://www.timeout.es/madrid/es/noticias/abre-en-lavapies-un-bar-restaurante-con-un-espacio-clandestino-para-escuchar-musica-o-ver-un-concierto-hacemos-cocina-mediterranea-y-argentina-asi-era-mi-casa-100826"
+  }
+]
