@@ -196,14 +196,23 @@ function etiquetaDestreza(key: string): string {
 
 const DEPORTE_KEY = "semana-deporte-v1";
 
+function hechasDeSerie(): string[] {
+  return (deporte.running.noviembre_2026.registros ?? []).map((item) => "run:" + item.fecha);
+}
+
 function loadHechas(): string[] {
+  let list: string[] = [];
   try {
     const raw = localStorage.getItem(DEPORTE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
-  } catch {
-    return [];
-  }
+    if (Array.isArray(parsed)) list = parsed.filter((item): item is string => typeof item === "string");
+  } catch { /* sin almacenamiento */ }
+  const ids = new Set(list);
+  let changed = false;
+  for (const id of hechasDeSerie()) if (!ids.has(id)) { ids.add(id); changed = true; }
+  const next = [...ids];
+  if (changed) { try { localStorage.setItem(DEPORTE_KEY, JSON.stringify(next)); } catch { /* sin almacenamiento */ } }
+  return next;
 }
 
 function kmDePlan(plan: string): number {
@@ -230,7 +239,9 @@ function semanasDelMes(ym: string): { start: string; end: string; label: string 
     const weekEnd = shiftDay(cursor, 6);
     const from = cursor < first ? first : cursor;
     const to = weekEnd > last ? last : weekEnd;
-    weeks.push({ start: cursor, end: weekEnd, label: `${Number(from.slice(8))}–${Number(to.slice(8))}` });
+    const desdeDia = Number(from.slice(8));
+    const hastaDia = Number(to.slice(8));
+    weeks.push({ start: cursor, end: weekEnd, label: desdeDia === hastaDia ? String(desdeDia) : `${desdeDia}–${hastaDia}` });
   }
   return weeks;
 }
@@ -321,6 +332,7 @@ function Deporte() {
       plan += cantidad;
       if (hecha("run:" + item.fecha)) hecho += cantidad;
     }
+    for (const item of noviembre.registros) if (dentro(item.fecha, week)) hecho += item.km;
     for (const item of noviembre.plan) if (dentro(item.fecha, week)) {
       plan += item.km;
       if (hecha("run:" + item.fecha)) hecho += item.km;
@@ -458,6 +470,24 @@ function Deporte() {
           {novKm === 0 ? <Pill kind="miss">Kilómetros no hechos</Pill> : null}
         </div>
       </article>
+      <div className="kicker">Hecha</div>
+      <div className="grid">
+        {noviembre.registros.map((salida) => (
+          <article key={salida.fecha} className="card">
+            <h3>{formatDay(salida.fecha)}</h3>
+            <div className="meta">
+              <span>{km(salida.km)} km</span>
+              <span>{salida.hora}</span>
+              <span>{salida.lugar}</span>
+              <span>Tiempo: {salida.tiempo}</span>
+              <span>Ritmo: {salida.ritmo_min_km} min/km</span>
+              <Pill kind="recorded">Registrada</Pill>
+            </div>
+            {salida.nota ? <p className="note">{salida.nota}</p> : null}
+            <Hecha id={"run:" + salida.fecha} on={hecha("run:" + salida.fecha)} onToggle={toggle} />
+          </article>
+        ))}
+      </div>
       <div className="kicker">Plan de sesiones</div>
       <div className="grid">
         {planNov.map((sesion) => (
