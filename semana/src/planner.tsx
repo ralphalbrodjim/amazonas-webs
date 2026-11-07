@@ -386,7 +386,8 @@ export function Planner(props: { hoy: string }) {
           {CATS.map((cat) => {
             const items = hechos.filter((item) => item.value === cat.id);
             const done = items.filter((item) => item.hecho).length;
-            return <span key={cat.id}>{cat.emoji} {cat.label} {done}/{items.length}</span>;
+            const texto = cat.id === "gimnasio" ? `${done * 30}/${items.length * 30} min` : `${done}/${items.length}`;
+            return <span key={cat.id}>{cat.emoji} {cat.label} {texto}</span>;
           })}
           {hechos.some((item) => item.value === "texto") ? <span>{ICONO_TEXTO} Texto {hechos.filter((item) => item.value === "texto" && item.hecho).length}/{hechos.filter((item) => item.value === "texto").length}</span> : null}
           {(() => {

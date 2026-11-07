@@ -256,13 +256,14 @@ function semanasDelMes(ym: string): { start: string; end: string; label: string 
   return weeks;
 }
 
-function cifraBarra(week: { hecho: number; plan: number }, format: (n: number) => string): string {
-  if (week.hecho > 0 && week.plan > 0) return format(week.hecho) + "/" + format(week.plan);
-  if (week.plan > 0) return format(week.plan);
-  return format(week.hecho);
+const MINUTOS_GYM = 30;
+
+function cifraBarra(week: { hecho: number; plan: number }, format: (n: number) => string, unit?: string): string {
+  const text = week.hecho > 0 && week.plan > 0 ? format(week.hecho) + "/" + format(week.plan) : week.plan > 0 ? format(week.plan) : format(week.hecho);
+  return unit ? text + " " + unit : text;
 }
 
-function Barras(props: { aria: string; weeks: { label: string; hecho: number; plan: number }[]; format: (n: number) => string }) {
+function Barras(props: { aria: string; weeks: { label: string; hecho: number; plan: number }[]; format: (n: number) => string; unit?: string }) {
   if (props.weeks.length === 0) return <p className="note">Sin plan este mes</p>;
   const width = 360;
   const height = 210;
@@ -289,7 +290,7 @@ function Barras(props: { aria: string; weeks: { label: string; hecho: number; pl
           <g key={week.label}>
             <rect x={cx - barW - 2} y={y(week.plan)} width={barW} height={week.plan > 0 ? Math.max(1, base - y(week.plan)) : 0} rx={3} fill={PLAN_COLOR} />
             <rect x={cx + 2} y={y(week.hecho)} width={barW} height={week.hecho > 0 ? Math.max(1, base - y(week.hecho)) : 0} rx={3} fill={HECHO_COLOR} />
-            <text x={cx} y={Math.max(14, top - 6)} textAnchor="middle" fontSize="15" fontWeight="700" fill="#1E2B27">{cifraBarra(week, props.format)}</text>
+            <text x={cx} y={Math.max(14, top - 6)} textAnchor="middle" fontSize={props.unit ? 13 : 15} fontWeight="700" fill="#1E2B27">{cifraBarra(week, props.format, props.unit)}</text>
             <text x={cx} y={height - 8} textAnchor="middle" fontSize="12" fill="#1E2B27">{week.label}</text>
           </g>
         );
@@ -375,7 +376,8 @@ function Deporte() {
   const objetivo = mes === "2026-10" ? octubre.objetivo_km : mes === "2026-11" ? noviembre.objetivo_km : null;
   const antesDe = mes === "2026-11" ? sinSalidas.desde : null;
   const ariaRun = semanasRun.length === 0 ? "Sin plan de running este mes" : "Running por semana. Verde oscuro es hecho, gris es planificado. " + semanasRun.map((week) => `${week.label}: ${km(week.hecho)} km hechos, ${km(week.plan)} planificados`).join(". ");
-  const ariaGym = semanasGym.length === 0 ? "Sin plan de gimnasio este mes" : "Gimnasio por semana. Verde oscuro es hecho, gris es planificado. " + semanasGym.map((week) => `${week.label}: ${week.hecho} hechas, ${week.plan} planificadas`).join(". ");
+  const minGym = (sesiones: number) => sesiones * MINUTOS_GYM;
+  const ariaGym = semanasGym.length === 0 ? "Sin plan de gimnasio este mes" : "Gimnasio por semana, 30 minutos por sesión. Verde oscuro es hecho, gris es planificado. " + semanasGym.map((week) => `${week.label}: ${minGym(week.hecho)} min hechos, ${minGym(week.plan)} min planificados`).join(". ");
 
   return (
     <section>
@@ -405,8 +407,8 @@ function Deporte() {
             <span><i className="swatch hecho" /> Hecho</span>
             <span><i className="swatch plan" /> Planificado</span>
           </div>
-          <Barras aria={ariaGym} weeks={semanasGym} format={(value) => String(value)} />
-          {semanasGym.length > 0 ? <p className="note">Hechas {semanasGym.reduce((sum, week) => sum + week.hecho, 0)} de {semanasGym.reduce((sum, week) => sum + week.plan, 0)} sesiones planificadas.</p> : null}
+          <Barras aria={ariaGym} weeks={semanasGym} format={(value) => String(minGym(value))} unit="min" />
+          {semanasGym.length > 0 ? <p className="note">{minGym(semanasGym.reduce((sum, week) => sum + week.hecho, 0))}/{minGym(semanasGym.reduce((sum, week) => sum + week.plan, 0))} min. Cada sesión cuenta 30 min.</p> : null}
         </article>
       </div>
 
@@ -532,7 +534,7 @@ function Deporte() {
 
       <div className="kicker">Gimnasio</div>
       <article className="card">
-        <h3>Sesiones registradas: {gym.registradas.length}</h3>
+        <h3>Minutos registrados: {gym.registradas.length * MINUTOS_GYM}</h3>
         <div className="meta"><Pill kind="miss">No hecha</Pill></div>
         <p className="note">No hay ninguna sesión registrada. Lo que no está reportado cuenta como no hecho.</p>
       </article>
