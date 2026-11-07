@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import ingles from "../data/ingles.json";
 import deporte from "../data/deporte.json";
 import { formatDay, formatWhen, kg, km, madridToday, pend, shiftDay, signedKg, weekStart } from "./dates";
+import { CloudSync } from "./cloud";
 import { Cultura } from "./cultura";
 import { Planner } from "./planner";
 import { INGLES_KEY, idClase, idDeber, idPrueba, loadInglesHechos, resumenIngles, semanaDe } from "./inglesChecks";
+import { useSync } from "./cloud";
 
 type Tab = "agenda" | "ingles" | "deporte" | "cultura";
 
@@ -38,6 +40,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("agenda");
 
   return (
+    <CloudSync>
     <div className="app">
       <header className="header">
         <div className="header-inner">
@@ -64,16 +67,20 @@ export default function App() {
         {tab === "cultura" ? <Cultura /> : null}
       </main>
     </div>
+    </CloudSync>
   );
 }
 
 function Ingles() {
   const hoy = madridToday();
   const semana = semanaDe(hoy);
+  const sync = useSync();
   const [hechos, setHechos] = useState<string[]>(loadInglesHechos);
   useEffect(() => {
     try { localStorage.setItem(INGLES_KEY, JSON.stringify(hechos)); } catch { /* sin almacenamiento */ }
-  }, [hechos]);
+    sync.push(INGLES_KEY, hechos);
+  }, [hechos, sync]);
+  useEffect(() => sync.onKey(INGLES_KEY, (value) => { if (Array.isArray(value)) setHechos(value.filter((item): item is string => typeof item === "string")); }), [sync]);
   const on = (id: string) => hechos.includes(id);
   const toggle = (id: string) => setHechos((list) => list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
   const cuenta = resumenIngles(semana.desde, semana.hasta, hechos);
@@ -291,10 +298,17 @@ function Barras(props: { aria: string; weeks: { label: string; hecho: number; pl
 function Deporte() {
   const hoy = madridToday();
   const [mes, setMes] = useState(hoy.slice(0, 7));
+  const sync = useSync();
   const [hechas, setHechas] = useState<string[]>(loadHechas);
   useEffect(() => {
     try { localStorage.setItem(DEPORTE_KEY, JSON.stringify(hechas)); } catch { /* sin almacenamiento */ }
-  }, [hechas]);
+    sync.push(DEPORTE_KEY, hechas);
+  }, [hechas, sync]);
+  useEffect(() => sync.onKey(DEPORTE_KEY, (value) => {
+    if (!Array.isArray(value)) return;
+    try { localStorage.setItem(DEPORTE_KEY, JSON.stringify(value)); } catch { /* sin almacenamiento */ }
+    setHechas(loadHechas());
+  }), [sync]);
   const hecha = (id: string) => hechas.includes(id);
   const toggle = (id: string) => setHechas((list) => list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
   const visible = (fecha: string, id: string) => fecha >= hoy || hecha(id);

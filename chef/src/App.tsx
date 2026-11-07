@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { ChangeEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
+import { SyncBadge } from "../../shared/SyncBadge";
+import { createSync, type SyncStatus } from "../../shared/sync";
 
 const C = { green: "#1F3B34", green2: "#2F5A4B", kicker: "#4F7A63", cream: "#F5F1E8", card: "#FFFDF7", line: "#E4DDCF", text: "#1E2B27", muted: "#6B746F", soft: "#E6EEE7" };
 const SERIF = "Georgia, 'Times New Roman', serif";
@@ -226,27 +228,41 @@ function diaCorto(iso: string): string {
   const wd = new Intl.DateTimeFormat("es-ES", { timeZone: "UTC", weekday: "narrow" }).format(new Date(Date.UTC(y, m - 1, d)));
   return wd.toUpperCase() + " " + d;
 }
+function stateFromRaw(d: Record<string, unknown> | null): St {
+  const cal = d && d.cal && typeof d.cal === "object" ? d.cal as St["cal"] : {};
+  const anadidas: string[] = d && Array.isArray(d.anadidas) ? d.anadidas.filter((p: unknown) => typeof p === "string") : [];
+  const calCompra = d && typeof d.calCompra === "string" ? d.calCompra : null;
+  if (calCompra) {
+    for (let i = 0; i < 7; i++) {
+      const fecha = shiftDay(calCompra, i);
+      for (const slot of ["comida", "cena"] as const) {
+        const k = fecha + "|" + slot;
+        const day = cal[fecha] as { comida?: Meal; cena?: Meal } | undefined;
+        if (day?.[slot] && !anadidas.includes(k)) anadidas.push(k);
+      }
+    }
+  }
+  return { ...INIT, ...(d || {}), cal, calCompra: null, platos: d && Array.isArray(d.platos) ? d.platos.filter((p: unknown) => typeof p === "string") : [], anadidas, notas: notasGuardadas(d && d.notas) };
+}
 const loadSt = (): St => {
   try {
     const s = window.localStorage.getItem(KEY);
     if (!s) return INIT;
-    const d = JSON.parse(s);
-    const cal = d && d.cal && typeof d.cal === "object" ? d.cal : {};
-    const anadidas: string[] = d && Array.isArray(d.anadidas) ? d.anadidas.filter((p: unknown) => typeof p === "string") : [];
-    const calCompra = d && typeof d.calCompra === "string" ? d.calCompra : null;
-    if (calCompra) {
-      for (let i = 0; i < 7; i++) {
-        const fecha = shiftDay(calCompra, i);
-        for (const slot of ["comida", "cena"]) {
-          const k = fecha + "|" + slot;
-          if (cal[fecha]?.[slot] && !anadidas.includes(k)) anadidas.push(k);
-        }
-      }
-    }
-    return { ...INIT, ...d, cal, calCompra: null, platos: d && Array.isArray(d.platos) ? d.platos.filter((p: unknown) => typeof p === "string") : [], anadidas, notas: notasGuardadas(d && d.notas) };
+    return stateFromRaw(JSON.parse(s) as Record<string, unknown>);
   } catch (e) { /* sin almacenamiento */ }
   return INIT;
 };
+function chefStateEmpty(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return true;
+  const s = value as Partial<St>;
+  const menuEmpty = !s.menu || Object.values(s.menu).every((v) => !v);
+  const calEmpty = !s.cal || Object.keys(s.cal).length === 0;
+  return menuEmpty && calEmpty && !(s.fav && s.fav.length) && !(s.anadidas && s.anadidas.length) && !(s.manual && s.manual.length) && !(s.platos && s.platos.length) && !(s.saved && s.saved.length) && !s.confirmado && !(s.checks && s.checks.length) && !(s.notas && Object.keys(s.notas).length) && !(s.nevera && s.nevera.length) && !(s.locked && s.locked.length);
+}
+const chefSync = createSync("chef", [
+  { key: KEY, isEmpty: chefStateEmpty },
+  { key: "chef-notas-nuevas" },
+]);
 
 const BASIC = new Set(["Agua", "Sal", "Pimienta", "Aceite"]);
 const ING_OPTS: [string, number][] = (() => {
@@ -339,13 +355,21 @@ export default function App() {
   const [orden, setOrden] = useState<string>("nombre");
   const [st, setSt] = useState<St>(loadSt);
   const [persist, setPersist] = useState<boolean>(true);
-  useEffect(() => { try { window.localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { setPersist(false); } }, [st]);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("saving");
+  useEffect(() => { try { window.localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { setPersist(false); } chefSync.push(KEY, st); }, [st]);
+  useEffect(() => {
+    const offStatus = chefSync.onStatus(setSyncStatus);
+    const offState = chefSync.onKey(KEY, (value: unknown) => setSt(stateFromRaw(value && typeof value === "object" ? value as Record<string, unknown> : null)));
+    const offNotas = chefSync.onKey("chef-notas-nuevas", (value: unknown) => setNotasLibres(typeof value === "string" ? value : ""));
+    chefSync.start();
+    return () => { offStatus(); offState(); offNotas(); chefSync.stop(); };
+  }, []);
   const up = (p: Partial<St>) => setSt((s: St) => ({ ...s, ...p }));
 
   const [vista, setVista] = useState<string>("rec");
   const [notasLibres, setNotasLibres] = useState<string>(() => { try { return localStorage.getItem("chef-notas-nuevas") || ""; } catch (e) { return ""; } });
   const [vaciarNotas, setVaciarNotas] = useState(false);
-  useEffect(() => { try { localStorage.setItem("chef-notas-nuevas", notasLibres); } catch (e) { /* sin almacenamiento */ } }, [notasLibres]);
+  useEffect(() => { try { localStorage.setItem("chef-notas-nuevas", notasLibres); } catch (e) { /* sin almacenamiento */ } chefSync.push("chef-notas-nuevas", notasLibres); }, [notasLibres]);
   const mailtoNotas = "mailto:ralphdg@mail.grokbot.com?subject=" + encodeURIComponent("Nuevas recetas para el Chef") + "&body=" + encodeURIComponent(notasLibres);
   const [q, setQ] = useState<string>("");
   const [qOn, setQOn] = useState(false);
@@ -621,6 +645,7 @@ export default function App() {
     <Page title="El Chef de Antracita · Recetario" summary="Tu recetario personal: 51 recetas, calendario y lista de la compra." width="wide" palette={["#B8742A", "#7A4A2A", "#C9A26B"]}>
       <Segmented value={vista} onChange={setVista} options={[{ value: "rec", label: "🍲 Recetario" }, { value: "cal", label: "📅 Calendario" }, { value: "compra", label: "🛒 Lista de compra" }, { value: "notas", label: "📝 Notas" }, { value: "datos", label: "⚙️ Datos y pendiente" }]} />
       {msg && <Callout tone="info">{msg}</Callout>}
+      <SyncBadge status={syncStatus} />
 
       {vista === "rec" && (
         <Section>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSync } from "./cloud";
 import seedData from "../data/cultura.json";
 import { formatDay } from "./dates";
 
@@ -141,6 +142,7 @@ function fechaVisible(value: string): string {
 }
 
 export function Cultura() {
+  const sync = useSync();
   const [saved, setSaved] = useState<Saved>(loadSaved);
   const [filtro, setFiltro] = useState<"pendiente" | "hecho">("pendiente");
   const [form, setForm] = useState(false);
@@ -152,7 +154,13 @@ export function Cultura() {
 
   useEffect(() => {
     try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch { /* sin almacenamiento */ }
-  }, [saved]);
+    sync.push(KEY, saved);
+  }, [saved, sync]);
+  useEffect(() => sync.onKey(KEY, (value) => {
+    if (!value || typeof value !== "object") return;
+    try { localStorage.setItem(KEY, JSON.stringify(value)); } catch { /* sin almacenamiento */ }
+    setSaved(loadSaved());
+  }), [sync]);
 
   const semillas = seedPropuestas().filter((item) => !saved.ocultas.includes(item.id));
   const todas = [...semillas, ...saved.propias];

@@ -13,4 +13,5 @@ export default defineConfig({
     outDir: resolve(here, "../dist/chef"),
     emptyOutDir: true,
   },
+  server: { fs: { allow: [resolve(here, "..")] } },
 });

@@ -16,6 +16,7 @@
     "preview:semana": "vite preview --config semana/vite.config.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

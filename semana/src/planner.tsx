@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import agenda from "../data/agenda.json";
 import deporte from "../data/deporte.json";
 import { formatDay, shiftDay, shortDay, weekStart } from "./dates";
+import { useSync } from "./cloud";
 import { loadInglesHechos, resumenIngles } from "./inglesChecks";
 
 const KEY = "semana-agenda-v1";
@@ -142,6 +143,7 @@ type Fila = {
 export function Planner(props: { hoy: string }) {
   const [dia, setDia] = useState(props.hoy);
   const bag = loadBag();
+  const sync = useSync();
   const [entradas, setEntradas] = useState<Entry[]>(bag.entradas);
   const [ocultas, setOcultas] = useState<string[]>(bag.ocultas);
   const [io, setIo] = useState("");
@@ -151,12 +153,20 @@ export function Planner(props: { hoy: string }) {
   const [detalle, setDetalle] = useState<string | null>(null);
 
   useEffect(() => {
+    const value = { entradas, ocultas };
     try {
-      localStorage.setItem(KEY, JSON.stringify({ entradas, ocultas }));
+      localStorage.setItem(KEY, JSON.stringify(value));
     } catch {
       setAviso("Este navegador no guarda los cambios. Exporta el JSON antes de salir.");
     }
-  }, [entradas, ocultas]);
+    sync.push(KEY, value);
+  }, [entradas, ocultas, sync]);
+  useEffect(() => sync.onKey(KEY, (value) => {
+    if (!value || typeof value !== "object") return;
+    const row = value as { entradas?: unknown; ocultas?: unknown };
+    try { setEntradas(normalize(Array.isArray(row.entradas) ? row.entradas : [])); } catch { /* remoto ilegible */ }
+    setOcultas(Array.isArray(row.ocultas) ? row.ocultas.filter((item): item is string => typeof item === "string") : []);
+  }), [sync]);
 
   const diasSemana = Array.from({ length: 7 }, (_, i) => shiftDay(weekStart(dia), i));
 

@@ -16,5 +16,5 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["chef/src", "warren/src", "semana/src", "semana/data"]
+  "include": ["chef/src", "warren/src", "semana/src", "semana/data", "shared"]
 }
