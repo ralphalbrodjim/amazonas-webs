@@ -4,11 +4,12 @@ import { applySemanaContent, getDeporte, getIngles } from "./liveContent";
 import { formatDay, formatWhen, kg, km, madridToday, pend, shiftDay, signedKg, weekStart } from "./dates";
 import { CloudSync } from "./cloud";
 import { Cultura } from "./cultura";
+import { Organizacion } from "./organizacion";
 import { Planner } from "./planner";
 import { INGLES_KEY, idClase, idDeber, idPrueba, loadInglesHechos, resumenIngles, semanaDe } from "./inglesChecks";
 import { useSync } from "./cloud";
 
-type Tab = "agenda" | "ingles" | "deporte" | "cultura";
+type Tab = "agenda" | "ingles" | "deporte" | "cultura" | "organizacion";
 
 function Pill(props: { kind: "miss" | "wait" | "neutral" | "recorded" | "completo"; children: string }) {
   return <span className={`pill ${props.kind}`}>{props.children}</span>;
@@ -57,6 +58,7 @@ export default function App() {
             ["ingles", "Inglés"],
             ["deporte", "Running y gimnasio"],
             ["cultura", "🎭 Cultura"],
+            ["organizacion", "Organización semana"],
           ] as const).map(([id, label]) => (
             <button key={id} className="tab" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
               {label}
@@ -67,6 +69,7 @@ export default function App() {
         {tab === "ingles" ? <Ingles /> : null}
         {tab === "deporte" ? <Deporte /> : null}
         {tab === "cultura" ? <Cultura /> : null}
+        {tab === "organizacion" ? <Organizacion /> : null}
       </main>
     </div>
     </CloudSync>

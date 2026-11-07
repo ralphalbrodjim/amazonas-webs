@@ -14,10 +14,47 @@ let deporteLive: DeporteData = deporteBundled;
 let inglesLive: InglesData = inglesBundled;
 let culturaLive: CulturaItem[] = culturaBundled;
 
+export type OrganizacionItem = {
+  id: string;
+  titulo: string;
+  icono: string;
+  descripcion: string;
+  frecuencia: string;
+  automatico: boolean;
+  coste: string;
+  nota: string;
+};
+
+let organizacionLive: OrganizacionItem[] = [];
+
 export function getAgenda(): AgendaData { return agendaLive; }
 export function getDeporte(): DeporteData { return deporteLive; }
 export function getIngles(): InglesData { return inglesLive; }
 export function getCultura(): CulturaItem[] { return culturaLive; }
+export function getOrganizacion(): OrganizacionItem[] { return organizacionLive; }
+
+function texto(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function organizacionDe(rows: ContentRow[]): OrganizacionItem[] {
+  return rowsOf(rows, "organizacion").flatMap((row) => {
+    if (!row.data || typeof row.data !== "object") return [];
+    const data = row.data as Record<string, unknown>;
+    const titulo = texto(data.titulo);
+    if (!titulo) return [];
+    return [{
+      id: row.id,
+      titulo,
+      icono: texto(data.icono),
+      descripcion: texto(data.descripcion),
+      frecuencia: texto(data.frecuencia),
+      automatico: data.automatico === true,
+      coste: texto(data.coste),
+      nota: texto(data.nota),
+    }];
+  });
+}
 
 function rowsOf(rows: ContentRow[], kind: string): ContentRow[] {
   return rows.filter((row) => row.kind === kind).sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id));
@@ -29,6 +66,7 @@ export function applySemanaContent(rows: ContentRow[] | null) {
     deporteLive = deporteBundled;
     inglesLive = inglesBundled;
     culturaLive = culturaBundled;
+    organizacionLive = [];
     return;
   }
 
@@ -84,4 +122,5 @@ export function applySemanaContent(rows: ContentRow[] | null) {
 
   const cultura = rowsOf(rows, "cultura");
   culturaLive = cultura.length ? cultura.map((row) => row.data as CulturaItem) : culturaBundled;
+  organizacionLive = organizacionDe(rows);
 }

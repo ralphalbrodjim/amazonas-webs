@@ -648,6 +648,42 @@ button.ws-cell-btn.on { outline: 2px solid var(--green); }
   font-weight: 700;
 }
 
+.org-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+.org-group { margin-top: 18px; }
+.org-group > h3 { margin: 0 0 8px; font-size: 18px; }
+.org-card { margin-top: 8px; }
+
+.org-top { display: flex; align-items: flex-start; gap: 10px; }
+.org-ico {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+}
+.org-main { min-width: 0; flex: 1; }
+.org-main h3 { margin: 0; font-family: var(--serif); font-size: 20px; font-weight: 500; line-height: 1.2; }
+.org-freq { margin: 3px 0 0; color: var(--muted); font-size: 13px; font-weight: 700; }
+.org-desc { margin: 10px 0 0; font-size: 15px; line-height: 1.45; }
+.org-cost {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--soft);
+  color: var(--green);
+  line-height: 1.2;
+}
+.org-cost.medio { background: var(--wait-bg); color: var(--wait); }
+.org-cost.alto { background: var(--miss-bg); color: var(--miss); }
+
 .week { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
 
 .week-day.is-today {

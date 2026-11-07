@@ -141,6 +141,47 @@ on conflict (site, kind, id) do update set
   data = excluded.data, sort = excluded.sort, active = excluded.active, updated_at = now();
 ```
 
+## semana / organizacion
+
+One row per piece of the weekly organization. `id` is a stable slug. `sort` is the order inside its group. The site splits rows by `automatico`: `true` goes under Automatizado, anything else under Manual. There is no bundled list. With zero rows the tab stays empty.
+
+`data`:
+
+| field | type | meaning |
+| --- | --- | --- |
+| `titulo` | string | card title. A row without it is skipped |
+| `icono` | string | emoji shown on the card |
+| `descripcion` | string | what it does |
+| `frecuencia` | string | short cadence, for example `Cada lunes` |
+| `automatico` | boolean | `true` only when it runs without Alberto. Missing or false is Manual |
+| `coste` | string | short label: `Bajo`, `Medio`, `Alto`, or a usage percent such as `2%` |
+| `nota` | string | optional extra line. `""` hides it |
+
+```json
+{
+  "titulo": "Título",
+  "icono": "📌",
+  "descripcion": "Qué hace",
+  "frecuencia": "Cada lunes",
+  "automatico": true,
+  "coste": "Bajo",
+  "nota": ""
+}
+```
+
+```sql
+insert into public.content (site, kind, id, data, sort, active)
+values (
+  'semana', 'organizacion', 'id-estable',
+  '{"titulo":"Título","icono":"📌","descripcion":"Qué hace","frecuencia":"Cada lunes","automatico":true,"coste":"Bajo","nota":""}'::jsonb,
+  1, true
+)
+on conflict (site, kind, id) do update set
+  data = excluded.data, sort = excluded.sort, active = excluded.active, updated_at = now();
+```
+
+Replace the placeholder before running it. `active = false` hides a row.
+
 ## semana / run_plan
 
 | id | data |
