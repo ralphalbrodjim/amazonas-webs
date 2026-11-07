@@ -16,5 +16,6 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["chef/src", "warren/src", "semana/src", "semana/data", "shared"]
+  "include": ["chef/src", "warren/src", "semana/src", "semana/data", "shared"],
+  "exclude": ["warren/src/math.test.ts"]
 }

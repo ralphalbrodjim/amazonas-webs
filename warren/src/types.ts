@@ -1,0 +1,109 @@
+export type Company = {
+  id: string;
+  owner_id: string;
+  ticker: string;
+  name: string;
+  exchange: string | null;
+  currency: string;
+  in_portfolio: boolean;
+  classification: string | null;
+  quality_stars: number | null;
+  verdict: string | null;
+  notes: string | null;
+  sort: number;
+};
+
+export type Quote = {
+  id: string;
+  company_id: string;
+  price: number | null;
+  currency: string;
+  price_date: string;
+  fetched_at: string;
+  source: string;
+  manual: boolean;
+  note: string | null;
+};
+
+export type YearRow = {
+  id: string;
+  company_id: string;
+  fiscal_label: string;
+  fiscal_year: number | null;
+  kind: "historico" | "estimado";
+  sales: number | null;
+  ebitda: number | null;
+  ebit: number | null;
+  net_income: number | null;
+  bpa: number | null;
+  shares_diluted: number | null;
+  cash: number | null;
+  gross_debt: number | null;
+  net_debt: number | null;
+  cfo: number | null;
+  capex: number | null;
+  fcf: number | null;
+  currency: string | null;
+  source: string;
+  as_of: string | null;
+  note: string | null;
+};
+
+export type EstimateSource = "warren" | "tikr" | "excel_bajista" | "excel_optimista";
+
+export type Estimate = {
+  id: string;
+  company_id: string;
+  source: EstimateSource;
+  horizon_years: number;
+  fiscal_label: string;
+  bpa: number | null;
+  bpa_base: number | null;
+  growth: number | null;
+  per: number | null;
+  ev_fcf: number | null;
+  ev_ebitda: number | null;
+  ev_ebit: number | null;
+  fcf: number | null;
+  ebitda: number | null;
+  ebit: number | null;
+  net_debt: number | null;
+  equity_adjustments: number | null;
+  diluted_shares: number | null;
+  target_price: number | null;
+  target_currency: string | null;
+  as_of: string | null;
+  note: string | null;
+};
+
+export type Position = {
+  company_id: string;
+  shares: number | null;
+  avg_price: number | null;
+  currency: string | null;
+  reported_weight_pct: number | null;
+  weight_as_of: string | null;
+  weight_source: string | null;
+  note: string | null;
+};
+
+export type FxRate = {
+  id: string;
+  owner_id: string;
+  rate_date: string;
+  quote: string;
+  units_per_eur: number | null;
+  source: string;
+  fetched_at: string;
+};
+
+export type Bundle = {
+  companies: Company[];
+  quotes: Quote[];
+  years: YearRow[];
+  estimates: Estimate[];
+  positions: Position[];
+  fx: FxRate[];
+};
+
+export const EMPTY: Bundle = { companies: [], quotes: [], years: [], estimates: [], positions: [], fx: [] };

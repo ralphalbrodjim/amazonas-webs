@@ -24,3 +24,74 @@ button {
     font-size: 16px !important;
   }
 }
+
+button, input, select {
+  font: inherit;
+}
+
+button:disabled {
+  opacity: 0.45;
+}
+
+.w-scroll {
+  overflow: auto;
+  max-height: 70vh;
+  border: 1px solid rgba(130, 170, 230, 0.18);
+  border-radius: 14px;
+  background: #14284B;
+}
+
+.w-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.w-table th,
+.w-table td {
+  padding: 10px 12px;
+  white-space: nowrap;
+  text-align: right;
+  border-bottom: 1px solid rgba(130, 170, 230, 0.18);
+  font-size: 13px;
+}
+
+.w-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #1B3360;
+  color: #8FA6CF;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.w-table td { color: #C9D6F0; }
+
+.w-table .sticky {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left;
+  background: #14284B;
+  min-width: 132px;
+  box-shadow: 8px 0 12px rgba(13, 25, 51, 0.35);
+}
+
+.w-table th.sticky { z-index: 3; background: #1B3360; }
+
+.w-table tr.hit { cursor: pointer; }
+.w-table tr.hit:hover td { background: rgba(71, 154, 255, 0.08); }
+.w-table tr.hit:hover td.sticky { background: #1B3360; }
+
+.col-blue { background: rgba(71, 154, 255, 0.28); color: #fff; font-weight: 700; }
+.col-green { background: rgba(31, 122, 90, 0.85); color: #fff; font-weight: 700; }
+.neg { color: #FF6B6B; font-weight: 700; }
+.pos { color: #3DDC97; font-weight: 700; }
+
+.stamp { color: #FFB547; font-size: 12px; font-weight: 700; }
+.nd { color: #8FA6CF; }
+
+.soon { opacity: 0.72; }
