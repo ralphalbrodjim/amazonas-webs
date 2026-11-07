@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import ingles from "../data/ingles.json";
-import deporte from "../data/deporte.json";
+import { watchContent } from "../../shared/content";
+import { applySemanaContent, getDeporte, getIngles } from "./liveContent";
 import { formatDay, formatWhen, kg, km, madridToday, pend, shiftDay, signedKg, weekStart } from "./dates";
 import { CloudSync } from "./cloud";
 import { Cultura } from "./cultura";
@@ -38,10 +38,12 @@ function deberEstado(estado: string): { kind: "miss" | "wait"; label: string } {
 export default function App() {
   const hoy = madridToday();
   const [tab, setTab] = useState<Tab>("agenda");
+  const [contentRev, setContentRev] = useState(0);
+  useEffect(() => watchContent("semana", (rows) => { applySemanaContent(rows); setContentRev((n) => n + 1); }), []);
 
   return (
     <CloudSync>
-    <div className="app">
+    <div className="app" data-content={contentRev}>
       <header className="header">
         <div className="header-inner">
           <h1>Mi semana</h1>
@@ -72,6 +74,7 @@ export default function App() {
 }
 
 function Ingles() {
+  const ingles = getIngles();
   const hoy = madridToday();
   const semana = semanaDe(hoy);
   const sync = useSync();
@@ -204,7 +207,7 @@ function etiquetaDestreza(key: string): string {
 const DEPORTE_KEY = "semana-deporte-v1";
 
 function hechasDeSerie(): string[] {
-  return (deporte.running.noviembre_2026.registros ?? []).map((item) => "run:" + item.fecha);
+  return (getDeporte().running.noviembre_2026.registros ?? []).map((item) => "run:" + item.fecha);
 }
 
 function loadHechas(): string[] {
@@ -296,10 +299,16 @@ function Barras(props: { aria: string; weeks: { label: string; hecho: number; pl
 }
 
 function Deporte() {
+  const deporte = getDeporte();
   const hoy = madridToday();
   const [mes, setMes] = useState(hoy.slice(0, 7));
   const sync = useSync();
   const [hechas, setHechas] = useState<string[]>(loadHechas);
+  const serie = (deporte.running.noviembre_2026.registros ?? []).map((item) => item.fecha).join("|");
+  useEffect(() => {
+    const next = loadHechas();
+    setHechas((current) => current.length === next.length && current.every((id, index) => id === next[index]) ? current : next);
+  }, [serie]);
   useEffect(() => {
     try { localStorage.setItem(DEPORTE_KEY, JSON.stringify(hechas)); } catch { /* sin almacenamiento */ }
     sync.push(DEPORTE_KEY, hechas);

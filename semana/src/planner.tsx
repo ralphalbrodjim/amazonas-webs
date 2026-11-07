@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import agenda from "../data/agenda.json";
-import deporte from "../data/deporte.json";
+import type { AgendaData } from "./liveContent";
+import { getAgenda, getDeporte } from "./liveContent";
 import { formatDay, shiftDay, shortDay, weekStart } from "./dates";
 import { useSync } from "./cloud";
 import { loadInglesHechos, resumenIngles } from "./inglesChecks";
@@ -23,7 +23,7 @@ export type Entry = {
   origen: string | null;
 };
 
-type Cita = (typeof agenda.citas)[number];
+type Cita = AgendaData["citas"][number];
 
 const CATS: { id: Exclude<CatId, "otro">; label: string; emoji: string }[] = [
   { id: "ingles", label: "Inglés", emoji: "🇬🇧" },
@@ -39,7 +39,7 @@ const FRANJAS: { id: Exclude<Franja, "hora">; label: string; short: string }[] =
   { id: "noche", label: "Noche", short: "Noc" },
 ];
 
-const VIAJE = deporte.gimnasio.planificadas_noviembre.parada;
+function viaje() { return getDeporte().gimnasio.planificadas_noviembre.parada; }
 
 function uid(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -108,7 +108,8 @@ function franjaDe(hora: string | null): Exclude<Franja, "hora"> | "sin-hora" {
 }
 
 function enViaje(fecha: string): boolean {
-  return fecha >= VIAJE.desde && fecha <= VIAJE.hasta;
+  const parada = viaje();
+  return fecha >= parada.desde && fecha <= parada.hasta;
 }
 
 function catMeta(id: CatId | null) {
@@ -171,7 +172,7 @@ export function Planner(props: { hoy: string }) {
   const diasSemana = Array.from({ length: 7 }, (_, i) => shiftDay(weekStart(dia), i));
 
   function visibleCitas(fecha: string): Cita[] {
-    return agenda.citas.filter((cita) => cita.fecha === fecha && !ocultas.includes(citaId(cita)) && !entradas.some((item) => item.origen === citaId(cita)));
+    return getAgenda().citas.filter((cita) => cita.fecha === fecha && !ocultas.includes(citaId(cita)) && !entradas.some((item) => item.origen === citaId(cita)));
   }
 
   function poner(opts: { fecha: string; franja: Franja; entry: Entry | null; origen: string | null; value: SlotValue; texto: string; hecho: boolean; focus?: boolean }) {
@@ -280,7 +281,7 @@ export function Planner(props: { hoy: string }) {
         {diasSemana.map((fecha) => (
           <article key={fecha} className={`card week-day${fecha === props.hoy ? " is-today" : ""}`}>
             <h3 className="day-title">{formatDay(fecha)}{fecha === props.hoy ? " · Hoy" : ""}</h3>
-            {enViaje(fecha) ? <p className="note">{VIAJE.motivo}</p> : null}
+            {enViaje(fecha) ? <p className="note">{viaje().motivo}</p> : null}
             {FRANJAS.map((franja) => {
               const rows = filas(fecha, franja.id);
               return (
@@ -392,10 +393,10 @@ export function Planner(props: { hoy: string }) {
         {detalle ? <p className="ws-tip">{ICONO_TEXTO} {detalle}</p> : null}
       </article>
 
-      {agenda.pendientes_sin_fecha.length > 0 ? (
+      {getAgenda().pendientes_sin_fecha.length > 0 ? (
         <article className="card">
           <h3>Sin fecha</h3>
-          {agenda.pendientes_sin_fecha.map((item) => (
+          {getAgenda().pendientes_sin_fecha.map((item) => (
             <p key={item.titulo} className="note">{item.titulo}. {item.nota} Pendiente.</p>
           ))}
         </article>

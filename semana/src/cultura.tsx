@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSync } from "./cloud";
 import seedData from "../data/cultura.json";
+import { getCultura } from "./liveContent";
 import { formatDay } from "./dates";
 
 const KEY = "semana-cultura-v1";
@@ -162,7 +163,7 @@ export function Cultura() {
     setSaved(loadSaved());
   }), [sync]);
 
-  const semillas = seedPropuestas().filter((item) => !saved.ocultas.includes(item.id));
+  const semillas = seedPropuestas(getCultura()).filter((item) => !saved.ocultas.includes(item.id));
   const todas = [...semillas, ...saved.propias];
   const hecha = (id: string) => saved.hechos.includes(id);
   const pendientes = todas.filter((item) => !hecha(item.id));

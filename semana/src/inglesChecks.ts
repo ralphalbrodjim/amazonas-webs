@@ -1,5 +1,5 @@
-import ingles from "../data/ingles.json";
 import { shiftDay, weekStart } from "./dates";
+import { getIngles } from "./liveContent";
 
 export const INGLES_KEY = "semana-ingles-v1";
 
@@ -31,6 +31,7 @@ function fechaDeber(hacer: string): string | null {
 }
 
 export function idsInglesEntre(desde: string, hasta: string): string[] {
+  const ingles = getIngles();
   const ids: string[] = [];
   const prueba = ingles.prueba_de_nivel.fecha_prevista;
   if (prueba >= desde && prueba <= hasta) ids.push(idPrueba());
