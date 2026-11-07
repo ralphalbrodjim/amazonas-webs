@@ -170,6 +170,10 @@ export function Planner(props: { hoy: string }) {
   }), [sync]);
 
   const diasSemana = Array.from({ length: 7 }, (_, i) => shiftDay(weekStart(dia), i));
+  const semanaActual = diasSemana.includes(props.hoy);
+  const diasTarjetas = semanaActual
+    ? [...diasSemana.filter((fecha) => fecha >= props.hoy), ...diasSemana.filter((fecha) => fecha < props.hoy)]
+    : diasSemana;
 
   function visibleCitas(fecha: string): Cita[] {
     return getAgenda().citas.filter((cita) => cita.fecha === fecha && !ocultas.includes(citaId(cita)) && !entradas.some((item) => item.origen === citaId(cita)));
@@ -278,7 +282,7 @@ export function Planner(props: { hoy: string }) {
       </div>
       <button className="tap" type="button" onClick={() => setDia(props.hoy)}>Hoy · {shortDay(props.hoy)}</button>
       <div className="week">
-        {diasSemana.map((fecha) => (
+        {diasTarjetas.map((fecha) => (
           <article key={fecha} className={`card week-day${fecha === props.hoy ? " is-today" : ""}`}>
             <h3 className="day-title">{formatDay(fecha)}{fecha === props.hoy ? " · Hoy" : ""}</h3>
             {enViaje(fecha) ? <p className="note">{viaje().motivo}</p> : null}

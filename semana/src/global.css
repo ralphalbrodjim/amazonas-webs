@@ -650,7 +650,10 @@ button.ws-cell-btn.on { outline: 2px solid var(--green); }
 
 .week { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
 
-.week-day.is-today { outline: 2px solid var(--green); }
+.week-day.is-today {
+  background: #f4f7f2;
+  box-shadow: inset 3px 0 0 var(--green);
+}
 
 .day-jump {
   width: 100%;
