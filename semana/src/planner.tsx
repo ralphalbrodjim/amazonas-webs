@@ -453,36 +453,38 @@ function SlotSelect(props: {
 }) {
   return (
     <div className="slot-row">
-      <select
-        className="slot-select"
-        aria-label={props.label}
-        value={props.value}
-        onChange={(event) => props.onValue(event.target.value as SlotValue)}
-      >
-        <option value="">— Libre —</option>
-        <option value="ingles">🇬🇧 Inglés</option>
-        <option value="gimnasio">💪 Gimnasio</option>
-        <option value="running">🏃 Running</option>
-        <option value="hogar">🏠 Hogar</option>
-        <option value="texto">📌 Texto libre…</option>
-      </select>
+      <div className="slot-line">
+        <select
+          className="slot-select"
+          aria-label={props.label}
+          value={props.value}
+          onChange={(event) => props.onValue(event.target.value as SlotValue)}
+        >
+          <option value="">— Libre —</option>
+          <option value="ingles">🇬🇧 Inglés</option>
+          <option value="gimnasio">💪 Gimnasio</option>
+          <option value="running">🏃 Running</option>
+          <option value="hogar">🏠 Hogar</option>
+          <option value="texto">📌 Texto libre…</option>
+        </select>
+        {props.value ? (
+          <label className="hecho-check slot-hecho">
+            <input type="checkbox" checked={props.hecho} onChange={(event) => props.onHecho(event.target.checked)} />
+            Hecho
+          </label>
+        ) : null}
+      </div>
       {props.value === "texto" ? (
         <input
-          className="field"
+          className="slot-text"
           aria-label={`Texto libre, ${props.label}`}
           value={props.texto}
           id={props.inputId}
-          placeholder="Escribe aquí"
+          placeholder="Texto libre…"
           onChange={(event) => props.onTexto(event.target.value)}
         />
       ) : null}
       {props.caption && props.value !== "texto" ? <p className="note">{props.caption}</p> : null}
-      {props.value ? (
-        <label className="hecho-check">
-          <input type="checkbox" checked={props.hecho} onChange={(event) => props.onHecho(event.target.checked)} />
-          Hecho
-        </label>
-      ) : null}
     </div>
   );
 }

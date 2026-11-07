@@ -409,10 +409,14 @@ h2 {
 .franja { margin-top: 10px; }
 .franja-label { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
 
-.slot-row { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.slot-row { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+
+.slot-line { display: flex; align-items: center; gap: 8px; }
 
 .slot-select {
-  width: 100%;
+  flex: 1;
+  width: auto;
+  min-width: 0;
   min-height: 48px;
   font-size: 16px;
   border-radius: 12px;
@@ -420,6 +424,20 @@ h2 {
   background: #fff;
   color: var(--text);
   padding: 8px 12px;
+}
+
+.slot-text {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  padding: 4px 10px;
+  font-size: 14px !important;
+  line-height: 1.2;
 }
 
 .hecho-check {
@@ -435,6 +453,22 @@ h2 {
   width: 28px;
   height: 28px;
   accent-color: var(--green);
+}
+
+.hecho-check.slot-hecho {
+  flex: 0 0 auto;
+  min-height: 0;
+  gap: 4px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.hecho-check.slot-hecho input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
 }
 
 .ws-sum { margin-top: 10px; }
