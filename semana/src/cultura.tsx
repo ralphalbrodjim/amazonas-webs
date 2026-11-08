@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useSync } from "./cloud";
 import seedData from "../data/cultura.json";
-import { getCultura } from "./liveContent";
-import { formatDay } from "./dates";
+import { getCultura, getCulturaDias } from "./liveContent";
+import { formatDay, madridToday } from "./dates";
+import { Edicion } from "./edicion";
 
 const KEY = "semana-cultura-v1";
 
@@ -152,6 +153,8 @@ export function Cultura() {
   const [detalle, setDetalle] = useState("");
   const [enlace, setEnlace] = useState("");
   const [borrar, setBorrar] = useState<string | null>(null);
+  const [vista, setVista] = useState<"edicion" | "lista">("edicion");
+  const [dia, setDia] = useState(madridToday);
 
   useEffect(() => {
     try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch { /* sin almacenamiento */ }
@@ -202,11 +205,21 @@ export function Cultura() {
     setFiltro("pendiente");
   };
 
+  const anadidas = new Set(saved.propias.map((item) => item.id));
+  const sumar = (item: Propuesta) => setSaved((prev) => prev.propias.some((propia) => propia.id === item.id) ? prev : { ...prev, propias: [...prev.propias, item] });
+
   return (
     <section>
       <div className="kicker">Don Ateneo</div>
       <h2>Cultura</h2>
-      <p className="lead">Las propuestas que te manda por email. Pendiente es lo que aún no has hecho.</p>
+      <p className="lead">La edición del día llega por la web. Lo que añadas pasa a Pendiente y se guarda en tus dos teléfonos.</p>
+      <div className="cult-filters" role="group" aria-label="Vista de cultura">
+        <button type="button" className="cult-filter" aria-pressed={vista === "edicion"} onClick={() => setVista("edicion")}>La edición</button>
+        <button type="button" className="cult-filter" aria-pressed={vista === "lista"} onClick={() => setVista("lista")}>Mi lista <span>{pendientes.length}</span></button>
+      </div>
+      {vista === "edicion" ? <Edicion dia={dia} ediciones={getCulturaDias()} anadidas={anadidas} onDia={setDia} onAdd={sumar} /> : null}
+      {vista === "lista" ? (
+      <>
       <div className="cult-filters" role="group" aria-label="Filtrar propuestas">
         <button type="button" className="cult-filter" aria-pressed={filtro === "pendiente"} onClick={() => setFiltro("pendiente")}>
           Pendiente <span>{pendientes.length}</span>
@@ -273,6 +286,8 @@ export function Cultura() {
           );
         })}
       </div>
+      </>
+      ) : null}
     </section>
   );
 }

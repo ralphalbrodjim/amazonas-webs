@@ -141,6 +141,76 @@ on conflict (site, kind, id) do update set
   data = excluded.data, sort = excluded.sort, active = excluded.active, updated_at = now();
 ```
 
+## semana / cultura_dia
+
+One row is one daily edition from Don Ateneo. `id` can be the date (`2026-11-08`). `sort` orders editions that share a day; normally there is one. Nothing is bundled: a day with no row shows an empty edition. The site does not copy these rows into `app_state` until Alberto taps Añadir on a proposal.
+
+`data`:
+
+| field | type | meaning |
+| --- | --- | --- |
+| `fecha` | string | `YYYY-MM-DD`. A row without it is skipped |
+| `titulo` | string | the edition headline. Empty becomes «La carta del día» |
+| `intro` | string | greeting and opening. Paragraphs separated by a blank line. `**bold**`, `- ` lists, and `https://` links are rendered |
+| `secciones` | array | stories, background, tips, closing notes |
+| `propuestas` | array | the proposals inside the edition |
+
+Each section:
+
+| field | type | meaning |
+| --- | --- | --- |
+| `titulo` | string | section heading |
+| `texto` | string | the narrative, same paragraph rules as `intro` |
+| `imagen` | string | optional `https://` image. Anything else is ignored |
+| `enlace` | string | optional `https://` link |
+
+Each proposal:
+
+| field | type | meaning |
+| --- | --- | --- |
+| `titulo` | string | required. Añadir stores it on the Pendiente list with a stable id from the date and the title |
+| `tipo` | string | `exposición`, `teatro`, `concierto`, `cine`, `libro`, `restaurante`, `serie`, `podcast`, or `otro` |
+| `lugar` | string | place |
+| `horario` | string | time, as text |
+| `precio` | string | price, as text |
+| `enlace` | string | optional `https://` link |
+| `historia` | string | the narrative. `descripcion` is used when `historia` is empty |
+
+```json
+{
+  "fecha": "2026-11-08",
+  "titulo": "Título de la edición",
+  "intro": "Buenos días.\n\nUn párrafo más.",
+  "secciones": [
+    { "titulo": "Una historia", "texto": "El relato.\n\n- un apunte", "imagen": "", "enlace": "" }
+  ],
+  "propuestas": [
+    {
+      "titulo": "Nombre de la propuesta",
+      "tipo": "exposición",
+      "lugar": "Madrid",
+      "horario": "De 10:00 a 19:00",
+      "precio": "",
+      "enlace": "",
+      "historia": "Por qué merece la visita."
+    }
+  ]
+}
+```
+
+```sql
+insert into public.content (site, kind, id, data, sort, active)
+values (
+  'semana', 'cultura_dia', '2026-11-08',
+  '{"fecha":"2026-11-08","titulo":"Título de la edición","intro":"Buenos días.","secciones":[],"propuestas":[]}'::jsonb,
+  1, true
+)
+on conflict (site, kind, id) do update set
+  data = excluded.data, sort = excluded.sort, active = excluded.active, updated_at = now();
+```
+
+Replace the placeholder with the real letter before running it.
+
 ## semana / organizacion
 
 One row per piece of the weekly organization. `id` is a stable slug. `sort` is the order inside its group. The site splits rows by `automatico`: `true` goes under Automatizado, anything else under Manual. There is no bundled list. With zero rows the tab stays empty.

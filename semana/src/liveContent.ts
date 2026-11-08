@@ -25,13 +25,35 @@ export type OrganizacionItem = {
   nota: string;
 };
 
+export type CulturaSeccion = { titulo: string; texto: string; imagen: string; enlace: string };
+export type CulturaPropuestaDia = {
+  titulo: string;
+  tipo: string;
+  lugar: string;
+  horario: string;
+  precio: string;
+  enlace: string;
+  historia: string;
+  descripcion: string;
+};
+export type CulturaDia = {
+  id: string;
+  fecha: string;
+  titulo: string;
+  intro: string;
+  secciones: CulturaSeccion[];
+  propuestas: CulturaPropuestaDia[];
+};
+
 let organizacionLive: OrganizacionItem[] = [];
+let culturaDiasLive: CulturaDia[] = [];
 
 export function getAgenda(): AgendaData { return agendaLive; }
 export function getDeporte(): DeporteData { return deporteLive; }
 export function getIngles(): InglesData { return inglesLive; }
 export function getCultura(): CulturaItem[] { return culturaLive; }
 export function getOrganizacion(): OrganizacionItem[] { return organizacionLive; }
+export function getCulturaDias(): CulturaDia[] { return culturaDiasLive; }
 
 function texto(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -56,6 +78,42 @@ function organizacionDe(rows: ContentRow[]): OrganizacionItem[] {
   });
 }
 
+function listaDe(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object");
+}
+
+function culturaDiasDe(rows: ContentRow[]): CulturaDia[] {
+  return rowsOf(rows, "cultura_dia").flatMap((row) => {
+    if (!row.data || typeof row.data !== "object") return [];
+    const data = row.data as Record<string, unknown>;
+    const fecha = texto(data.fecha ?? data.date).slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return [];
+    return [{
+      id: row.id,
+      fecha,
+      titulo: texto(data.titulo),
+      intro: texto(data.intro),
+      secciones: listaDe(data.secciones).map((item) => ({
+        titulo: texto(item.titulo),
+        texto: texto(item.texto),
+        imagen: texto(item.imagen),
+        enlace: texto(item.enlace ?? item.url),
+      })).filter((item) => item.titulo || item.texto || item.imagen),
+      propuestas: listaDe(data.propuestas).map((item) => ({
+        titulo: texto(item.titulo),
+        tipo: texto(item.tipo),
+        lugar: texto(item.lugar),
+        horario: texto(item.horario),
+        precio: texto(item.precio),
+        enlace: texto(item.enlace ?? item.url),
+        historia: texto(item.historia),
+        descripcion: texto(item.descripcion ?? item.detalle),
+      })).filter((item) => item.titulo),
+    }];
+  });
+}
+
 function rowsOf(rows: ContentRow[], kind: string): ContentRow[] {
   return rows.filter((row) => row.kind === kind).sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id));
 }
@@ -67,6 +125,7 @@ export function applySemanaContent(rows: ContentRow[] | null) {
     inglesLive = inglesBundled;
     culturaLive = culturaBundled;
     organizacionLive = [];
+    culturaDiasLive = [];
     return;
   }
 
@@ -123,4 +182,5 @@ export function applySemanaContent(rows: ContentRow[] | null) {
   const cultura = rowsOf(rows, "cultura");
   culturaLive = cultura.length ? cultura.map((row) => row.data as CulturaItem) : culturaBundled;
   organizacionLive = organizacionDe(rows);
+  culturaDiasLive = culturaDiasDe(rows);
 }
