@@ -1,39 +1,18 @@
 import { useEffect, useState } from "react";
 import { watchContent } from "../../shared/content";
-import { applySemanaContent, getDeporte, getIngles } from "./liveContent";
+import { applySemanaContent, getDeporte } from "./liveContent";
 import { formatDay, formatWhen, kg, km, madridToday, pend, shiftDay, signedKg, weekStart } from "./dates";
 import { CloudSync } from "./cloud";
 import { Cultura } from "./cultura";
 import { Organizacion } from "./organizacion";
 import { Planner } from "./planner";
-import { INGLES_KEY, idClase, idDeber, idPrueba, loadInglesHechos, resumenIngles, semanaDe } from "./inglesChecks";
 import { useSync } from "./cloud";
+import { AGENDA_KEY, DEPORTE_KEY, deporteDates, gimnasioHecho, kmDelMes, mergeAgenda, parseBag, salidasHechas, type AgendaBag } from "./agendaStore";
 
-type Tab = "agenda" | "ingles" | "deporte" | "cultura" | "organizacion";
+type Tab = "agenda" | "deporte" | "cultura" | "organizacion";
 
 function Pill(props: { kind: "miss" | "wait" | "neutral" | "recorded" | "completo"; children: string }) {
   return <span className={`pill ${props.kind}`}>{props.children}</span>;
-}
-
-function CheckCompleto(props: { on: boolean; onToggle: () => void }) {
-  return (
-    <label className="hecho-check">
-      <input type="checkbox" checked={props.on} onChange={props.onToggle} />
-      {props.on ? "Completo" : "Marcar"}
-    </label>
-  );
-}
-
-function claseEstado(estado: string): { kind: "miss" | "wait" | "neutral"; label: string } {
-  if (estado === "no_realizada") return { kind: "miss", label: "No realizada" };
-  if (estado === "programada") return { kind: "neutral", label: "Programada" };
-  if (estado === "pendiente_de_fecha") return { kind: "wait", label: "Pendiente de fecha" };
-  return { kind: "miss", label: "No hecha" };
-}
-
-function deberEstado(estado: string): { kind: "miss" | "wait"; label: string } {
-  if (estado === "no_reportada") return { kind: "miss", label: "No hecha" };
-  return { kind: "miss", label: "No hecha" };
 }
 
 export default function App() {
@@ -48,14 +27,13 @@ export default function App() {
       <header className="header">
         <div className="header-inner">
           <h1>Mi semana</h1>
-          <p>Agenda, inglés, deporte y cultura</p>
+          <p>Agenda, deporte y cultura</p>
         </div>
       </header>
       <main className="wrap">
         <div className="tabs" role="tablist" aria-label="Secciones">
           {([
             ["agenda", "Agenda"],
-            ["ingles", "Inglés"],
             ["deporte", "Running y gimnasio"],
             ["cultura", "🎭 Cultura"],
             ["organizacion", "Organización semana"],
@@ -66,7 +44,6 @@ export default function App() {
           ))}
         </div>
         {tab === "agenda" ? <Planner hoy={hoy} /> : null}
-        {tab === "ingles" ? <Ingles /> : null}
         {tab === "deporte" ? <Deporte /> : null}
         {tab === "cultura" ? <Cultura /> : null}
         {tab === "organizacion" ? <Organizacion /> : null}
@@ -76,156 +53,15 @@ export default function App() {
   );
 }
 
-function Ingles() {
-  const ingles = getIngles();
-  const hoy = madridToday();
-  const semana = semanaDe(hoy);
-  const sync = useSync();
-  const [hechos, setHechos] = useState<string[]>(loadInglesHechos);
-  useEffect(() => {
-    try { localStorage.setItem(INGLES_KEY, JSON.stringify(hechos)); } catch { /* sin almacenamiento */ }
-    sync.push(INGLES_KEY, hechos);
-  }, [hechos, sync]);
-  useEffect(() => sync.onKey(INGLES_KEY, (value) => { if (Array.isArray(value)) setHechos(value.filter((item): item is string => typeof item === "string")); }), [sync]);
-  const on = (id: string) => hechos.includes(id);
-  const toggle = (id: string) => setHechos((list) => list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
-  const cuenta = resumenIngles(semana.desde, semana.hasta, hechos);
-  const prueba = ingles.prueba_de_nivel;
-  const posteriores = ingles["clases_posteriores_hasta_2026-11-30"];
-  const pruebaEstado = claseEstado(prueba.estado);
-  const pruebaOn = on(idPrueba());
 
-  return (
-    <section>
-      <div className="kicker">Actualizado {formatWhen(ingles.actualizado)}</div>
-      <h2>Inglés</h2>
-      <p className="source">{ingles.fuente}</p>
-      <p className="lead">{cuenta.hechas} de {cuenta.total} completas esta semana.</p>
-      <div className="stats">
-        <article className="card">
-          <div className="stat-label">Nivel actual</div>
-          <div className="stat-value" style={{ fontSize: 22 }}>{ingles.nivel_actual}</div>
-        </article>
-        <article className="card">
-          <div className="stat-label">Objetivo</div>
-          <div className="stat-value" style={{ fontSize: 22 }}>{ingles.nivel_objetivo}</div>
-          <div className="stat-label">{ingles.plazo_objetivo_meses} meses</div>
-        </article>
-        <article className="card">
-          <div className="stat-label">Clases completadas</div>
-          <div className="stat-value">{ingles.clases_completadas}</div>
-          <Pill kind="miss">No hechas</Pill>
-        </article>
-        <article className="card">
-          <div className="stat-label">Minutos completados</div>
-          <div className="stat-value">{ingles.minutos_completados}</div>
-        </article>
-      </div>
-
-      <div className="kicker">Prueba de nivel</div>
-      <article className="card">
-        <h3>Sir Edward</h3>
-        <div className="meta">
-          <span>{formatDay(prueba.fecha_prevista)}</span>
-          <span>{prueba.hora}</span>
-          {pruebaOn ? <Pill kind="completo">Completo</Pill> : <Pill kind={pruebaEstado.kind}>{pruebaEstado.label}</Pill>}
-        </div>
-        <p className="note">Resultado: {pend(prueba.resultado)}</p>
-        <p className="note">{prueba.nota}</p>
-        <CheckCompleto on={pruebaOn} onToggle={() => toggle(idPrueba())} />
-      </article>
-
-      <div className="kicker">Clases</div>
-      <div className="grid">
-        {ingles.clases_programadas.map((clase) => {
-          const estado = claseEstado(clase.estado);
-          const id = idClase(clase);
-          const marcado = on(id);
-          return (
-            <article key={id} className="card">
-              <h3>{clase.destreza}</h3>
-              <div className="meta">
-                <span>{clase.profesor}</span>
-                <span>{clase.fecha ? formatDay(clase.fecha) : "Fecha: Pendiente"}</span>
-                <span>Hora: {pend(clase.hora)}</span>
-                {marcado ? <Pill kind="completo">Completo</Pill> : <Pill kind={estado.kind}>{estado.label}</Pill>}
-              </div>
-              {"nota" in clase && clase.nota ? <p className="note">{clase.nota}</p> : null}
-              <CheckCompleto on={marcado} onToggle={() => toggle(id)} />
-            </article>
-          );
-        })}
-      </div>
-      <p className="note">{ingles.nota_calendario}</p>
-      <p className="note">Clases posteriores hasta el 30 de noviembre: {pend(posteriores)}</p>
-
-      <div className="kicker">Deberes</div>
-      <div className="grid">
-        {ingles.deberes_pendientes.map((deber) => {
-          const estado = deberEstado(deber.estado);
-          const id = idDeber(deber);
-          const marcado = on(id);
-          return (
-            <article key={id} className="card">
-              <h3>{deber.profesor}</h3>
-              <div className="meta">
-                {marcado ? <Pill kind="completo">Completo</Pill> : <Pill kind={estado.kind}>{estado.label}</Pill>}
-              </div>
-              <p className="note">{deber.tarea}</p>
-              <p className="note">Hacer: {deber.hacer}</p>
-              <p className="note">Entrega: {formatWhen(deber.entrega)}</p>
-              <CheckCompleto on={marcado} onToggle={() => toggle(id)} />
-            </article>
-          );
-        })}
-      </div>
-
-      <div className="kicker">Progreso por destreza</div>
-      <div className="grid">
-        {Object.entries(ingles.progreso_por_destreza).map(([destreza, valor]) => (
-          <article key={destreza} className="card">
-            <h3>{etiquetaDestreza(destreza)}</h3>
-            <div className="meta">
-              <span>{pend(valor)}</span>
-              <Pill kind="miss">No hecha</Pill>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function etiquetaDestreza(key: string): string {
-  const names: Record<string, string> = {
-    speaking: "Speaking",
-    listening: "Listening",
-    reading: "Reading",
-    use_of_english: "Use of English",
-    writing: "Writing",
-  };
-  return names[key] ?? key;
-}
-
-const DEPORTE_KEY = "semana-deporte-v1";
-
-function hechasDeSerie(): string[] {
-  return (getDeporte().running.noviembre_2026.registros ?? []).map((item) => "run:" + item.fecha);
-}
-
-function loadHechas(): string[] {
-  let list: string[] = [];
+function readBag(): AgendaBag {
   try {
-    const raw = localStorage.getItem(DEPORTE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    if (Array.isArray(parsed)) list = parsed.filter((item): item is string => typeof item === "string");
-  } catch { /* sin almacenamiento */ }
-  const ids = new Set(list);
-  let changed = false;
-  for (const id of hechasDeSerie()) if (!ids.has(id)) { ids.add(id); changed = true; }
-  const next = [...ids];
-  if (changed) { try { localStorage.setItem(DEPORTE_KEY, JSON.stringify(next)); } catch { /* sin almacenamiento */ } }
-  return next;
+    const raw = localStorage.getItem(AGENDA_KEY);
+    const dates = (() => { try { return deporteDates(JSON.parse(localStorage.getItem(DEPORTE_KEY) || "[]")); } catch { return []; } })();
+    return mergeAgenda(parseBag(raw ? JSON.parse(raw) : {}), dates).bag;
+  } catch {
+    return mergeAgenda({ entradas: [], ocultas: [], kmMes: {}, runsMigrated: false }, []).bag;
+  }
 }
 
 function kmDePlan(plan: string): number {
@@ -307,40 +143,36 @@ function Deporte() {
   const hoy = madridToday();
   const [mes, setMes] = useState(hoy.slice(0, 7));
   const sync = useSync();
-  const [hechas, setHechas] = useState<string[]>(loadHechas);
-  const serie = (deporte.running.noviembre_2026.registros ?? []).map((item) => item.fecha).join("|");
-  useEffect(() => {
-    const next = loadHechas();
-    setHechas((current) => current.length === next.length && current.every((id, index) => id === next[index]) ? current : next);
-  }, [serie]);
-  useEffect(() => {
-    try { localStorage.setItem(DEPORTE_KEY, JSON.stringify(hechas)); } catch { /* sin almacenamiento */ }
-    sync.push(DEPORTE_KEY, hechas);
-  }, [hechas, sync]);
-  useEffect(() => sync.onKey(DEPORTE_KEY, (value) => {
-    if (!Array.isArray(value)) return;
-    try { localStorage.setItem(DEPORTE_KEY, JSON.stringify(value)); } catch { /* sin almacenamiento */ }
-    setHechas(loadHechas());
+  const [bag, setBag] = useState<AgendaBag>(readBag);
+  useEffect(() => sync.onKey(AGENDA_KEY, (value) => {
+    try {
+      const dates = deporteDates(JSON.parse(localStorage.getItem(DEPORTE_KEY) || "[]"));
+      setBag(mergeAgenda(parseBag(value), dates).bag);
+    } catch { /* remoto ilegible */ }
   }), [sync]);
-  const hecha = (id: string) => hechas.includes(id);
-  const toggle = (id: string) => setHechas((list) => list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
-  const visible = (fecha: string, id: string) => fecha >= hoy || hecha(id);
+  useEffect(() => {
+    const next = readBag();
+    setBag(next);
+    sync.push(AGENDA_KEY, next);
+  }, [sync]);
+  const runningHecho = (fecha: string) => bag.entradas.some((item) => item.fecha === fecha && item.categoria === "running" && item.hecho);
 
   const octubre = deporte.running.octubre_2026;
   const noviembre = deporte.running.noviembre_2026;
   const gym = deporte.gimnasio;
   const peso = deporte.peso;
-  const octExtra = octubre.no_hechas.filter((item) => hecha("run:" + item.fecha)).reduce((sum, item) => sum + kmDePlan(item.plan), 0);
-  const octKm = octubre.total_km + octExtra;
-  const novKm = noviembre.realizados_km + noviembre.plan.filter((sesion) => hecha("run:" + sesion.fecha)).reduce((sum, sesion) => sum + sesion.km, 0);
+  const octInfo = kmDelMes(bag, "2026-10");
+  const novInfo = kmDelMes(bag, "2026-11");
+  const octKm = octInfo.km;
+  const novKm = novInfo.km;
   const octubrePct = Math.min(100, (octKm / octubre.objetivo_km) * 100);
   const noviembrePct = Math.min(100, (novKm / noviembre.objetivo_km) * 100);
   const sinSalidas = noviembre.sin_salidas;
   const parada = gym.planificadas_noviembre.parada;
-  const noHechasRun = octubre.no_hechas.filter((item) => visible(item.fecha, "run:" + item.fecha));
-  const planNov = noviembre.plan.filter((sesion) => visible(sesion.fecha, "run:" + sesion.fecha));
-  const noHechasGym = gym.no_hechas.filter((item) => visible(item.fecha, "gym:" + item.fecha));
-  const planGym = gym.planificadas_noviembre.sesiones.filter((sesion) => visible(sesion.fecha, "gym:" + sesion.fecha));
+  const noHechasRun = octubre.no_hechas.filter((item) => item.fecha >= hoy);
+  const planNov = noviembre.plan.filter((sesion) => sesion.fecha >= hoy);
+  const noHechasGym = gym.no_hechas.filter((item) => item.fecha >= hoy);
+  const planGym = gym.planificadas_noviembre.sesiones.filter((sesion) => sesion.fecha >= hoy);
   const fechasMes = [
     ...octubre.registros.map((item) => item.fecha),
     ...octubre.no_hechas.map((item) => item.fecha),
@@ -353,17 +185,9 @@ function Deporte() {
   const semanasRun = semanasDelMes(mes).map((week) => {
     let hecho = 0;
     let plan = 0;
-    for (const item of octubre.registros) if (dentro(item.fecha, week)) hecho += item.km;
-    for (const item of octubre.no_hechas) if (dentro(item.fecha, week)) {
-      const cantidad = kmDePlan(item.plan);
-      plan += cantidad;
-      if (hecha("run:" + item.fecha)) hecho += cantidad;
-    }
-    for (const item of noviembre.registros) if (dentro(item.fecha, week)) hecho += item.km;
-    for (const item of noviembre.plan) if (dentro(item.fecha, week)) {
-      plan += item.km;
-      if (hecha("run:" + item.fecha)) hecho += item.km;
-    }
+    for (const item of octubre.no_hechas) if (dentro(item.fecha, week)) plan += kmDePlan(item.plan);
+    for (const item of noviembre.plan) if (dentro(item.fecha, week)) plan += item.km;
+    for (const item of bag.entradas) if (item.categoria === "running" && item.hecho && item.km !== null && dentro(item.fecha, week)) hecho += item.km;
     return { label: week.label, hecho, plan };
   }).filter((week) => week.hecho > 0 || week.plan > 0);
   const semanasGym = semanasDelMes(mes).map((week) => {
@@ -371,10 +195,13 @@ function Deporte() {
     let plan = 0;
     for (const item of [...gym.no_hechas, ...gym.planificadas_noviembre.sesiones]) if (dentro(item.fecha, week)) {
       plan += 1;
-      if (hecha("gym:" + item.fecha)) hecho += 1;
+      if (gimnasioHecho(bag.entradas, item.fecha)) hecho += 1;
     }
     return { label: week.label, hecho, plan };
   }).filter((week) => week.hecho > 0 || week.plan > 0);
+  const salidasMes = salidasHechas(bag.entradas).filter((item) => item.fecha.slice(0, 7) === mes);
+  const barrasSalida = salidasMes.map((item) => ({ label: String(Number(item.fecha.slice(8))), hecho: item.km ?? 0, plan: 0 }));
+  const barrasMeses = ["2026-10", "2026-11"].map((item) => ({ label: nombreMes(item).slice(0, 3), hecho: kmDelMes(bag, item).km, plan: 0 }));
   const kmHechosMes = semanasRun.reduce((sum, week) => sum + week.hecho, 0);
   const objetivo = mes === "2026-10" ? octubre.objetivo_km : mes === "2026-11" ? noviembre.objetivo_km : null;
   const antesDe = mes === "2026-11" ? sinSalidas.desde : null;
@@ -387,7 +214,7 @@ function Deporte() {
       <div className="kicker">Actualizado {formatWhen(deporte.actualizado)}</div>
       <h2>Running y gimnasio</h2>
       <p className="source">{deporte.fuente}</p>
-      <p className="lead">Las sesiones de días anteriores que no marques como hechas no se muestran. Las hechas se quedan y son las únicas que suman kilómetros.</p>
+      <p className="lead">Los kilómetros salen de las salidas marcadas como hechas en la semana. El gimnasio cuenta 30 minutos por sesión hecha allí.</p>
 
       <div id="graficas-mes">
         <label className="mes-label">Mes
@@ -395,6 +222,17 @@ function Deporte() {
             {meses.map((item) => <option key={item} value={item}>{nombreMes(item)}</option>)}
           </select>
         </label>
+        <article className="card" style={{ marginTop: 12 }}>
+          <h3>Kilómetros por salida</h3>
+          <Barras aria={"Kilómetros de cada salida en " + nombreMes(mes)} weeks={barrasSalida} format={(value) => km(value)} />
+          {salidasMes.length === 0 ? <p className="note">Sin salidas con kilómetros este mes.</p> : salidasMes.map((item) => <p key={item.fecha} className="note">{formatDay(item.fecha, false)} · {km(item.km ?? 0)} km{item.duracion ? " · " + item.duracion : ""}</p>)}
+        </article>
+        <article className="card" style={{ marginTop: 12 }}>
+          <h3>Kilómetros por mes</h3>
+          <Barras aria="Kilómetros totales de octubre y noviembre" weeks={barrasMeses} format={(value) => km(value)} />
+          <p className="note">Octubre: {km(octInfo.km)} km en {octInfo.salidas} salidas{octInfo.override ? " (total de la app; solo hay tres salidas sueltas)" : ""}.</p>
+          <p className="note">Noviembre: {km(novInfo.km)} km en {novInfo.salidas} salidas.</p>
+        </article>
         <article className="card" style={{ marginTop: 12 }}>
           <h3>Running</h3>
           <div className="chart-legend">
@@ -420,7 +258,7 @@ function Deporte() {
         <article className="card">
           <div className="stat-label">Kilómetros</div>
           <div className="stat-value">{km(octKm)}</div>
-          <div className="stat-label">{octubre.salidas_validas + octubre.no_hechas.filter((item) => hecha("run:" + item.fecha)).length} salidas válidas</div>
+          <div className="stat-label">{octInfo.salidas} salidas</div>
         </article>
         <article className="card">
           <div className="stat-label">Objetivo</div>
@@ -445,24 +283,6 @@ function Deporte() {
         </div>
         <p className="note">{km(octKm)} de {km(octubre.objetivo_km)} km. {octubre.ritmo_medio_nota}</p>
       </article>
-      <article className="card" style={{ marginTop: 12 }}>
-        <h3>Kilómetros por salida</h3>
-        <KmChart rows={octubre.registros} />
-      </article>
-      <div className="grid" style={{ marginTop: 12 }}>
-        {octubre.registros.map((salida) => (
-          <article key={salida.fecha} className="card">
-            <h3>{formatDay(salida.fecha)}</h3>
-            <div className="meta">
-              <span>{km(salida.km)} km</span>
-              <span>Tiempo: {pend(salida.tiempo)}</span>
-              <span>Ritmo: {salida.ritmo_min_km === null ? "Pendiente" : `${salida.ritmo_min_km} min/km`}</span>
-              <Pill kind="recorded">Registrada</Pill>
-            </div>
-            {salida.nota ? <p className="note">{salida.nota}</p> : null}
-          </article>
-        ))}
-      </div>
       <div className="kicker">No cuenta</div>
       <div className="grid">
         {octubre.excluidas.map((item) => (
@@ -479,7 +299,7 @@ function Deporte() {
           <article key={item.fecha} className="card">
             <h3>{formatDay(item.fecha)}</h3>
             <div className="meta"><span>{item.plan}</span></div>
-            <Hecha id={"run:" + item.fecha} on={hecha("run:" + item.fecha)} onToggle={toggle} />
+            <p className="note">Se marca en la semana.</p>
           </article>
         ))}
       </div>
@@ -498,24 +318,6 @@ function Deporte() {
           {novKm === 0 ? <Pill kind="miss">Kilómetros no hechos</Pill> : null}
         </div>
       </article>
-      <div className="kicker">Hecha</div>
-      <div className="grid">
-        {noviembre.registros.map((salida) => (
-          <article key={salida.fecha} className="card">
-            <h3>{formatDay(salida.fecha)}</h3>
-            <div className="meta">
-              <span>{km(salida.km)} km</span>
-              <span>{salida.hora}</span>
-              <span>{salida.lugar}</span>
-              <span>Tiempo: {salida.tiempo}</span>
-              <span>Ritmo: {salida.ritmo_min_km} min/km</span>
-              <Pill kind="recorded">Registrada</Pill>
-            </div>
-            {salida.nota ? <p className="note">{salida.nota}</p> : null}
-            <Hecha id={"run:" + salida.fecha} on={hecha("run:" + salida.fecha)} onToggle={toggle} />
-          </article>
-        ))}
-      </div>
       <div className="kicker">Plan de sesiones</div>
       <div className="grid">
         {planNov.map((sesion) => (
@@ -525,8 +327,8 @@ function Deporte() {
               <span>{sesion.dia}</span>
               <span>{km(sesion.km)} km</span>
               <span>{sesion.tipo}</span>
+              {runningHecho(sesion.fecha) ? <Pill kind="recorded">Hecha en la semana</Pill> : null}
             </div>
-            <Hecha id={"run:" + sesion.fecha} on={hecha("run:" + sesion.fecha)} onToggle={toggle} />
           </article>
         ))}
       </div>
@@ -549,7 +351,7 @@ function Deporte() {
               <span>{item.plan}</span>
               <span>{item.motivo}</span>
             </div>
-            <Hecha id={"gym:" + item.fecha} on={hecha("gym:" + item.fecha)} onToggle={toggle} />
+            <p className="note">Se marca en la semana.</p>
           </article>
         ))}
       </div>
@@ -565,7 +367,7 @@ function Deporte() {
             <div className="meta">
               <span>{sesion.contenido}</span>
             </div>
-            <Hecha id={"gym:" + sesion.fecha} on={hecha("gym:" + sesion.fecha)} onToggle={toggle} />
+            {gimnasioHecho(bag.entradas, sesion.fecha) ? <Pill kind="recorded">Hecha en la semana</Pill> : <p className="note">Se marca en la semana.</p>}
           </article>
         ))}
       </div>
@@ -606,15 +408,6 @@ function Deporte() {
         </div>
       </article>
     </section>
-  );
-}
-
-function Hecha(props: { id: string; on: boolean; onToggle: (id: string) => void }) {
-  return (
-    <label className="hecho-check">
-      <input type="checkbox" checked={props.on} onChange={() => props.onToggle(props.id)} />
-      {props.on ? "Hecha" : "No hecha"}
-    </label>
   );
 }
 

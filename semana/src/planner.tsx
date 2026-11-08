@@ -3,25 +3,9 @@ import type { AgendaData } from "./liveContent";
 import { getAgenda, getDeporte } from "./liveContent";
 import { formatDay, shiftDay, shortDay, weekStart } from "./dates";
 import { useSync } from "./cloud";
-import { loadInglesHechos, resumenIngles } from "./inglesChecks";
+import { AGENDA_KEY, DEPORTE_KEY, deporteDates, mergeAgenda, parseBag, type AgendaBag, type CatId, type Entry, type Franja } from "./agendaStore";
 
-const KEY = "semana-agenda-v1";
-
-type Franja = "manana" | "tarde" | "noche" | "hora";
-type CatId = "ingles" | "gimnasio" | "running" | "hogar" | "otro";
 type SlotValue = "" | "ingles" | "gimnasio" | "running" | "hogar" | "texto";
-
-export type Entry = {
-  id: string;
-  fecha: string;
-  franja: Franja;
-  inicio: string | null;
-  fin: string | null;
-  categoria: CatId | null;
-  texto: string;
-  hecho: boolean;
-  origen: string | null;
-};
 
 type Cita = AgendaData["citas"][number];
 
@@ -46,28 +30,6 @@ function uid(): string {
   return `e-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function normalize(value: unknown): Entry[] {
-  if (!Array.isArray(value)) throw new Error("sin entradas");
-  return value.map((item) => {
-    if (!item || typeof item !== "object") throw new Error("entrada");
-    const row = item as Partial<Entry>;
-    if (typeof row.fecha !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.fecha)) throw new Error("fecha");
-    if (row.franja !== "manana" && row.franja !== "tarde" && row.franja !== "noche" && row.franja !== "hora") throw new Error("franja");
-    const categoria = CATS.some((cat) => cat.id === row.categoria) || row.categoria === "otro" ? row.categoria as CatId : null;
-    return {
-      id: typeof row.id === "string" ? row.id : uid(),
-      fecha: row.fecha,
-      franja: row.franja,
-      inicio: typeof row.inicio === "string" ? row.inicio : null,
-      fin: typeof row.fin === "string" ? row.fin : null,
-      categoria,
-      texto: typeof row.texto === "string" ? row.texto : "",
-      hecho: row.hecho === true,
-      origen: typeof row.origen === "string" ? row.origen : null,
-    };
-  });
-}
-
 function citaId(cita: { fecha: string; titulo: string; hora: string | null }): string {
   return cita.fecha + "|" + cita.titulo + "|" + (cita.hora ?? "");
 }
@@ -79,17 +41,21 @@ function catDeTipo(tipo: string): CatId {
   return "otro";
 }
 
-function loadBag(): { entradas: Entry[]; ocultas: string[] } {
+function readDeporteDates(): string[] {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return { entradas: [], ocultas: [] };
-    const parsed = JSON.parse(raw) as { entradas?: unknown; ocultas?: unknown };
-    return {
-      entradas: normalize(Array.isArray(parsed.entradas) ? parsed.entradas : []),
-      ocultas: Array.isArray(parsed.ocultas) ? parsed.ocultas.filter((item): item is string => typeof item === "string") : [],
-    };
+    const raw = localStorage.getItem(DEPORTE_KEY);
+    return deporteDates(raw ? JSON.parse(raw) : []);
   } catch {
-    return { entradas: [], ocultas: [] };
+    return [];
+  }
+}
+
+function loadBag(): AgendaBag {
+  try {
+    const raw = localStorage.getItem(AGENDA_KEY);
+    return mergeAgenda(parseBag(raw ? JSON.parse(raw) : {}), readDeporteDates()).bag;
+  } catch {
+    return mergeAgenda({ entradas: [], ocultas: [], kmMes: {}, runsMigrated: false }, readDeporteDates()).bag;
   }
 }
 
@@ -147,6 +113,8 @@ export function Planner(props: { hoy: string }) {
   const sync = useSync();
   const [entradas, setEntradas] = useState<Entry[]>(bag.entradas);
   const [ocultas, setOcultas] = useState<string[]>(bag.ocultas);
+  const [kmMes, setKmMes] = useState(bag.kmMes);
+  const [runsMigrated, setRunsMigrated] = useState(bag.runsMigrated);
   const [io, setIo] = useState("");
   const [ioMsg, setIoMsg] = useState("");
   const [aviso, setAviso] = useState("");
@@ -154,19 +122,23 @@ export function Planner(props: { hoy: string }) {
   const [detalle, setDetalle] = useState<string | null>(null);
 
   useEffect(() => {
-    const value = { entradas, ocultas };
+    const value = { entradas, ocultas, kmMes, runsMigrated };
     try {
-      localStorage.setItem(KEY, JSON.stringify(value));
+      localStorage.setItem(AGENDA_KEY, JSON.stringify(value));
     } catch {
       setAviso("Este navegador no guarda los cambios. Exporta el JSON antes de salir.");
     }
-    sync.push(KEY, value);
-  }, [entradas, ocultas, sync]);
-  useEffect(() => sync.onKey(KEY, (value) => {
+    sync.push(AGENDA_KEY, value);
+  }, [entradas, ocultas, kmMes, runsMigrated, sync]);
+  useEffect(() => sync.onKey(AGENDA_KEY, (value) => {
     if (!value || typeof value !== "object") return;
-    const row = value as { entradas?: unknown; ocultas?: unknown };
-    try { setEntradas(normalize(Array.isArray(row.entradas) ? row.entradas : [])); } catch { /* remoto ilegible */ }
-    setOcultas(Array.isArray(row.ocultas) ? row.ocultas.filter((item): item is string => typeof item === "string") : []);
+    try {
+      const next = mergeAgenda(parseBag(value), readDeporteDates()).bag;
+      setEntradas(next.entradas);
+      setOcultas(next.ocultas);
+      setKmMes(next.kmMes);
+      setRunsMigrated(next.runsMigrated);
+    } catch { /* remoto ilegible */ }
   }), [sync]);
 
   const diasSemana = Array.from({ length: 7 }, (_, i) => shiftDay(weekStart(dia), i));
@@ -196,6 +168,8 @@ export function Planner(props: { hoy: string }) {
       texto: opts.texto,
       hecho: opts.hecho,
       origen: opts.origen,
+      km: opts.entry?.km ?? null,
+      duracion: opts.entry?.duracion ?? null,
     };
     setEntradas((list) => list.some((item) => item.id === id) ? list.map((item) => item.id === id ? next : item) : [...list, next]);
     if (opts.focus) setFocusId(id);
@@ -244,14 +218,14 @@ export function Planner(props: { hoy: string }) {
   }
 
   function exportar() {
-    setIo(JSON.stringify({ entradas, ocultas }, null, 1));
+    setIo(JSON.stringify({ entradas, ocultas, kmMes }, null, 1));
     setIoMsg("JSON listo: cópialo para llevarlo a otro dispositivo.");
   }
 
   function importar() {
     try {
       const parsed = JSON.parse(io) as { entradas?: unknown; ocultas?: unknown };
-      const list = normalize(Array.isArray(parsed) ? parsed : parsed.entradas);
+      const list = parseBag(parsed).entradas;
       const hidden = !Array.isArray(parsed) && Array.isArray(parsed.ocultas) ? parsed.ocultas.filter((item): item is string => typeof item === "string") : [];
       setEntradas(list);
       setOcultas(hidden);
@@ -273,7 +247,7 @@ export function Planner(props: { hoy: string }) {
     <section>
       <div className="kicker">Agenda</div>
       <h2>Tu semana</h2>
-      <p className="lead">En cada tramo elige Inglés, Gimnasio, Running, Hogar o un texto libre. Se guarda al cambiar. Márcalo cuando lo hayas hecho. Las citas que ya estaban se pueden cambiar o dejar en blanco.</p>
+      <p className="lead">En cada tramo elige Gimnasio, Running, Hogar o un texto libre. El Hecho de aquí es el único que cuenta. Las citas que ya estaban se pueden cambiar o dejar en blanco.</p>
       {aviso ? <p className="callout">{aviso}</p> : null}
       <div className="nav">
         <button className="tap" type="button" onClick={() => setDia(shiftDay(weekStart(dia), -7))} aria-label="Semana anterior">‹</button>
@@ -383,17 +357,14 @@ export function Planner(props: { hoy: string }) {
           ))}
         </div>
         <div className="sum-counts">
-          {CATS.map((cat) => {
+          {CATS.filter((cat) => cat.id !== "ingles").map((cat) => {
             const items = hechos.filter((item) => item.value === cat.id);
             const done = items.filter((item) => item.hecho).length;
-            const texto = cat.id === "gimnasio" ? `${done * 30}/${items.length * 30} min` : `${done}/${items.length}`;
+            const kmHechos = entradas.filter((item) => item.categoria === "running" && item.hecho && item.fecha >= diasSemana[0] && item.fecha <= diasSemana[6] && item.km !== null).reduce((sum, item) => sum + (item.km ?? 0), 0);
+            const texto = cat.id === "gimnasio" ? `${done * 30}/${items.length * 30} min` : cat.id === "running" ? `${kmHechos.toLocaleString("es-ES", { maximumFractionDigits: 2 })} km` : `${done}/${items.length}`;
             return <span key={cat.id}>{cat.emoji} {cat.label} {texto}</span>;
           })}
           {hechos.some((item) => item.value === "texto") ? <span>{ICONO_TEXTO} Texto {hechos.filter((item) => item.value === "texto" && item.hecho).length}/{hechos.filter((item) => item.value === "texto").length}</span> : null}
-          {(() => {
-            const clases = resumenIngles(diasSemana[0], diasSemana[6], loadInglesHechos());
-            return clases.total > 0 ? <span>🇬🇧 Clases {clases.hechas}/{clases.total}</span> : null;
-          })()}
         </div>
         {detalle ? <p className="ws-tip">{ICONO_TEXTO} {detalle}</p> : null}
       </article>
@@ -466,8 +437,7 @@ function SlotSelect(props: {
           onChange={(event) => props.onValue(event.target.value as SlotValue)}
         >
           <option value="">— Libre —</option>
-          <option value="ingles">🇬🇧 Inglés</option>
-          <option value="gimnasio">💪 Gimnasio</option>
+        <option value="gimnasio">💪 Gimnasio</option>
           <option value="running">🏃 Running</option>
           <option value="hogar">🏠 Hogar</option>
           <option value="texto">📌 Texto libre…</option>

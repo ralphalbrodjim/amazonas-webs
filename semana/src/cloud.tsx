@@ -11,7 +11,6 @@ function bagEmpty(value: unknown): boolean {
 const sync = createSync("semana", [
   { key: "semana-agenda-v1", isEmpty: bagEmpty },
   { key: "semana-cultura-v1", isEmpty: bagEmpty },
-  { key: "semana-ingles-v1", isEmpty: isEmptyValue },
   { key: "semana-deporte-v1", isEmpty: isEmptyValue },
 ]);
 
