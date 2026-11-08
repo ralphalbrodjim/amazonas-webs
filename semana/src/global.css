@@ -292,6 +292,13 @@ h2 {
   margin-top: 8px;
 }
 
+.mes-switch { display: flex; align-items: flex-end; gap: 8px; }
+.mes-switch .tap { min-width: 48px; padding: 8px 0; }
+.mes-switch .mes-label { flex: 1; margin-top: 14px; }
+.mes-resume { display: flex; align-items: center; gap: 12px; margin: 8px 0 12px; }
+.mes-figures { display: flex; flex-direction: column; gap: 4px; font-size: 14px; min-width: 0; }
+.ring { width: 96px; height: 96px; flex: 0 0 auto; }
+
 .mes-label {
   display: flex;
   flex-direction: column;

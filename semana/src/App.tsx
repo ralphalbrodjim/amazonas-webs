@@ -69,6 +69,56 @@ function kmDePlan(plan: string): number {
   return match ? Number(match[1].replace(",", ".")) : 0;
 }
 
+function segundosDe(duracion: string): number | null {
+  const parts = duracion.split(":").map(Number);
+  if (parts.length < 2 || parts.some((part) => !Number.isFinite(part))) return null;
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return parts[0] * 3600 + parts[1] * 60 + parts[2];
+}
+
+function ritmoTexto(segundosPorKm: number): string {
+  const total = Math.round(segundosPorKm);
+  return Math.floor(total / 60) + ":" + String(total % 60).padStart(2, "0");
+}
+
+function Anillo(props: { fraction: number; label: string }) {
+  const radius = 36;
+  const turn = 2 * Math.PI * radius;
+  const filled = turn * Math.max(0, Math.min(1, props.fraction));
+  return (
+    <svg className="ring" viewBox="0 0 100 100" role="img" aria-label={props.label}>
+      <circle cx="50" cy="50" r={radius} fill="none" stroke="#E4DDCF" strokeWidth="8" />
+      <circle cx="50" cy="50" r={radius} fill="none" stroke="#1F3B34" strokeWidth="8" strokeLinecap="round" strokeDasharray={`${filled} ${turn - filled}`} transform="rotate(-90 50 50)" />
+      <text x="50" y="54" textAnchor="middle" fontSize="16" fontWeight="700" fill="#1E2B27">{Math.round(props.fraction * 100)}%</text>
+    </svg>
+  );
+}
+
+function Linea(props: { points: { label: string; text: string; value: number }[]; aria: string }) {
+  if (props.points.length === 0) return <p className="note">N/D</p>;
+  const width = 320;
+  const height = 120;
+  const pad = 28;
+  const max = Math.max(...props.points.map((point) => point.value));
+  const min = Math.min(...props.points.map((point) => point.value));
+  const span = max - min || 1;
+  const x = (index: number) => props.points.length === 1 ? width / 2 : pad + (index * (width - pad * 2)) / (props.points.length - 1);
+  const y = (value: number) => pad + (1 - (value - min) / span) * (height - pad * 2);
+  const d = props.points.map((point, index) => `${index === 0 ? "M" : "L"}${x(index)},${y(point.value)}`).join(" ");
+  return (
+    <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={props.aria}>
+      <path d={d} fill="none" stroke="#1F3B34" strokeWidth="3" strokeLinejoin="round" />
+      {props.points.map((point, index) => (
+        <g key={point.label}>
+          <circle cx={x(index)} cy={y(point.value)} r="4" fill="#1F3B34" />
+          <text x={x(index)} y={y(point.value) - 8} textAnchor="middle" fontSize="12" fontWeight="700" fill="#1E2B27">{point.text}</text>
+          <text x={x(index)} y={height - 6} textAnchor="middle" fontSize="12" fill="#1E2B27">{point.label}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 const HECHO_COLOR = "#1F3B34";
 const PLAN_COLOR = "#C5D0C8";
 
@@ -135,6 +185,61 @@ function Barras(props: { aria: string; weeks: { label: string; hecho: number; pl
         );
       })}
     </svg>
+  );
+}
+
+function ritmoDelMes(mes: string, bag: AgendaBag, octubreMedio: string, octubreMejor: { fecha: string; ritmo: string }): { medio: string | null; mejor: string | null; mejorFecha: string | null; segundos: number | null } {
+  if (mes === "2026-10") {
+    const partes = octubreMejor.ritmo.split(":").map(Number);
+    return { medio: octubreMedio, mejor: octubreMejor.ritmo, mejorFecha: octubreMejor.fecha, segundos: partes.length === 2 ? partes[0] * 60 + partes[1] : null };
+  }
+  const salidas = salidasHechas(bag.entradas).filter((item) => item.fecha.slice(0, 7) === mes && item.duracion && item.km);
+  let tiempo = 0;
+  let distancia = 0;
+  let mejor: { segundos: number; fecha: string } | null = null;
+  for (const salida of salidas) {
+    const segundos = segundosDe(salida.duracion || "");
+    if (segundos === null || !salida.km) continue;
+    tiempo += segundos;
+    distancia += salida.km;
+    const ritmo = segundos / salida.km;
+    if (!mejor || ritmo < mejor.segundos) mejor = { segundos: ritmo, fecha: salida.fecha };
+  }
+  if (distancia <= 0 || !mejor) return { medio: null, mejor: null, mejorFecha: null, segundos: null };
+  return { medio: ritmoTexto(tiempo / distancia), mejor: ritmoTexto(mejor.segundos), mejorFecha: mejor.fecha, segundos: tiempo / distancia };
+}
+
+function ResumenMes(props: { mes: string; bag: AgendaBag; octubre: { objetivo_km: number; ritmo_medio_min_km: string; mejor_ritmo: { fecha: string; ritmo_min_km: string } }; noviembre: { objetivo_km: number } }) {
+  const meses = ["2026-10", "2026-11"];
+  const info = kmDelMes(props.bag, props.mes);
+  const objetivo = props.mes === "2026-10" ? props.octubre.objetivo_km : props.mes === "2026-11" ? props.noviembre.objetivo_km : null;
+  const ritmo = ritmoDelMes(props.mes, props.bag, props.octubre.ritmo_medio_min_km, { fecha: props.octubre.mejor_ritmo.fecha, ritmo: props.octubre.mejor_ritmo.ritmo_min_km });
+  const frente = meses.map((item) => ({ label: nombreMes(item).slice(0, 3), hecho: kmDelMes(props.bag, item).km, plan: item === "2026-10" ? props.octubre.objetivo_km : props.noviembre.objetivo_km }));
+  const salidas = meses.map((item) => ({ label: nombreMes(item).slice(0, 3), hecho: kmDelMes(props.bag, item).salidas, plan: 0 }));
+  const linea = meses.flatMap((item) => {
+    const punto = ritmoDelMes(item, props.bag, props.octubre.ritmo_medio_min_km, { fecha: props.octubre.mejor_ritmo.fecha, ritmo: props.octubre.mejor_ritmo.ritmo_min_km });
+    return punto.segundos === null || !punto.medio ? [] : [{ label: nombreMes(item).slice(0, 3), text: punto.medio, value: punto.segundos }];
+  });
+  const fraction = objetivo && objetivo > 0 ? info.km / objetivo : 0;
+  return (
+    <article className="card" style={{ marginTop: 12 }}>
+      <h3>{nombreMes(props.mes)}</h3>
+      <div className="mes-resume">
+        <Anillo fraction={fraction} label={`${km(info.km)} de ${objetivo === null ? "N/D" : km(objetivo)} km`} />
+        <div className="mes-figures">
+          <span><b>{km(info.km)}</b> km · {info.salidas} salidas</span>
+          <span>Objetivo <b>{objetivo === null ? "N/D" : km(objetivo) + " km"}</b></span>
+          <span>Ritmo medio <b>{ritmo.medio ?? "N/D"}</b></span>
+          <span>Mejor <b>{ritmo.mejor ?? "N/D"}</b>{ritmo.mejorFecha ? " · " + formatDay(ritmo.mejorFecha, false) : ""}</span>
+        </div>
+      </div>
+      <h3>Kilómetros y objetivo</h3>
+      <Barras aria="Kilómetros hechos y objetivo de cada mes" weeks={frente} format={(value) => km(value)} />
+      <h3>Ritmo medio</h3>
+      <Linea aria="Ritmo medio por mes, en min/km" points={linea} />
+      <h3>Salidas</h3>
+      <Barras aria="Salidas de cada mes" weeks={salidas} format={(value) => String(value)} />
+    </article>
   );
 }
 
@@ -217,11 +322,15 @@ function Deporte() {
       <p className="lead">Los kilómetros salen de las salidas marcadas como hechas en la semana. El gimnasio cuenta 30 minutos por sesión hecha allí.</p>
 
       <div id="graficas-mes">
-        <label className="mes-label">Mes
-          <select aria-label="Mes de las gráficas" value={mes} onChange={(event) => setMes(event.target.value)}>
-            {meses.map((item) => <option key={item} value={item}>{nombreMes(item)}</option>)}
-          </select>
-        </label>
+        <div className="mes-switch">
+          <button type="button" className="tap" aria-label="Mes anterior" disabled={meses.indexOf(mes) <= 0} onClick={() => setMes(meses[meses.indexOf(mes) - 1])}>‹</button>
+          <label className="mes-label">Mes
+            <select aria-label="Mes de las gráficas" value={mes} onChange={(event) => setMes(event.target.value)}>
+              {meses.map((item) => <option key={item} value={item}>{nombreMes(item)}</option>)}
+            </select>
+          </label>
+          <button type="button" className="tap" aria-label="Mes siguiente" disabled={meses.indexOf(mes) < 0 || meses.indexOf(mes) >= meses.length - 1} onClick={() => setMes(meses[meses.indexOf(mes) + 1])}>›</button>
+        </div>
         <article className="card" style={{ marginTop: 12 }}>
           <h3>Kilómetros por salida</h3>
           <Barras aria={"Kilómetros de cada salida en " + nombreMes(mes)} weeks={barrasSalida} format={(value) => km(value)} />
@@ -253,46 +362,7 @@ function Deporte() {
         </article>
       </div>
 
-      <div className="kicker">Octubre 2026</div>
-      <div className="stats">
-        <article className="card">
-          <div className="stat-label">Kilómetros</div>
-          <div className="stat-value">{km(octKm)}</div>
-          <div className="stat-label">{octInfo.salidas} salidas</div>
-        </article>
-        <article className="card">
-          <div className="stat-label">Objetivo</div>
-          <div className="stat-value">{km(octubre.objetivo_km)} km</div>
-          <Pill kind="miss">No cumplido</Pill>
-        </article>
-        <article className="card">
-          <div className="stat-label">Ritmo medio</div>
-          <div className="stat-value" style={{ fontSize: 26 }}>{octubre.ritmo_medio_min_km}</div>
-          <div className="stat-label">min/km</div>
-        </article>
-        <article className="card">
-          <div className="stat-label">Mejor ritmo</div>
-          <div className="stat-value" style={{ fontSize: 26 }}>{octubre.mejor_ritmo.ritmo_min_km}</div>
-          <div className="stat-label">{formatDay(octubre.mejor_ritmo.fecha, false)} · {km(octubre.mejor_ritmo.km)} km</div>
-        </article>
-      </div>
-      <article className="card" style={{ marginTop: 12 }}>
-        <h3>Hacia los {km(octubre.objetivo_km)} km</h3>
-        <div className="track" role="meter" aria-valuemin={0} aria-valuemax={octubre.objetivo_km} aria-valuenow={octKm} aria-label="Kilómetros de octubre">
-          <div className="fill" style={{ width: `${octubrePct}%` }} />
-        </div>
-        <p className="note">{km(octKm)} de {km(octubre.objetivo_km)} km. {octubre.ritmo_medio_nota}</p>
-      </article>
-      <div className="kicker">No cuenta</div>
-      <div className="grid">
-        {octubre.excluidas.map((item) => (
-          <article key={item.fecha} className="card">
-            <h3>{formatDay(item.fecha)} · {km(item.km)} km</h3>
-            <div className="meta"><Pill kind="miss">No cuenta</Pill></div>
-            <p className="note">{item.motivo}</p>
-          </article>
-        ))}
-      </div>
+      <ResumenMes mes={mes} bag={bag} octubre={octubre} noviembre={noviembre} />
       {noHechasRun.length > 0 ? <div className="kicker">No hechas en octubre</div> : null}
       <div className="grid">
         {noHechasRun.map((item) => (
@@ -306,11 +376,8 @@ function Deporte() {
 
       <div className="kicker">Noviembre 2026</div>
       <article className="card">
-        <h3>Objetivo: {km(noviembre.objetivo_km)} km</h3>
-        <div className="track" role="meter" aria-valuemin={0} aria-valuemax={noviembre.objetivo_km} aria-valuenow={novKm} aria-label="Kilómetros de noviembre">
-          <div className="fill" style={{ width: `${noviembrePct}%` }} />
-        </div>
-        <p className="note">{km(novKm)} de {km(noviembre.objetivo_km)} km hechos. Planificado: {km(noviembre.total_planificado_km)} km.</p>
+        <h3>Noviembre · plan de Rocky</h3>
+        <p className="note">Planificado: {km(noviembre.total_planificado_km)} km. Hechos: {km(novKm)}.</p>
         <p className="note">{noviembre.estado}</p>
         <p className="note">{noviembre.criterio}</p>
         <div className="meta">
