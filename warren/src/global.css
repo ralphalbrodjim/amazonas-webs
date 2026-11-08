@@ -92,6 +92,7 @@ button:disabled {
 .pos { color: #3DDC97; font-weight: 700; }
 
 .stamp { color: #FFB547; font-size: 12px; font-weight: 700; }
+.w-table th .stamp { display: block; margin-top: 2px; text-transform: none; letter-spacing: 0; font-size: 11px; }
 .nd { color: #8FA6CF; }
 
 .soon { opacity: 0.72; }

@@ -22,6 +22,28 @@ export function fecha(iso: string | null): string {
   return `${day}/${month}/${year}`;
 }
 
+export function fechaCorta(iso: string | null): string {
+  if (!iso) return "N/D";
+  const [, month, day] = iso.slice(0, 10).split("-");
+  if (!month || !day) return "N/D";
+  return `${day}/${month}`;
+}
+
+/** The date that appears most often. Undefined when the list is empty; null when the usual value is a missing date. Ties keep the first date in the list. */
+export function mostCommonDate(dates: (string | null)[]): string | null | undefined {
+  if (dates.length === 0) return undefined;
+  const counts = new Map<string, number>();
+  for (const date of dates) counts.set(date ?? "", (counts.get(date ?? "") ?? 0) + 1);
+  let best = "";
+  let bestCount = 0;
+  for (const date of dates) {
+    const key = date ?? "";
+    const count = counts.get(key) ?? 0;
+    if (count > bestCount) { best = key; bestCount = count; }
+  }
+  return best === "" ? null : best;
+}
+
 export function madridToday(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }

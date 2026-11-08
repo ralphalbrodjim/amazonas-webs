@@ -104,6 +104,43 @@ Price only. Dividends are not added.
 
 The site shows the date of the price, the financial `as_of` and the FX date. A date more than five calendar days before today in Europe/Madrid is marked “Dato antiguo”. A missing date is N/D, which is not the same warning and not zero.
 
-## Phase 2, not in this database yet
+## Phase 2
 
-Radar, the Intelligence feed, the virtual portfolio, a benchmark, IBKR import, and X/Telegram. Those menus say Próximamente and have no tables.
+Run `supabase/warren_phase2.sql` after phase 1. It adds four tables and does not insert any rows. X and Telegram are not connected.
+
+| table | what an agent inserts |
+| --- | --- |
+| `warren_radar` | One candidate. `status` is `vigilar`, `en_analisis`, or `descartada`. `company_id` may be null. Price and CAGR stay N/D until that ticker exists in `warren_companies` with a close. |
+| `warren_news` | One note. `kind` is `noticia`, `comentario`, or `idea`. `published_on` is the day of the item. The site lists the newest day first. A comentario is not a fact. |
+| `warren_virtual_entries` | One simulated entry: `ticker`, `entered_on`, `entry_price`, `currency`, `price_source`. No share count. Return is the latest close in that same currency divided by `entry_price`, minus 1. A different currency is N/D. |
+| `warren_benchmark_levels` | One index level per symbol and date. Two dates are required. Index return = last level / first level − 1. The real portfolio return over those same dates is N/D until every holding has a share count, a close on each date, and an ECB rate when the price is not in euros. |
+
+```sql
+insert into public.warren_benchmark_levels (owner_id, symbol, name, price_date, level, source)
+select user_id, 'SYMBOL', 'Nombre del índice', date 'YYYY-MM-DD', 1000, 'cierre diario'
+from public.warren_profile;
+```
+
+Replace `SYMBOL`, the date, and `1000` with a real close. Do not invent the level.
+
+### TIKR financials, up to three years
+
+Use the existing `warren_financial_years` table. One row per fiscal year, `source = 'TIKR'`, `kind = 'estimado'`. Load at most the next three years. Leave every unknown line null. The company sheet shows TIKR as N/D until these rows exist. Mixto stays N/D until a `warren_estimates` row with `source = 'tikr'` has a target.
+
+```sql
+insert into public.warren_financial_years
+  (company_id, fiscal_label, fiscal_year, kind, sales, ebitda, ebit, net_income, bpa, shares_diluted, cash, gross_debt, net_debt, cfo, capex, fcf, currency, source, as_of, note)
+select id, '2027e', 2027, 'estimado', null, null, null, null, null, null, null, null, null, null, null, null, 'USD', 'TIKR', date 'YYYY-MM-DD', 'exportación TIKR abierta a mano'
+from public.warren_companies where ticker = 'META'
+on conflict (company_id, fiscal_label, source) do update
+set sales = excluded.sales, ebitda = excluded.ebitda, ebit = excluded.ebit, net_income = excluded.net_income,
+    bpa = excluded.bpa, shares_diluted = excluded.shares_diluted, cash = excluded.cash, gross_debt = excluded.gross_debt,
+    net_debt = excluded.net_debt, cfo = excluded.cfo, capex = excluded.capex, fcf = excluded.fcf,
+    as_of = excluded.as_of, note = excluded.note, updated_at = now();
+```
+
+Repeat for the two following years only when the export contains them. `fcf` must already be CFO minus positive CAPEX.
+
+### IBKR
+
+The Cartera screen accepts a positions or activity CSV. There is no IBKR API key. A row is stored only when it has a ticker and a share count. A mark price is stored only when the file also has its date. Missing cells stay null.

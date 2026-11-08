@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, FormEvent, ReactNode } from "react";
-import { loadWarren, probeSchema, redirectTo, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchWarren } from "./db";
-import { fecha, fmt, madridToday, parseInput, pct } from "./format";
+import { loadPhase2, loadWarren, probeSchema, redirectTo, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
+import { fecha, fechaCorta, fmt, madridToday, mostCommonDate, parseInput, pct } from "./format";
 import { mixto, type SourceMode } from "./math";
-import { EMPTY, type Bundle, type Estimate } from "./types";
+import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
+import { EMPTY, EMPTY_PHASE2, type Bundle, type Estimate, type Phase2 } from "./types";
 import { companyView, type CompanyView } from "./view";
 
 const NAVY = "#0D1933";
@@ -133,6 +134,7 @@ function Login(props: { missing: boolean }) {
 
 function Desk(props: { email: string; schemaMissing: boolean }) {
   const [bundle, setBundle] = useState<Bundle>(EMPTY);
+  const [phase2, setPhase2] = useState<Phase2>({ ...EMPTY_PHASE2, missing: true });
   const [missing, setMissing] = useState(props.schemaMissing);
   const [error, setError] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>("resumen");
@@ -147,14 +149,17 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
 
   async function reload() {
     const loaded = await loadWarren();
-    if (loaded.missing) { setMissing(true); setBundle(EMPTY); setError(null); return; }
+    if (loaded.missing) { setMissing(true); setBundle(EMPTY); setPhase2({ ...EMPTY_PHASE2, missing: true }); setError(null); return; }
     if (loaded.error) { setError(loaded.error); return; }
     setMissing(false);
-    setError(null);
     setBundle(loaded.bundle ?? EMPTY);
+    const extra = await loadPhase2();
+    setPhase2(extra.phase2);
+    setError(extra.error);
   }
 
   useEffect(() => { void reload(); return watchWarren(() => { void reload(); }); }, []);
+  useEffect(() => { if (missing || phase2.missing) return; return watchPhase2(() => { void reload(); }); }, [missing, phase2.missing]);
 
   const company = bundle.companies.find((row) => row.ticker === ticker) ?? null;
   const view = company ? companyView(bundle, company.id, mode, today) : null;
@@ -165,33 +170,34 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
     setScreen("ficha");
   }
 
-  const nav: { id: Screen; label: string; soon?: boolean }[] = [
+  const nav: { id: Screen; label: string }[] = [
     { id: "resumen", label: "Resumen" },
-    { id: "intelligence", label: "Intelligence", soon: true },
+    { id: "intelligence", label: "Intelligence" },
     { id: "cartera", label: "Mi cartera" },
-    { id: "virtual", label: "Cartera virtual", soon: true },
-    { id: "radar", label: "Radar", soon: true },
+    { id: "virtual", label: "Cartera virtual" },
+    { id: "radar", label: "Radar" },
   ];
 
   return (
     <Frame email={props.email} onExit={() => void supabase.auth.signOut()}>
       <nav style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
         {nav.map((item) => (
-          <button key={item.id} type="button" className={item.soon ? "soon" : ""} style={btn(screen === item.id)} onClick={() => setScreen(item.id)}>
-            {item.label}{item.soon ? " · Próximamente" : ""}
+          <button key={item.id} type="button" style={btn(screen === item.id)} onClick={() => setScreen(item.id)}>
+            {item.label}
           </button>
         ))}
       </nav>
-      {missing ? <Banner>Migración pendiente. No hay tablas de Warren todavía, así que todo sale en N/D y no se guarda nada. Ejecuta <b>supabase/warren_phase1.sql</b> y, si quieres las cifras que ya estaban en la web, <b>supabase/warren_seed.sql</b>.</Banner> : null}
+      {missing ? <Banner>Migración pendiente. No hay tablas de Warren todavía, así que todo sale en N/D y no se guarda nada. Ejecuta <b>supabase/warren_phase1.sql</b> y luego <b>supabase/warren_phase2.sql</b>.</Banner> : null}
+      {!missing && phase2.missing ? <Banner>La fase 2 aún no está en la base de datos. Radar, Intelligence, la cartera virtual y el índice quedan vacíos hasta ejecutar <b>supabase/warren_phase2.sql</b>.</Banner> : null}
       {error ? <Banner>No se han podido leer los datos: {error}</Banner> : null}
       {screen === "resumen" || screen === "cartera" || screen === "ficha" ? <Mode mode={mode} onChange={setMode} /> : null}
-      {screen === "resumen" ? <Resumen bundle={bundle} mode={mode} today={today} q={q} setQ={setQ} cartera={cartera} setCartera={setCartera} cagrMin={cagrMin} setCagrMin={setCagrMin} sort={sort} setSort={setSort} onOpen={open} /> : null}
-      {screen === "cartera" ? <Cartera bundle={bundle} mode={mode} today={today} missing={missing} onOpen={open} onSaved={() => void reload()} /> : null}
+      {screen === "resumen" ? <Resumen bundle={bundle} phase2={phase2} mode={mode} today={today} q={q} setQ={setQ} cartera={cartera} setCartera={setCartera} cagrMin={cagrMin} setCagrMin={setCagrMin} sort={sort} setSort={setSort} onOpen={open} /> : null}
+      {screen === "cartera" ? <Cartera bundle={bundle} mode={mode} today={today} missing={missing || phase2.missing} onOpen={open} onSaved={() => void reload()} /> : null}
       {screen === "ficha" && company && view ? <Ficha companyName={company.name} ticker={company.ticker} currency={company.currency} notes={company.notes} verdict={company.verdict} view={view} mode={mode} bundle={bundle} companyId={company.id} tab={tab} setTab={setTab} today={today} missing={missing} onBack={() => setScreen("resumen")} onSaved={() => void reload()} /> : null}
       {screen === "ficha" && !company ? <p style={{ color: INK3 }}>Elige una empresa en Resumen.</p> : null}
-      {screen === "intelligence" ? <Soon title="Warren Intelligence" text="El feed diario, las noticias y los comentarios quedan para la fase 2. No hay automatización de X ni de Telegram." /> : null}
-      {screen === "virtual" ? <Soon title="Cartera virtual" text="El seguimiento sin euros invertidos y la comparación con un índice quedan para la fase 2." /> : null}
-      {screen === "radar" ? <Soon title="Radar de oportunidades" text="Las ideas sugeridas y el alta a cartera virtual quedan para la fase 2. No se inventa ninguna cotización para rellenar esta pantalla." /> : null}
+      {screen === "intelligence" ? <Intelligence phase2={phase2} onSaved={() => void reload()} /> : null}
+      {screen === "virtual" ? <VirtualBook bundle={bundle} phase2={phase2} onSaved={() => void reload()} /> : null}
+      {screen === "radar" ? <Radar bundle={bundle} phase2={phase2} mode={mode} today={today} onSaved={() => void reload()} /> : null}
       <p style={{ color: INK3, fontSize: 12, marginTop: 22 }}>Cierres diarios, sin dividendos. Mixto = 50 % TIKR + 50 % Warren, y solo si los dos existen. Horizonte máximo: 3 años.</p>
       <button type="button" style={{ ...btn(false), marginTop: 8 }} onClick={() => download(bundle)}>Exportar copia JSON</button>
     </Frame>
@@ -220,12 +226,8 @@ function Mode(props: { mode: SourceMode; onChange: (mode: SourceMode) => void })
   );
 }
 
-function Soon(props: { title: string; text: string }) {
-  return <section style={card}><h1 style={{ marginTop: 0 }}>{props.title}</h1><p className="stamp">Próximamente</p><p style={{ color: INK3 }}>{props.text}</p></section>;
-}
-
 function Resumen(props: {
-  bundle: Bundle; mode: SourceMode; today: string; q: string; setQ: (q: string) => void;
+  bundle: Bundle; phase2: Phase2; mode: SourceMode; today: string; q: string; setQ: (q: string) => void;
   cartera: "todas" | "si" | "no"; setCartera: (v: "todas" | "si" | "no") => void;
   cagrMin: number | null; setCagrMin: (v: number | null) => void; sort: SortKey; setSort: (v: SortKey) => void;
   onOpen: (ticker: string) => void;
@@ -249,6 +251,10 @@ function Resumen(props: {
     });
     return list;
   }, [props]);
+  const priced = rows.map((company) => companyView(props.bundle, company.id, props.mode, props.today));
+  const usual = mostCommonDate(priced.map((view) => view.priceDate));
+  const usualOld = typeof usual === "string" && priced.some((view) => view.priceDate === usual && view.priceOld);
+  const priceNote = usual === undefined ? null : usual === null ? "N/D" : fechaCorta(usual) + (usualOld ? " · antiguo" : "");
 
   return (
     <section>
@@ -261,11 +267,17 @@ function Resumen(props: {
         <label style={card}>Orden<select style={inputS} value={props.sort} onChange={(event) => props.setSort(event.target.value as SortKey)}><option value="cagr">CAGR 3A desc.</option><option value="hoy">Rent. hoy desc.</option><option value="ticker">Ticker</option></select></label>
       </div>
       {props.mode === "mixto" ? <p className="stamp">Si falta TIKR, Mixto se queda en N/D. No se rellena con el objetivo de Warren.</p> : null}
+      <BenchmarkCard bundle={props.bundle} levels={props.phase2.benchmarks} />
       <div className="w-scroll">
         <table className="w-table">
           <thead>
             <tr>
-              {["Empresa", "Cart.", "P. medio", "P. hoy", "Rent. hoy", "Obj 1A", "Rent 1A", "Obj 3A", "Rent 3A", "CAGR 3A"].map((label, index) => <th key={label} className={index === 0 ? "sticky" : ""}>{label}</th>)}
+              {["Empresa", "Cart.", "P. medio", "P. hoy", "Rent. hoy", "Obj 1A", "Rent 1A", "Obj 3A", "Rent 3A", "CAGR 3A"].map((label, index) => (
+                <th key={label} className={index === 0 ? "sticky" : ""}>
+                  {label}
+                  {label === "P. hoy" && priceNote ? <span className="stamp">{priceNote}</span> : null}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -277,7 +289,7 @@ function Resumen(props: {
                   <td className="sticky"><b>{company.ticker}</b><div style={{ color: INK3, fontWeight: 500 }}>{company.name}</div></td>
                   <td>{company.in_portfolio ? "Sí" : "No"}</td>
                   <td>{fmt(view.avg)}</td>
-                  <td>{fmt(view.price)}<div className="stamp">{view.priceDate ? fecha(view.priceDate) : "N/D"}{view.priceOld ? " · antiguo" : ""}</div></td>
+                  <td>{fmt(view.price)}{(view.priceDate ?? null) !== usual ? <div className="stamp">{view.priceDate ? fechaCorta(view.priceDate) : "N/D"}{view.priceOld ? " · antiguo" : ""}</div> : null}</td>
                   <td className={tone(view.rentHoy, "plain")}>{pct(view.rentHoy)}</td>
                   <td>{fmt(view.target1)}</td>
                   <td className={tone(view.rent1, "blue")}>{pct(view.rent1)}</td>
@@ -319,6 +331,7 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
         <Kpi label="Plusvalía 3 años" value={money(total((view) => view.pnl3Eur), "EUR")} />
       </div>
       <p className="stamp">FX BCE: {fxDates.length ? fecha(fxDates.sort().at(-1) ?? null) : "N/D"}{views.some((row) => row.company.currency !== "EUR" && !row.view.fx) ? " · falta el cambio de alguna divisa" : ""}</p>
+      <IbkrImport disabled={props.missing} onSaved={props.onSaved} />
       <div className="w-scroll">
         <table className="w-table">
           <thead>
@@ -448,6 +461,7 @@ function Evolucion(props: { view: CompanyView; missing: boolean; onSaved: () => 
   return (
     <div>
       <p style={{ color: AMBER }}>Editable solo el BPA estimado (amarillo). Histórico bloqueado. Lo que no está en la fuente sigue en N/D.</p>
+      {years.some((year) => year.source.toLowerCase() === "tikr") ? null : <p className="stamp">TIKR: N/D. Los ejercicios de TIKR se cargan a mano, como máximo tres, y todavía no hay ninguno.</p>}
       <div className="w-scroll">
         <table className="w-table">
           <thead>

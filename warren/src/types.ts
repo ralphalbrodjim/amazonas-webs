@@ -97,6 +97,68 @@ export type FxRate = {
   fetched_at: string;
 };
 
+export type RadarStatus = "vigilar" | "en_analisis" | "descartada";
+export type NewsKind = "noticia" | "comentario" | "idea";
+
+export type RadarItem = {
+  id: string;
+  owner_id: string;
+  company_id: string | null;
+  ticker: string;
+  name: string;
+  status: RadarStatus;
+  thesis: string;
+  as_of: string | null;
+  note: string | null;
+  sort: number;
+};
+
+export type NewsItem = {
+  id: string;
+  owner_id: string;
+  company_id: string | null;
+  ticker: string;
+  published_on: string;
+  kind: NewsKind;
+  title: string;
+  url: string;
+  source: string;
+  summary: string;
+  created_at: string;
+};
+
+export type VirtualEntry = {
+  id: string;
+  owner_id: string;
+  company_id: string | null;
+  ticker: string;
+  entered_on: string;
+  entry_price: number | null;
+  currency: string;
+  price_source: string;
+  note: string;
+};
+
+export type BenchmarkLevel = {
+  id: string;
+  owner_id: string;
+  symbol: string;
+  name: string;
+  price_date: string;
+  level: number | null;
+  source: string;
+};
+
+export type Phase2 = {
+  radar: RadarItem[];
+  news: NewsItem[];
+  virtuals: VirtualEntry[];
+  benchmarks: BenchmarkLevel[];
+  missing: boolean;
+};
+
+export const EMPTY_PHASE2: Phase2 = { radar: [], news: [], virtuals: [], benchmarks: [], missing: false };
+
 export type Bundle = {
   companies: Company[];
   quotes: Quote[];

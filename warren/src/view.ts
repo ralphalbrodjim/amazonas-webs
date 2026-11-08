@@ -4,9 +4,29 @@ import type { Bundle, Estimate, FxRate, Position, Quote, YearRow } from "./types
 const REQUIRED = 0.15;
 
 export function latestQuote(bundle: Bundle, companyId: string): Quote | null {
-  const rows = bundle.quotes.filter((row) => row.company_id === companyId && row.price !== null);
+  return quoteAsOf(bundle, companyId, "9999-12-31");
+}
+
+export function quoteAsOf(bundle: Bundle, companyId: string, day: string): Quote | null {
+  const rows = bundle.quotes.filter((row) => row.company_id === companyId && row.price !== null && row.price_date <= day);
   rows.sort((a, b) => (a.price_date < b.price_date ? 1 : a.price_date > b.price_date ? -1 : a.fetched_at < b.fetched_at ? 1 : -1));
   return rows[0] ?? null;
+}
+
+export function portfolioEurOn(bundle: Bundle, day: string): number | null {
+  const held = bundle.positions.filter((row) => row.shares !== null && bundle.companies.some((company) => company.id === row.company_id && company.in_portfolio));
+  if (held.length === 0) return null;
+  let total = 0;
+  for (const position of held) {
+    const company = bundle.companies.find((row) => row.id === position.company_id);
+    const quote = quoteAsOf(bundle, position.company_id, day);
+    if (!company || !quote || quote.price === null) return null;
+    const fx = company.currency === "EUR" ? null : bundle.fx.filter((row) => row.quote === company.currency && row.rate_date <= day && row.units_per_eur !== null).sort((a, b) => (a.rate_date < b.rate_date ? 1 : -1))[0];
+    const value = positionValueEur(position.shares, quote.price, company.currency, fx?.units_per_eur ?? null);
+    if (value === null) return null;
+    total += value;
+  }
+  return total;
 }
 
 export function fxFor(bundle: Bundle, currency: string): FxRate | null {
