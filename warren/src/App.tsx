@@ -426,6 +426,33 @@ function Resumen(props: {
   );
 }
 
+type Horizon = { pnl: number | null; value: number | null; kind: "target" | "hoy" | "pending" };
+
+function horizonOf(view: CompanyView, target: number | null, pnl: number | null): Horizon {
+  const units = view.priceCurrency === "EUR" ? null : view.fx?.units_per_eur ?? null;
+  if (target !== null) {
+    const value = positionValueEur(view.shares, target, view.priceCurrency, units);
+    if (pnl === null || value === null) return { pnl: null, value: null, kind: "pending" };
+    return { pnl, value, kind: "target" };
+  }
+  if (view.price === null || view.valueEur === null) return { pnl: null, value: null, kind: "pending" };
+  return { pnl: 0, value: view.valueEur, kind: "hoy" };
+}
+
+function sumHorizon(rows: Horizon[]) {
+  const known = rows.filter((row) => row.kind !== "pending");
+  const text: string[] = [];
+  const hoy = rows.filter((row) => row.kind === "hoy").length;
+  const pending = rows.filter((row) => row.kind === "pending").length;
+  if (hoy > 0) text.push(hoy + " sin objetivo (= P. hoy)");
+  if (pending > 0) text.push(pending + " Pendiente");
+  return {
+    pnl: known.length === 0 ? null : known.reduce((sum, row) => sum + (row.pnl ?? 0), 0),
+    value: known.length === 0 ? null : known.reduce((sum, row) => sum + (row.value ?? 0), 0),
+    note: text.length ? text.join(" · ") : null,
+  };
+}
+
 function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missing: boolean; runs: SyncRun[]; onOpen: (ticker: string) => void; onSaved: () => void }) {
   const rows = props.bundle.companies.filter((company) => company.in_portfolio);
   const views = rows.map((company) => ({ company, view: companyView(props.bundle, company.id, props.mode, props.today) }));
@@ -434,13 +461,12 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
     const known = views.map((row) => pick(row.view)).filter((value): value is number => value !== null);
     return { sum: known.length === 0 ? null : known.reduce((total, value) => total + value, 0), pending: views.length - known.length };
   };
-  const atPrice = (view: CompanyView, price: number | null) => positionValueEur(view.shares, price, view.priceCurrency, view.priceCurrency === "EUR" ? null : view.fx?.units_per_eur ?? null);
   const valueNow = part((view) => view.valueEur);
   const pnlNow = part((view) => view.pnlNowEur);
-  const pnl1 = part((view) => view.pnl1Eur);
-  const pnl3 = part((view) => view.pnl3Eur);
-  const value1 = part((view) => atPrice(view, view.target1));
-  const value3 = part((view) => atPrice(view, view.target3));
+  const oneYear = views.map(({ view }) => horizonOf(view, view.target1, view.pnl1Eur));
+  const threeYear = views.map(({ view }) => horizonOf(view, view.target3, view.pnl3Eur));
+  const h1 = sumHorizon(oneYear);
+  const h3 = sumHorizon(threeYear);
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Mi cartera real</h1>
@@ -448,8 +474,8 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginBottom: 12 }}>
         <Kpi label="Valor actual" value={eur(valueNow.sum)} mark={valueNow.pending > 0 ? valueNow.pending + " Pendiente" : null} />
         <Kpi label="Plusvalía actual" value={eur(pnlNow.sum)} mark={pnlNow.pending > 0 ? pnlNow.pending + " Pendiente" : null} detail={"Valor: " + eur(valueNow.sum)} />
-        <Kpi label="Plusvalía 1 año" value={eur(pnl1.sum)} mark={pnl1.pending > 0 ? pnl1.pending + " Pendiente" : null} detail={"Valor: " + eur(value1.sum)} />
-        <Kpi label="Plusvalía 3 años" value={eur(pnl3.sum)} mark={pnl3.pending > 0 ? pnl3.pending + " Pendiente" : null} detail={"Valor: " + eur(value3.sum)} />
+        <Kpi label="Plusvalía 1 año" value={eur(h1.pnl)} mark={h1.note} detail={"Valor: " + eur(h1.value)} />
+        <Kpi label="Plusvalía 3 años" value={eur(h3.pnl)} mark={h3.note} detail={"Valor: " + eur(h3.value)} />
       </div>
       <p className="stamp">FX BCE: {fxDates.length ? fecha(fxDates.sort().at(-1) ?? null) : "N/D"}{views.some((row) => row.company.currency !== "EUR" && !row.view.fx) ? " · falta el cambio de alguna divisa" : ""}</p>
       <IbkrImport disabled={props.missing} onSaved={props.onSaved} />
@@ -465,21 +491,26 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
           </thead>
           <tbody>
             {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={10} className="nd">N/D</td></tr> : null}
-            {views.map(({ company, view }) => (
+            {views.map(({ company, view }, index) => {
+              const one = oneYear[index];
+              const three = threeYear[index];
+              const oneMark = one.kind === "hoy" ? "sin objetivo" : marcaUnAnio(view.target1From, props.mode);
+              return (
               <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
                 <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} /></td>
                 <td>{fmt(view.avg)}</td>
                 <td>{view.price === null ? <span className="nd">Pendiente</span> : fmt(view.price)}</td>
                 <td className={view.price === null ? "nd" : tone(view.rentHoy, "plain")}>{view.price === null ? "Pendiente" : pct(view.rentHoy) + (view.pnlNowEur === null ? "" : " · " + eur(view.pnlNowEur))}</td>
                 <td>{view.weightPct === null ? "N/D" : fmt(view.weightPct, 2) + " %"}</td>
-                <td>{fmt(view.target1)}{marcaUnAnio(view.target1From, props.mode) ? <span className="stamp"> {marcaUnAnio(view.target1From, props.mode)}</span> : null}</td>
-                <td className={tone(view.pnl1Eur, "blue")}>{eur(view.pnl1Eur)}{marcaUnAnio(view.target1From, props.mode) ? <span className="stamp"> {marcaUnAnio(view.target1From, props.mode)}</span> : null}</td>
-                <td>{fmt(view.target3)}</td>
-                <td className={tone(view.pnl3Eur, "plain")}>{eur(view.pnl3Eur)}</td>
+                <td className={one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : fmt(one.kind === "hoy" ? view.price : view.target1)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
+                <td className={one.kind === "target" ? tone(one.pnl, "blue") : one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : eur(one.pnl)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
+                <td className={three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : fmt(three.kind === "hoy" ? view.price : view.target3)}{three.kind === "hoy" ? <span className="stamp"> sin objetivo</span> : null}</td>
+                <td className={three.kind === "target" ? tone(three.pnl, "plain") : three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : eur(three.pnl)}{three.kind === "hoy" ? <span className="stamp"> sin objetivo</span> : null}</td>
                 <td className={tone(view.cagr, "green")}>{pct(view.cagr)}</td>
                 <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
