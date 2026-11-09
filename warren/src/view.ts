@@ -1,4 +1,4 @@
-import { isOld, methodPrices, pickTarget, positionReturn, positionValueEur, priceReturn, cagr3, maxPriceForCagr, futurePnlEur, type MethodPrices, type SourceMode } from "./math";
+import { isOld, methodPrices, oneYearTarget, pickTarget, positionReturn, positionValueEur, priceReturn, cagr3, maxPriceForCagr, futurePnlEur, type MethodPrices, type SourceMode } from "./math";
 import type { Bundle, Estimate, FxRate, Position, Quote, YearRow } from "./types";
 
 const REQUIRED = 0.15;
@@ -63,6 +63,7 @@ export type CompanyView = {
   weightSource: string | null;
   rentHoy: number | null;
   target1: number | null;
+  target1From: "warren" | "tikr" | "mixto" | null;
   target3: number | null;
   rent1: number | null;
   rent3: number | null;
@@ -77,6 +78,7 @@ export type CompanyView = {
   financeAsOf: string | null;
   financeOld: boolean;
   warren3: ReturnType<typeof sideTarget>;
+  tikr1: ReturnType<typeof sideTarget>;
   tikr3: ReturnType<typeof sideTarget>;
   years: YearRow[];
 };
@@ -92,7 +94,8 @@ export function companyView(bundle: Bundle, companyId: string, mode: SourceMode,
   const tikr1 = sideTarget(bundle, companyId, "tikr", 1);
   const warren3 = sideTarget(bundle, companyId, "warren", 3);
   const tikr3 = sideTarget(bundle, companyId, "tikr", 3);
-  const target1 = pickTarget(mode, warren1.price, tikr1.price);
+  const year1 = oneYearTarget(mode, warren1.price, tikr1.price);
+  const target1 = year1.price;
   const target3 = pickTarget(mode, warren3.price, tikr3.price);
   const years = bundle.years.filter((row) => row.company_id === companyId).sort((a, b) => a.fiscal_label.localeCompare(b.fiscal_label, "es", { numeric: true }));
   const financeDates = years.map((row) => row.as_of).filter((value): value is string => Boolean(value)).sort();
@@ -114,6 +117,7 @@ export function companyView(bundle: Bundle, companyId: string, mode: SourceMode,
     weightSource: position?.weight_source ?? null,
     rentHoy: company?.in_portfolio ? positionReturn(price, avg) : null,
     target1,
+    target1From: year1.from,
     target3,
     rent1: priceReturn(target1, price),
     rent3: priceReturn(target3, price),
@@ -128,6 +132,7 @@ export function companyView(bundle: Bundle, companyId: string, mode: SourceMode,
     financeAsOf,
     financeOld: isOld(financeAsOf, today),
     warren3,
+    tikr1,
     tikr3,
     years,
   };

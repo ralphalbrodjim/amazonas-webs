@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   cagr3,
   fcf,
+  oneYearTarget,
   futurePnlEur,
   isOld,
   maxPriceForCagr,
@@ -34,6 +35,10 @@ test("Mixto is 50/50 and stays empty when TIKR is missing", () => {
   assert.equal(pickTarget("mixto", 20.79, null), null);
   assert.equal(pickTarget("warren", 20.79, null), 20.79);
   assert.equal(pickTarget("tikr", 20.79, null), null);
+  assert.deepEqual(oneYearTarget("mixto", null, 38.93), { price: 38.93, from: "tikr" });
+  assert.deepEqual(oneYearTarget("mixto", 68.8, null), { price: 68.8, from: "warren" });
+  assert.deepEqual(oneYearTarget("mixto", 100, 300), { price: 200, from: "mixto" });
+  assert.deepEqual(oneYearTarget("warren", null, 38.93), { price: null, from: null });
 });
 
 test("15% hurdle and position return do not invent a zero", () => {

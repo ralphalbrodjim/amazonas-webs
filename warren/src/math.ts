@@ -30,6 +30,17 @@ export function pickTarget(mode: SourceMode, warren: number | null, tikr: number
   return mixto(warren, tikr);
 }
 
+/** One-year target. Mixto is 50/50 only when both exist; otherwise the single stored side. */
+export function oneYearTarget(mode: SourceMode, warren: number | null, tikr: number | null): { price: number | null; from: "warren" | "tikr" | "mixto" | null } {
+  if (mode === "warren") return { price: warren, from: warren === null ? null : "warren" };
+  if (mode === "tikr") return { price: tikr, from: tikr === null ? null : "tikr" };
+  const mixed = mixto(warren, tikr);
+  if (mixed !== null) return { price: mixed, from: "mixto" };
+  if (tikr !== null) return { price: tikr, from: "tikr" };
+  if (warren !== null) return { price: warren, from: "warren" };
+  return { price: null, from: null };
+}
+
 /** Fair price = estimated EPS × target PER. Non-positive EPS does not produce a price. */
 export function perTarget(bpa: number | null, per: number | null): number | null {
   if (bpa === null || per === null || !(bpa > 0) || !(per > 0)) return null;

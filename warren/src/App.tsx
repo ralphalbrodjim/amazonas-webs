@@ -411,8 +411,8 @@ function Resumen(props: {
                   <td>{fmt(view.avg)}</td>
                   <td>{fmt(view.price)}</td>
                   <td className={tone(view.rentHoy, "plain")}>{pct(view.rentHoy)}</td>
-                  <td>{fmt(view.target1)}</td>
-                  <td className={tone(view.rent1, "blue")}>{pct(view.rent1)}</td>
+                  <td>{fmt(view.target1)}{marcaUnAnio(view.target1From, props.mode) ? <span className="stamp"> {marcaUnAnio(view.target1From, props.mode)}</span> : null}</td>
+                  <td className={tone(view.rent1, "blue")}>{pct(view.rent1)}{marcaUnAnio(view.target1From, props.mode) ? <span className="stamp"> {marcaUnAnio(view.target1From, props.mode)}</span> : null}</td>
                   <td>{fmt(view.target3)}</td>
                   <td className={tone(view.rent3, "plain")}>{pct(view.rent3)}</td>
                   <td className={tone(view.cagr, "green")}>{pct(view.cagr)}</td>
@@ -472,7 +472,7 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
                 <td>{fmt(view.avg)}</td>
                 <td>{fmt(view.price)}</td>
                 <td>{view.weightPct === null ? "N/D" : fmt(view.weightPct, 2) + " %"}</td>
-                <td>{fmt(view.target1)}</td>
+                <td>{fmt(view.target1)}{marcaUnAnio(view.target1From, props.mode) ? <span className="stamp"> {marcaUnAnio(view.target1From, props.mode)}</span> : null}</td>
                 <td className={tone(view.pnl1Eur, "blue")}>{money(view.pnl1Eur, "EUR")}</td>
                 <td>{fmt(view.target3)}</td>
                 <td className={tone(view.pnl3Eur, "plain")}>{money(view.pnl3Eur, "EUR")}</td>
@@ -488,8 +488,14 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
   );
 }
 
-function Kpi(props: { label: string; value: string }) {
-  return <div style={card}><div style={{ color: INK3, fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>{props.label}</div><div style={{ fontSize: 26, fontWeight: 800, color: CYAN, marginTop: 6 }}>{props.value}</div></div>;
+function Kpi(props: { label: string; value: string; mark?: string | null }) {
+  return <div style={card}><div style={{ color: INK3, fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>{props.label}</div><div style={{ fontSize: 26, fontWeight: 800, color: CYAN, marginTop: 6 }}>{props.value}{props.mark ? <span className="stamp"> {props.mark}</span> : null}</div></div>;
+}
+
+function marcaUnAnio(from: CompanyView["target1From"], mode: SourceMode): string | null {
+  if (from === "tikr") return "TIKR";
+  if (from === "warren" && mode === "mixto") return "solo Warren";
+  return null;
 }
 
 function SharesEditor(props: { rows: { id: string; ticker: string; currency: string; position: Bundle["positions"][number] | undefined }[]; disabled: boolean; onSaved: () => void }) {
@@ -554,7 +560,7 @@ function Ficha(props: {
       </div>
       {props.tab === "evo" ? <Evolucion view={props.view} missing={props.missing} owner={props.owner} onSaved={props.onSaved} /> : null}
       {props.tab === "val" ? <Valoracion view={props.view} mode={props.mode} companyId={props.companyId} currency={props.currency} today={props.today} missing={props.missing} onSaved={props.onSaved} /> : null}
-      {props.tab === "rent" ? <Rentabilidad view={props.view} currency={props.currency} companyId={props.companyId} today={props.today} missing={props.missing} onSaved={props.onSaved} /> : null}
+      {props.tab === "rent" ? <Rentabilidad view={props.view} mode={props.mode} currency={props.currency} companyId={props.companyId} today={props.today} missing={props.missing} onSaved={props.onSaved} /> : null}
       {props.notes ? <p style={{ color: INK3 }}>{props.notes}</p> : null}
       {extras.length > 0 ? (
         <div style={card}>
@@ -583,16 +589,18 @@ const COMPACT = new Set<keyof CompanyView["years"][number]>(["sales", "ebitda", 
 
 function Evolucion(props: { view: CompanyView; missing: boolean; owner: boolean; onSaved: () => void }) {
   const [period, setPeriod] = useState<PeriodFilter>("anual");
+  const [soloTikr, setSoloTikr] = useState(false);
   const [edit, setEdit] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState("");
   const [syncing, setSyncing] = useState(false);
-  const years = seriesYears(props.view.years, period);
+  const years = seriesYears(soloTikr ? props.view.years.filter((year) => year.source.toUpperCase() === "TIKR") : props.view.years, period);
   const cuts: { id: PeriodFilter; label: string }[] = [{ id: "anual", label: "Anual" }, { id: "trimestre", label: "Trimestral" }];
   return (
     <div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
         {cuts.map((item) => <button key={item.id} type="button" style={btn(period === item.id)} onClick={() => setPeriod(item.id)}>{item.label}</button>)}
+        <button type="button" style={btn(soloTikr)} onClick={() => setSoloTikr((value) => !value)}>TIKR</button>
         {props.owner ? <button type="button" style={btn(true)} disabled={props.missing || syncing} onClick={() => void (async () => {
           setSyncing(true);
           setMsg("");
@@ -604,7 +612,7 @@ function Evolucion(props: { view: CompanyView; missing: boolean; owner: boolean;
         })()}>{syncing ? "Actualizando…" : "Actualizar fundamentales SEC"}</button> : null}
       </div>
       <p style={{ color: AMBER }}>Editable solo el BPA estimado (amarillo). Histórico bloqueado. Lo que no está en la fuente sigue en N/D.</p>
-      {props.view.years.some((year) => year.source.toLowerCase() === "tikr") ? null : <p className="stamp">TIKR: N/D. Los ejercicios de TIKR se cargan a mano, como máximo tres, y todavía no hay ninguno.</p>}
+      {soloTikr && years.length === 0 ? <p className="stamp">TIKR: Pendiente.</p> : null}
       {years.length === 0 ? <p>Pendiente.</p> : (
       <div className="w-scroll">
         <table className="w-table">
@@ -669,7 +677,7 @@ function Valoracion(props: { view: CompanyView; mode: SourceMode; companyId: str
     { label: "EV / EBITDA", multiple: "N/D", y1: null, y2: null, y3: methods?.evEbitda ?? null },
     { label: "EV / EBIT", multiple: "N/D", y1: null, y2: null, y3: methods?.evEbit ?? null },
     { label: "Promedio de métodos", multiple: "—", y1: null, y2: null, y3: methods?.average ?? null },
-    { label: "Objetivo", multiple: "—", y1: null, y2: null, y3: methods?.target ?? null },
+    { label: "Objetivo", multiple: "—", y1: props.view.tikr1.price, y2: null, y3: methods?.target ?? null },
   ];
   return (
     <div>
@@ -682,7 +690,7 @@ function Valoracion(props: { view: CompanyView; mode: SourceMode; companyId: str
               <tr key={row.label}>
                 <td className="sticky">{row.label}</td>
                 <td>{row.multiple}</td>
-                <td>{fmt(row.y1)}</td>
+                <td>{fmt(row.y1)}{row.label === "Objetivo" && row.y1 !== null ? <span className="stamp"> TIKR</span> : null}</td>
                 <td>{fmt(row.y2)}</td>
                 <td>{fmt(row.y3)}</td>
               </tr>
@@ -690,7 +698,7 @@ function Valoracion(props: { view: CompanyView; mode: SourceMode; companyId: str
           </tbody>
         </table>
       </div>
-      <p style={{ color: INK3 }}>Año 1 y año 2 están en N/D porque la fuente solo trae objetivo a 3 años. Warren {money(warren.price, props.currency)} · TIKR {money(tikr.price, props.currency)} · {fecha(warren.row?.as_of ?? tikr.row?.as_of ?? null)}</p>
+      <p style={{ color: INK3 }}>Año 1 es el Street Target TIKR cuando está guardado. Año 2 sigue en N/D. El año 3 no se rellena con el consenso de un año. Warren {money(warren.price, props.currency)} · TIKR 3A {money(tikr.price, props.currency)} · Street {money(props.view.tikr1.price, props.view.tikr1.row?.target_currency ?? props.currency)}</p>
       {props.mode === "warren" && warren.row ? <EstimateEditor row={warren.row} disabled={props.missing} onSaved={props.onSaved} /> : null}
       <TikrForm companyId={props.companyId} currency={props.currency} disabled={props.missing} onSaved={props.onSaved} />
     </div>
@@ -778,7 +786,7 @@ function TikrForm(props: { companyId: string; currency: string; disabled: boolea
   );
 }
 
-function Rentabilidad(props: { view: CompanyView; currency: string; companyId: string; today: string; missing: boolean; onSaved: () => void }) {
+function Rentabilidad(props: { view: CompanyView; mode: SourceMode; currency: string; companyId: string; today: string; missing: boolean; onSaved: () => void }) {
   const [edit, setEdit] = useState(false);
   const [price, setPrice] = useState("");
   const [date, setDate] = useState(props.today);
@@ -794,7 +802,7 @@ function Rentabilidad(props: { view: CompanyView; currency: string; companyId: s
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
-        {cards.map(([label, value]) => <Kpi key={label} label={label} value={value} />)}
+        {cards.map(([label, value]) => <Kpi key={label} label={label} value={value} mark={label === "Objetivo 1A" || label === "Rentabilidad 1A" ? marcaUnAnio(props.view.target1From, props.mode) : null} />)}
       </div>
       <div style={{ ...card, marginTop: 12, background: "#1F7A5A" }}>
         <div style={{ letterSpacing: "0.06em", fontSize: 13 }}>PRECIO MÁXIMO PARA EXIGIR 15 % ANUAL · horizonte 3 años</div>
