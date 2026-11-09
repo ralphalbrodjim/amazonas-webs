@@ -1,7 +1,7 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../../shared/supabase.config";
 import { num } from "./format";
-import type { BenchmarkLevel, Bundle, Company, Estimate, FxRate, NewsItem, Phase2, Position, Quote, RadarItem, SyncRun, VirtualEntry, YearRow } from "./types";
+import type { BenchmarkLevel, Bundle, Company, Estimate, FxRate, NewsItem, OpsDashboard, OpsHealth, Phase2, Position, Quote, RadarItem, SyncRun, VirtualEntry, YearRow } from "./types";
 import type { IbkrRow } from "./ibkr";
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
@@ -40,9 +40,21 @@ export async function loadIsOwner(): Promise<boolean> {
 }
 
 export async function loadSyncRuns(): Promise<SyncRun[]> {
-  const { data, error } = await supabase.from("warren_sync_runs").select("id,started_at,finished_at,trigger,status,prices_ok,prices_fail,fx_ok,kind,detail").order("started_at", { ascending: false }).limit(10);
+  const { data, error } = await supabase.from("warren_sync_runs").select("id,started_at,finished_at,trigger,status,prices_ok,prices_fail,fx_ok,kind,tokens_in,tokens_out,cost_eur,next_hint,error,detail").order("started_at", { ascending: false }).limit(20);
   if (error || !data) return [];
-  return data as SyncRun[];
+  return (data as SyncRun[]).map((row) => rowNum(row, ["prices_ok", "prices_fail", "tokens_in", "tokens_out", "cost_eur"]));
+}
+
+export async function loadOpsDashboard(): Promise<{ ops: OpsDashboard | null; error: string | null }> {
+  const { data, error } = await supabase.rpc("warren_ops_dashboard");
+  if (error) return { ops: null, error: error.message };
+  return { ops: (data ?? null) as OpsDashboard | null, error: null };
+}
+
+export async function runHealthCheck(): Promise<{ health: OpsHealth | null; error: string | null }> {
+  const { data, error } = await supabase.rpc("warren_run_health_check");
+  if (error) return { health: null, error: error.message };
+  return { health: (data ?? null) as OpsHealth | null, error: null };
 }
 
 export async function runRadarSync(): Promise<string | null> {

@@ -35,7 +35,33 @@ export type SyncRun = {
   prices_fail: number | null;
   fx_ok: boolean | null;
   kind?: string | null;
+  tokens_in?: number | null;
+  tokens_out?: number | null;
+  cost_eur?: number | null;
+  next_hint?: string | null;
+  error?: string | null;
   detail: { tickers?: SyncTicker[] } | null;
+};
+
+export type OpsCost = {
+  month_start: string;
+  budget_eur: number;
+  spent_eur: number;
+  tokens: number;
+  remaining_eur: number;
+  note?: string;
+};
+
+export type OpsCheck = { id: string; ok: boolean; level: string; msg: string };
+
+export type OpsHealth = { pass: number; fail: number; warn: number; checks: OpsCheck[]; at?: string };
+
+export type OpsDashboard = {
+  cost: OpsCost;
+  next_tasks: { when: string; what: string }[];
+  health: OpsHealth;
+  rollback_recipes: { id: string; title: string; kind: string; sql_text: string; sort: number }[];
+  radar_pending: { ticker: string; reason: string }[];
 };
 
 export type Quote = {

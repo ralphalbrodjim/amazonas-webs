@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, FormEvent, ReactNode } from "react";
-import { loadIsOwner, loadPhase2, loadSyncRuns, loadWarren, probeSchema, redirectTo, runSecFundamentals, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
+import { loadIsOwner, loadOpsDashboard, loadPhase2, loadSyncRuns, loadWarren, probeSchema, redirectTo, runHealthCheck, runSecFundamentals, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
 import { fecha, fechaDiaMes, fmt, fmtCompact, madridToday, parseInput, pct } from "./format";
 import { failureReason, latestPriceUpdate, staleTickerReason } from "./stale";
 import { mixto, type SourceMode } from "./math";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
-import { EMPTY, EMPTY_PHASE2, type Bundle, type Company, type Estimate, type Phase2, type SyncRun } from "./types";
+import { EMPTY, EMPTY_PHASE2, type Bundle, type Company, type Estimate, type OpsDashboard, type Phase2, type SyncRun } from "./types";
 import { companyView, type CompanyView } from "./view";
 import { seriesYears, type PeriodFilter } from "./years";
 
@@ -252,22 +252,98 @@ function TickerName(props: { company: Company; priceDate: string | null; runs: S
   );
 }
 
+function euros(value: number | null | undefined): string {
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number)) return "N/D";
+  return number.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+}
+
+function shortOpsError(error: string | null | undefined): string | null {
+  if (!error) return null;
+  if (/api key|apikey|token|secret|bearer/i.test(error)) return "Error del proveedor";
+  return error.length > 140 ? error.slice(0, 140) + "…" : error;
+}
+
 function SyncLog(props: { runs: SyncRun[] }) {
   const [open, setOpen] = useState<number | null>(null);
+  const [kind, setKind] = useState<"todos" | "prices" | "news" | "radar">("todos");
+  const [ops, setOps] = useState<OpsDashboard | null>(null);
+  const [opsError, setOpsError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const shown = props.runs.filter((run) => kind === "todos" || run.kind === kind);
+  const filters: { id: typeof kind; label: string }[] = [
+    { id: "todos", label: "Todos" },
+    { id: "prices", label: "Precios" },
+    { id: "news", label: "Noticias" },
+    { id: "radar", label: "Radar" },
+  ];
+
+  async function openOps() {
+    if (ops || checking) return;
+    setChecking(true);
+    const loaded = await loadOpsDashboard();
+    setChecking(false);
+    setOps(loaded.ops);
+    setOpsError(loaded.error);
+  }
+
   return (
-    <details style={{ ...card, marginBottom: 12, padding: "10px 14px" }}>
+    <details style={{ ...card, marginBottom: 12, padding: "10px 14px" }} onToggle={(event) => {
+      if (event.currentTarget !== event.target) return;
+      if (event.currentTarget.open) void openOps();
+    }}>
       <summary style={{ cursor: "pointer", fontWeight: 700 }}>Sincronización · últimas {props.runs.length}</summary>
-      {props.runs.length === 0 ? <p style={{ color: INK3 }}>Sin registros.</p> : props.runs.map((run) => {
+      {ops?.cost ? <p style={{ margin: "8px 0", fontSize: 13 }}>Presupuesto {euros(ops.cost.budget_eur)} · gastado {euros(ops.cost.spent_eur)} · tokens {ops.cost.tokens ?? 0} · {fecha(ops.cost.month_start)}</p> : null}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+        {filters.map((item) => <button key={item.id} type="button" style={{ ...btn(kind === item.id), minHeight: 36 }} onClick={() => setKind(item.id)}>{item.label}</button>)}
+        <button type="button" style={{ ...btn(false), minHeight: 36 }} disabled={checking} onClick={() => void (async () => {
+          setChecking(true);
+          if (!ops) {
+            const loaded = await loadOpsDashboard();
+            setOps(loaded.ops);
+            setOpsError(loaded.error);
+          } else {
+            const result = await runHealthCheck();
+            if (result.error) setOpsError(result.error);
+            else if (result.health) setOps({ ...ops, health: result.health });
+          }
+          setChecking(false);
+        })()}>{checking ? "Comprobando…" : "Comprobar salud"}</button>
+      </div>
+      {opsError ? <p className="stamp">{opsError}</p> : null}
+      {shown.length === 0 ? <p style={{ color: INK3 }}>Sin registros.</p> : shown.map((run) => {
         const fallos = (run.detail?.tickers ?? []).filter((item) => item.ok === false);
+        const problem = shortOpsError(run.error);
         return (
           <div key={run.id} style={{ borderTop: "1px solid " + LINE, paddingTop: 8, marginTop: 8, fontSize: 13 }}>
-            <div>{horaMadrid(run.started_at)} · {run.kind ? run.kind + " · " : ""}{run.trigger} · {run.status}</div>
-            <div style={{ color: INK3 }}>ok {run.prices_ok ?? "N/D"} · fallos {run.prices_fail ?? "N/D"} · FX {run.fx_ok === null ? "N/D" : run.fx_ok ? "ok" : "no"}</div>
+            <div>{horaMadrid(run.started_at)} · {run.kind || "N/D"} · {run.trigger} · {run.status}</div>
+            <div style={{ color: INK3 }}>ok {run.prices_ok ?? "N/D"} · fallos {run.prices_fail ?? "N/D"} · {euros(run.cost_eur)} · tokens {run.tokens_in ?? 0}/{run.tokens_out ?? 0}</div>
+            {problem ? <div className="stamp">{problem}</div> : null}
+            {run.next_hint ? <div style={{ color: INK3 }}>{run.next_hint}</div> : null}
             {fallos.length > 0 ? <button type="button" style={{ ...btn(false), minHeight: 32, marginTop: 6 }} onClick={() => setOpen(open === run.id ? null : run.id)}>{open === run.id ? "Ocultar" : "Ver símbolos"}</button> : null}
             {open === run.id ? <ul style={{ margin: "6px 0", paddingLeft: 18 }}>{fallos.map((item, index) => <li key={(item.ticker || item.symbol || "x") + index}>{item.ticker || item.symbol || "N/D"} · {failureReason(item)}</li>)}</ul> : null}
           </div>
         );
       })}
+      {ops ? (
+        <>
+          <h3 style={{ fontSize: 15, margin: "14px 0 6px" }}>Próximas tareas</h3>
+          {ops.next_tasks?.map((task) => <p key={task.when + task.what} style={{ margin: "4px 0", fontSize: 13 }}>{task.when} · {task.what}</p>)}
+          <h3 style={{ fontSize: 15, margin: "14px 0 6px" }}>Salud · {ops.health?.pass ?? "N/D"} ok · {ops.health?.warn ?? 0} avisos · {ops.health?.fail ?? 0} fallos</h3>
+          {ops.health?.checks?.map((check) => <p key={check.id} style={{ margin: "4px 0", fontSize: 13, color: check.level === "fail" ? "#FF6B6B" : check.level === "warn" ? AMBER : "#3DDC97" }}>{check.msg}</p>)}
+          {ops.radar_pending?.length ? <h3 style={{ fontSize: 15, margin: "14px 0 6px" }}>Pendientes Radar</h3> : null}
+          {ops.radar_pending?.map((item) => <p key={item.ticker} style={{ margin: "4px 0", fontSize: 13 }}>{item.ticker} · {item.reason}</p>)}
+          <details>
+            <summary style={{ cursor: "pointer", fontWeight: 700, marginTop: 10 }}>Rollback · solo lectura</summary>
+            {ops.rollback_recipes?.map((recipe) => (
+              <article key={recipe.id} style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 13 }}>{recipe.title}</div>
+                <pre style={{ whiteSpace: "pre-wrap", overflow: "auto", fontSize: 12, margin: "4px 0" }}>{recipe.sql_text}</pre>
+              </article>
+            ))}
+          </details>
+        </>
+      ) : null}
     </details>
   );
 }
