@@ -1,7 +1,6 @@
 import { useState } from "react";
-import type { FormEvent } from "react";
-import { importIbkr, runNewsDetect, runRadarSync, saveRadar, saveVirtual } from "./db";
-import { fecha, fechaCorta, fechaDiaMes, fmt, parseInput, pct } from "./format";
+import { importIbkr, runNewsDetect, runRadarSync } from "./db";
+import { fecha, fechaCorta, fechaDiaMes, fmt, pct } from "./format";
 import { newsGroups, newsVisible, type NewsFilter } from "./news";
 import { parseIbkrCsv, type IbkrRow } from "./ibkr";
 import { priceReturn } from "./math";
@@ -55,11 +54,6 @@ function radarValue(value: number | null | undefined, text: string): string {
 }
 
 export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode; today: string; owner: boolean; onSaved: () => void }) {
-  const [ticker, setTicker] = useState("");
-  const [name, setName] = useState("");
-  const [status, setStatus] = useState<RadarItem["status"]>("vigilar");
-  const [thesis, setThesis] = useState("");
-  const [asOf, setAsOf] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const labels: Record<RadarItem["status"], string> = { vigilar: "Vigilar", en_analisis: "En análisis", descartada: "Descartada" };
@@ -104,28 +98,7 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
           </article>
         );
       })}
-      <form style={{ ...card, marginTop: 12, display: "grid", gap: 8 }} onSubmit={(event: FormEvent) => {
-        event.preventDefault();
-        void (async () => {
-          if (!ticker.trim()) { setMsg("Falta el ticker."); return; }
-          const error = await saveRadar({ ticker, name, status, thesis, as_of: asOf || null });
-          setMsg(error ?? "Guardada.");
-          if (!error) props.onSaved();
-        })();
-      }}>
-        <b>Añadir candidata</b>
-        <input style={inputS} placeholder="Ticker" value={ticker} onChange={(event) => setTicker(event.target.value)} disabled={props.phase2.missing} />
-        <input style={inputS} placeholder="Nombre" value={name} onChange={(event) => setName(event.target.value)} disabled={props.phase2.missing} />
-        <select style={inputS} value={status} onChange={(event) => setStatus(event.target.value as RadarItem["status"])} disabled={props.phase2.missing}>
-          <option value="vigilar">Vigilar</option>
-          <option value="en_analisis">En análisis</option>
-          <option value="descartada">Descartada</option>
-        </select>
-        <input style={inputS} placeholder="Tesis corta" value={thesis} onChange={(event) => setThesis(event.target.value)} disabled={props.phase2.missing} />
-        <input style={inputS} type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} disabled={props.phase2.missing} />
-        <button type="submit" style={btn(true)} disabled={props.phase2.missing}>Guardar</button>
-        {msg ? <p style={{ color: AMBER }}>{msg}</p> : null}
-      </form>
+      {msg ? <p style={{ color: AMBER }}>{msg}</p> : null}
     </section>
   );
 }
@@ -238,13 +211,6 @@ function virtualReturn(bundle: Bundle, entry: VirtualEntry): number | null {
 }
 
 export function VirtualBook(props: { bundle: Bundle; phase2: Phase2; onSaved: () => void }) {
-  const [ticker, setTicker] = useState("");
-  const [entered, setEntered] = useState("");
-  const [price, setPrice] = useState("");
-  const [currency, setCurrency] = useState("USD");
-  const [source, setSource] = useState("");
-  const [note, setNote] = useState("");
-  const [msg, setMsg] = useState("");
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Cartera virtual</h1>
@@ -261,30 +227,6 @@ export function VirtualBook(props: { bundle: Bundle; phase2: Phase2; onSaved: ()
           </article>
         );
       })}
-      <form style={{ ...card, marginTop: 12, display: "grid", gap: 8 }} onSubmit={(event: FormEvent) => {
-        event.preventDefault();
-        void (async () => {
-          const entryPrice = parseInput(price);
-          if (!ticker.trim() || !entered || entryPrice === null || !(entryPrice > 0) || !source.trim() || !currency.trim()) {
-            setMsg("Hacen falta ticker, fecha, precio, divisa y de dónde sale el precio.");
-            return;
-          }
-          const company = companyFor(props.bundle, ticker, null);
-          const error = await saveVirtual({ ticker, entered_on: entered, entry_price: entryPrice, currency: currency.toUpperCase(), price_source: source, note, company_id: company?.id ?? null });
-          setMsg(error ?? "Guardada.");
-          if (!error) props.onSaved();
-        })();
-      }}>
-        <b>Nueva entrada</b>
-        <input style={inputS} placeholder="Ticker" value={ticker} onChange={(event) => setTicker(event.target.value)} disabled={props.phase2.missing} />
-        <input style={inputS} type="date" value={entered} onChange={(event) => setEntered(event.target.value)} disabled={props.phase2.missing} />
-        <input style={inputS} placeholder="Precio de entrada" value={price} onChange={(event) => setPrice(event.target.value)} disabled={props.phase2.missing} />
-        <input style={inputS} placeholder="Divisa" value={currency} onChange={(event) => setCurrency(event.target.value)} disabled={props.phase2.missing} />
-        <input style={inputS} placeholder="Origen del precio" value={source} onChange={(event) => setSource(event.target.value)} disabled={props.phase2.missing} />
-        <input style={inputS} placeholder="Nota" value={note} onChange={(event) => setNote(event.target.value)} disabled={props.phase2.missing} />
-        <button type="submit" style={btn(true)} disabled={props.phase2.missing}>Guardar</button>
-        {msg ? <p style={{ color: AMBER }}>{msg}</p> : null}
-      </form>
     </section>
   );
 }

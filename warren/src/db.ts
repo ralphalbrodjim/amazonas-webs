@@ -145,20 +145,6 @@ async function ownerId(): Promise<string | null> {
   return data.session?.user.id ?? null;
 }
 
-export async function saveRadar(row: { ticker: string; name: string; status: RadarItem["status"]; thesis: string; as_of: string | null }): Promise<string | null> {
-  const owner = await ownerId();
-  if (!owner) return "Sin sesión";
-  const { error } = await supabase.from("warren_radar").insert({ ...row, owner_id: owner, ticker: row.ticker.toUpperCase() });
-  return error ? error.message : null;
-}
-
-export async function saveVirtual(row: { ticker: string; entered_on: string; entry_price: number; currency: string; price_source: string; note: string; company_id?: string | null }): Promise<string | null> {
-  const owner = await ownerId();
-  if (!owner) return "Sin sesión";
-  const { error } = await supabase.from("warren_virtual_entries").insert({ ...row, owner_id: owner, ticker: row.ticker.toUpperCase() });
-  return error ? error.message : null;
-}
-
 export async function importIbkr(rows: IbkrRow[]): Promise<string | null> {
   const owner = await ownerId();
   if (!owner) return "Sin sesión";
