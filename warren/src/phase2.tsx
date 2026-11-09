@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { importIbkr, runNewsDetect, saveNews, saveRadar, saveVirtual } from "./db";
 import { fecha, fechaCorta, fmt, parseInput, pct } from "./format";
-import { newsGroups, type NewsFilter } from "./news";
+import { newsGroups, newsVisible, type NewsFilter } from "./news";
 import { parseIbkrCsv, type IbkrRow } from "./ibkr";
 import { priceReturn } from "./math";
 import type { BenchmarkLevel, Bundle, NewsItem, Phase2, RadarItem, VirtualEntry } from "./types";
@@ -107,7 +107,7 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
   );
 }
 
-const newsLabel: Record<string, string> = { filing: "Filing", press: "Prensa", x_post: "X", noticia: "Noticia", comentario: "Comentario", idea: "Idea" };
+const newsLabel: Record<string, string> = { filing: "Informe oficial", press: "Prensa", x_post: "X", noticia: "Noticia", comentario: "Comentario", idea: "Idea" };
 const impactColor: Record<string, string> = { positivo: "#3DDC97", neutral: "#8FA6CF", negativo: "#FF6B6B" };
 
 function safeUrl(url: string | null | undefined): string | null {
@@ -165,18 +165,19 @@ export function Intelligence(props: { phase2: Phase2; owner: boolean; onSaved: (
   const [detecting, setDetecting] = useState(false);
   const [company, setCompany] = useState("");
   const [filter, setFilter] = useState<NewsFilter>("todos");
-  const tickers = [...new Set(props.phase2.news.map((item) => item.ticker).filter((value): value is string => Boolean(value)))].sort();
-  const groups = newsGroups(props.phase2.news, company, filter);
+  const visible = newsVisible(props.phase2.news);
+  const tickers = [...new Set(visible.map((item) => item.ticker).filter((value): value is string => Boolean(value)))].sort();
+  const groups = newsGroups(visible, company, filter);
   const filters: { id: NewsFilter; label: string }[] = [
     { id: "todos", label: "Todos" },
-    { id: "filing", label: "Filing" },
+    { id: "filing", label: "Informe oficial" },
     { id: "press", label: "Prensa" },
     { id: "x_post", label: "X" },
   ];
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Warren Intelligence</h1>
-      <p style={{ color: INK3 }}>Filings, prensa y publicaciones ya guardadas, por día de Madrid. El resumen solo se muestra si ya viene analizado.</p>
+      <p style={{ color: INK3 }}>Informes oficiales, prensa y publicaciones ya guardadas, por día de Madrid. El resumen solo se muestra si ya viene analizado.</p>
       {props.phase2.missing ? <p className="stamp">Falta supabase/warren_phase2.sql.</p> : null}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
         <label style={{ ...card, padding: 8 }}>Empresa

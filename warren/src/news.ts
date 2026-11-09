@@ -12,13 +12,17 @@ export function newsDay(item: { published_at?: string | null; published_on: stri
   return item.published_on.slice(0, 10);
 }
 
-export function newsGroups<T extends { published_at?: string | null; published_on: string; kind: string; ticker?: string | null }>(
+export function newsVisible<T extends { hidden?: boolean | null; active?: boolean | null }>(items: T[]): T[] {
+  return items.filter((item) => item.hidden !== true && item.active !== false);
+}
+
+export function newsGroups<T extends { published_at?: string | null; published_on: string; kind: string; ticker?: string | null; hidden?: boolean | null; active?: boolean | null }>(
   items: T[],
   ticker: string,
   kind: NewsFilter,
 ): { day: string; items: T[] }[] {
   const wanted = ticker.trim().toUpperCase();
-  const rows = items.filter((item) => {
+  const rows = newsVisible(items).filter((item) => {
     if (kind !== "todos" && item.kind !== kind) return false;
     if (wanted && (item.ticker ?? "").toUpperCase() !== wanted) return false;
     return true;

@@ -166,6 +166,8 @@ export type NewsItem = {
   analyzed_at?: string | null;
   external_id?: string | null;
   meta?: Record<string, unknown> | null;
+  hidden?: boolean | null;
+  active?: boolean | null;
 };
 
 export type VirtualEntry = {

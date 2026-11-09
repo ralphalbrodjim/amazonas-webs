@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { newsDay, newsGroups } from "./news.ts";
+import { newsDay, newsGroups, newsVisible } from "./news.ts";
 
 test("a late UTC post falls on the next Madrid day, and filings lead the day", () => {
   assert.equal(newsDay({ published_on: "2026-11-09", published_at: "2026-11-09T23:30:00Z" }), "2026-11-10");
@@ -14,4 +14,10 @@ test("a late UTC post falls on the next Madrid day, and filings lead the day", (
   assert.deepEqual(groups[0].items.map((item) => item.kind), ["filing", "press", "x_post"]);
   assert.deepEqual(newsGroups(groups.flatMap((group) => group.items), "MSFT", "todos").flatMap((group) => group.items).map((item) => item.ticker), ["MSFT", "MSFT", "MSFT"]);
   assert.deepEqual(newsGroups(groups.flatMap((group) => group.items), "MSFT", "filing").flatMap((group) => group.items).map((item) => item.kind), ["filing", "filing"]);
+  const shown = newsVisible([
+    { ticker: "MSFT", kind: "filing", published_on: "2026-11-09", active: true, hidden: false },
+    { ticker: "JD", kind: "filing", published_on: "2026-11-09", active: false },
+    { ticker: "AMZN", kind: "x_post", published_on: "2026-11-09", hidden: true },
+  ]);
+  assert.deepEqual(shown.map((item) => item.ticker), ["MSFT"]);
 });
