@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { importIbkr, saveNews, saveRadar, saveVirtual } from "./db";
+import { importIbkr, runNewsDetect, saveNews, saveRadar, saveVirtual } from "./db";
 import { fecha, fechaCorta, fmt, parseInput, pct } from "./format";
+import { newsGroups, type NewsFilter } from "./news";
 import { parseIbkrCsv, type IbkrRow } from "./ibkr";
 import { priceReturn } from "./math";
 import type { BenchmarkLevel, Bundle, NewsItem, Phase2, RadarItem, VirtualEntry } from "./types";
@@ -106,44 +107,121 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
   );
 }
 
-const newsLabel: Record<NewsItem["kind"], string> = { noticia: "Noticia", comentario: "Comentario", idea: "Idea" };
+const newsLabel: Record<string, string> = { filing: "Filing", press: "Prensa", x_post: "X", noticia: "Noticia", comentario: "Comentario", idea: "Idea" };
+const impactColor: Record<string, string> = { positivo: "#3DDC97", neutral: "#8FA6CF", negativo: "#FF6B6B" };
 
-export function Intelligence(props: { phase2: Phase2; onSaved: () => void }) {
+function safeUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function NewsCard(props: { item: NewsItem }) {
+  const item = props.item;
+  const href = safeUrl(item.url);
+  const summary = item.analyzed_at && item.summary?.trim() ? item.summary.trim() : "";
+  const color = item.impact ? impactColor[item.impact] : null;
+  return (
+    <article style={{ ...card, marginTop: 8, borderLeft: "4px solid " + (color ?? LINE), opacity: color ? 1 : 0.72 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <b>{item.title}</b>
+        <span className="stamp">{newsLabel[item.kind] ?? item.kind}{item.materiality ? " · " + item.materiality : ""}</span>
+      </div>
+      <p className="stamp">{item.ticker ? item.ticker + " · " : ""}{item.source || newsLabel[item.kind]}{item.impact ? " · " + item.impact : ""}</p>
+      {summary ? <p style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{summary}</p> : null}
+      {href ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: BLUE }}>{item.kind === "x_post" ? "Ver en X" : "Fuente"}</a> : null}
+    </article>
+  );
+}
+
+function XCard(props: { item: NewsItem }) {
+  const item = props.item;
+  const href = safeUrl(item.url);
+  const handle = item.author?.replace(/^@/, "").trim();
+  const color = item.impact ? impactColor[item.impact] : null;
+  return (
+    <article style={{ ...card, marginTop: 8, borderLeft: "4px solid " + (color ?? LINE), opacity: color ? 1 : 0.72 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><b>{handle ? "@" + handle : "En X"}</b>{item.ticker ? <span className="stamp">{item.ticker}</span> : null}</div>
+      <p style={{ margin: "8px 0" }}>{item.title}</p>
+      {item.materiality ? <p className="stamp">{item.materiality}</p> : null}
+      {href ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: BLUE }}>Ver en X</a> : null}
+    </article>
+  );
+}
+
+export function Intelligence(props: { phase2: Phase2; owner: boolean; onSaved: () => void }) {
   const [published, setPublished] = useState("");
-  const [ticker, setTicker] = useState("");
-  const [kind, setKind] = useState<NewsItem["kind"]>("noticia");
+  const [noteTicker, setNoteTicker] = useState("");
+  const [noteKind, setNoteKind] = useState<NewsItem["kind"]>("noticia");
   const [title, setTitle] = useState("");
   const [source, setSource] = useState("");
   const [url, setUrl] = useState("");
   const [summary, setSummary] = useState("");
   const [msg, setMsg] = useState("");
-  const items = [...props.phase2.news].sort((a, b) => b.published_on.localeCompare(a.published_on) || b.created_at.localeCompare(a.created_at));
+  const [detecting, setDetecting] = useState(false);
+  const [company, setCompany] = useState("");
+  const [filter, setFilter] = useState<NewsFilter>("todos");
+  const tickers = [...new Set(props.phase2.news.map((item) => item.ticker).filter((value): value is string => Boolean(value)))].sort();
+  const groups = newsGroups(props.phase2.news, company, filter);
+  const filters: { id: NewsFilter; label: string }[] = [
+    { id: "todos", label: "Todos" },
+    { id: "filing", label: "Filing" },
+    { id: "press", label: "Prensa" },
+    { id: "x_post", label: "X" },
+  ];
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Warren Intelligence</h1>
-      <p style={{ color: INK3 }}>Notas y noticias por empresa, de la más nueva a la más vieja. Un comentario no es un hecho. No hay lectura automática de X ni de Telegram.</p>
+      <p style={{ color: INK3 }}>Filings, prensa y publicaciones ya guardadas, por día de Madrid. El resumen solo se muestra si ya viene analizado.</p>
       {props.phase2.missing ? <p className="stamp">Falta supabase/warren_phase2.sql.</p> : null}
-      {items.length === 0 ? <p style={{ color: INK3 }}>Sin notas.</p> : items.map((item) => (
-        <article key={item.id} style={{ ...card, marginTop: 8 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><b>{item.title}</b><span className="stamp">{newsLabel[item.kind]}</span></div>
-          <p className="stamp">{fecha(item.published_on)}{item.ticker ? " · " + item.ticker : ""}{item.source ? " · " + item.source : ""}</p>
-          {item.summary ? <p>{item.summary}</p> : null}
-          {item.url ? <a href={item.url} style={{ color: BLUE }}>{item.url}</a> : null}
-        </article>
-      ))}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
+        <label style={{ ...card, padding: 8 }}>Empresa
+          <select style={inputS} value={company} onChange={(event) => setCompany(event.target.value)}>
+            <option value="">Todas</option>
+            {tickers.map((ticker) => <option key={ticker} value={ticker}>{ticker}</option>)}
+          </select>
+        </label>
+        {filters.map((item) => <button key={item.id} type="button" style={btn(filter === item.id)} onClick={() => setFilter(item.id)}>{item.label}</button>)}
+        {props.owner ? <button type="button" style={btn(true)} disabled={props.phase2.missing || detecting} onClick={() => void (async () => {
+          setDetecting(true);
+          setMsg("");
+          const error = await runNewsDetect();
+          setDetecting(false);
+          if (error) { setMsg(error); return; }
+          setMsg("Detección hecha.");
+          props.onSaved();
+        })()}>{detecting ? "Detectando…" : "Detectar noticias SEC"}</button> : null}
+      </div>
+      {groups.length === 0 ? <p style={{ color: INK3 }}>Sin noticias.</p> : groups.map((group) => {
+        const posts = group.items.filter((item) => item.kind === "x_post");
+        const rest = group.items.filter((item) => item.kind !== "x_post");
+        return (
+          <section key={group.day}>
+            <h2 style={{ fontSize: 18, margin: "16px 0 8px" }}>{fecha(group.day)}</h2>
+            {rest.map((item) => <NewsCard key={item.id} item={item} />)}
+            {posts.length > 0 ? <h3 style={{ fontSize: 16, margin: "14px 0 0" }}>En X</h3> : null}
+            {posts.map((item) => <XCard key={item.id} item={item} />)}
+          </section>
+        );
+      })}
+      {msg ? <p style={{ color: AMBER }}>{msg}</p> : null}
       <form style={{ ...card, marginTop: 12, display: "grid", gap: 8 }} onSubmit={(event: FormEvent) => {
         event.preventDefault();
         void (async () => {
           if (!published || !title.trim()) { setMsg("Hacen falta fecha y título."); return; }
-          const error = await saveNews({ ticker, published_on: published, kind, title, url, source, summary });
+          const error = await saveNews({ ticker: noteTicker, published_on: published, kind: noteKind, title, url, source, summary });
           setMsg(error ?? "Guardada.");
           if (!error) props.onSaved();
         })();
       }}>
         <b>Añadir nota</b>
         <input style={inputS} type="date" value={published} onChange={(event) => setPublished(event.target.value)} disabled={props.phase2.missing} />
-        <input style={inputS} placeholder="Ticker" value={ticker} onChange={(event) => setTicker(event.target.value)} disabled={props.phase2.missing} />
-        <select style={inputS} value={kind} onChange={(event) => setKind(event.target.value as NewsItem["kind"])} disabled={props.phase2.missing}>
+        <input style={inputS} placeholder="Ticker" value={noteTicker} onChange={(event) => setNoteTicker(event.target.value)} disabled={props.phase2.missing} />
+        <select style={inputS} value={noteKind} onChange={(event) => setNoteKind(event.target.value as NewsItem["kind"])} disabled={props.phase2.missing}>
           <option value="noticia">Noticia</option>
           <option value="comentario">Comentario</option>
           <option value="idea">Idea</option>
@@ -153,7 +231,6 @@ export function Intelligence(props: { phase2: Phase2; onSaved: () => void }) {
         <input style={inputS} placeholder="Enlace" value={url} onChange={(event) => setUrl(event.target.value)} disabled={props.phase2.missing} />
         <textarea style={inputS} placeholder="Resumen" value={summary} onChange={(event) => setSummary(event.target.value)} disabled={props.phase2.missing} />
         <button type="submit" style={btn(true)} disabled={props.phase2.missing}>Guardar</button>
-        {msg ? <p style={{ color: AMBER }}>{msg}</p> : null}
       </form>
     </section>
   );

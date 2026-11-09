@@ -45,6 +45,11 @@ export async function loadSyncRuns(): Promise<SyncRun[]> {
   return data as SyncRun[];
 }
 
+export async function runNewsDetect(): Promise<string | null> {
+  const { error } = await supabase.rpc("warren_run_news_detect", { p_trigger: "manual" });
+  return error ? error.message : null;
+}
+
 export async function runSecFundamentals(): Promise<string | null> {
   const { error } = await supabase.functions.invoke("warren-sync-fundamentals");
   return error ? error.message : null;

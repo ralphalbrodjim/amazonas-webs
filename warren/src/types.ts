@@ -128,7 +128,9 @@ export type FxRate = {
 };
 
 export type RadarStatus = "vigilar" | "en_analisis" | "descartada";
-export type NewsKind = "noticia" | "comentario" | "idea";
+export type NewsKind = "filing" | "press" | "x_post" | "noticia" | "comentario" | "idea";
+export type NewsImpact = "positivo" | "neutral" | "negativo";
+export type NewsMateriality = "alta" | "media" | "baja";
 
 export type RadarItem = {
   id: string;
@@ -147,14 +149,23 @@ export type NewsItem = {
   id: string;
   owner_id: string;
   company_id: string | null;
-  ticker: string;
+  ticker: string | null;
   published_on: string;
   kind: NewsKind;
   title: string;
   url: string;
   source: string;
-  summary: string;
+  summary: string | null;
   created_at: string;
+  published_at?: string | null;
+  captured_at?: string | null;
+  content_hash?: string | null;
+  author?: string | null;
+  materiality?: NewsMateriality | null;
+  impact?: NewsImpact | null;
+  analyzed_at?: string | null;
+  external_id?: string | null;
+  meta?: Record<string, unknown> | null;
 };
 
 export type VirtualEntry = {
