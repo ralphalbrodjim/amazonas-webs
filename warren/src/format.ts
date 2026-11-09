@@ -54,6 +54,20 @@ export function mostCommonDate(dates: (string | null)[]): string | null | undefi
   return best === "" ? null : best;
 }
 
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** Madrid calendar day as 09nov. */
+export function fechaDiaMes(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (!Number.isFinite(date.getTime())) return null;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit",
+  }).formatToParts(date).map((part) => [part.type, part.value]));
+  const month = MESES[Number(parts.month) - 1];
+  return parts.day && month ? `${parts.day}${month}` : null;
+}
+
 export function fechaHoraMadrid(iso: string | null): string | null {
   if (!iso) return null;
   const date = new Date(iso);

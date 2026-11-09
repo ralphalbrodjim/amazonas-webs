@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { loadIsOwner, loadPhase2, loadSyncRuns, loadWarren, probeSchema, redirectTo, runSecFundamentals, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
-import { fecha, fechaHoraMadrid, fmt, fmtCompact, madridToday, parseInput, pct } from "./format";
+import { fecha, fechaDiaMes, fmt, fmtCompact, madridToday, parseInput, pct } from "./format";
 import { failureReason, latestPriceUpdate, staleTickerReason } from "./stale";
 import { mixto, type SourceMode } from "./math";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
@@ -239,7 +239,7 @@ function horaMadrid(iso: string): string {
 }
 
 function updatedLabel(runs: SyncRun[], quotes: Bundle["quotes"]): string {
-  return "Updated " + (fechaHoraMadrid(latestPriceUpdate(runs, quotes)) ?? "N/D");
+  return fechaDiaMes(latestPriceUpdate(runs, quotes)) ?? "N/D";
 }
 
 function TickerName(props: { company: Company; priceDate: string | null; runs: SyncRun[]; name?: string }) {
