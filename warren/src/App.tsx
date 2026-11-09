@@ -444,12 +444,15 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
   const knownNow = views.map((row) => row.view.pnlNowEur).filter((value): value is number => value !== null);
   const pendingNow = views.length - knownNow.length;
   const pnlNow = knownNow.length === 0 ? null : knownNow.reduce((sum, value) => sum + value, 0);
+  const knownValue = views.map((row) => row.view.valueEur).filter((value): value is number => value !== null);
+  const pendingValue = views.length - knownValue.length;
+  const valueNow = knownValue.length === 0 ? null : knownValue.reduce((sum, value) => sum + value, 0);
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Mi cartera real</h1>
       <p style={{ color: INK3, marginTop: 0 }}>Precio contra precio medio. Los euros salen solo con número de acciones y tipo BCE. El peso es el del Excel, no un cálculo nuevo.</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginBottom: 12 }}>
-        <Kpi label="Valor actual" value={money(total((view) => view.valueEur), "EUR")} />
+        <Kpi label="Valor actual" value={money(valueNow, "EUR")} mark={pendingValue > 0 ? pendingValue + " Pendiente" : null} />
         <Kpi label="Plusvalía actual" value={money(pnlNow, "EUR")} mark={pendingNow > 0 ? pendingNow + " Pendiente" : null} />
         <Kpi label="Plusvalía 1 año" value={money(total((view) => view.pnl1Eur), "EUR")} />
         <Kpi label="Plusvalía 3 años" value={money(total((view) => view.pnl3Eur), "EUR")} />
