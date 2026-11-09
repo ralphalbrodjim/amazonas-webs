@@ -409,7 +409,7 @@ function Resumen(props: {
                   <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} name={company.name} /></td>
                   <td>{company.in_portfolio ? "Sí" : "No"}</td>
                   <td>{fmt(view.avg)}</td>
-                  <td>{fmt(view.price)}</td>
+                  <td>{view.price === null ? <span className="nd">Pendiente</span> : fmt(view.price)}</td>
                   <td className={tone(view.rentHoy, "plain")}>{pct(view.rentHoy)}</td>
                   <td>{fmt(view.target1)}{marcaUnAnio(view.target1From, props.mode) ? <span className="stamp"> {marcaUnAnio(view.target1From, props.mode)}</span> : null}</td>
                   <td className={tone(view.rent1, "blue")}>{pct(view.rent1)}{marcaUnAnio(view.target1From, props.mode) ? <span className="stamp"> {marcaUnAnio(view.target1From, props.mode)}</span> : null}</td>
@@ -441,13 +441,16 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
     return sum;
   };
   const fxDates = views.map((row) => row.view.fx?.rate_date).filter((value): value is string => Boolean(value));
+  const knownNow = views.map((row) => row.view.pnlNowEur).filter((value): value is number => value !== null);
+  const pendingNow = views.length - knownNow.length;
+  const pnlNow = knownNow.length === 0 ? null : knownNow.reduce((sum, value) => sum + value, 0);
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Mi cartera real</h1>
       <p style={{ color: INK3, marginTop: 0 }}>Precio contra precio medio. Los euros salen solo con número de acciones y tipo BCE. El peso es el del Excel, no un cálculo nuevo.</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginBottom: 12 }}>
         <Kpi label="Valor actual" value={money(total((view) => view.valueEur), "EUR")} />
-        <Kpi label="Plusvalía actual" value={money(total((view) => view.pnlNowEur), "EUR")} />
+        <Kpi label="Plusvalía actual" value={money(pnlNow, "EUR")} mark={pendingNow > 0 ? pendingNow + " Pendiente" : null} />
         <Kpi label="Plusvalía 1 año" value={money(total((view) => view.pnl1Eur), "EUR")} />
         <Kpi label="Plusvalía 3 años" value={money(total((view) => view.pnl3Eur), "EUR")} />
       </div>
@@ -456,7 +459,7 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
       <div className="w-scroll">
         <table className="w-table">
           <thead>
-            <tr>{["Empresa", "Acc.", "P. medio", "P. hoy", "Peso Excel", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A", "Próx. resultados"].map((label, index) => (
+            <tr>{["Empresa", "Acc.", "P. medio", "P. hoy", "Plusv. hoy", "Peso Excel", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A", "Próx. resultados"].map((label, index) => (
               <th key={label} className={index === 0 ? "sticky" : ""}>
                 {label}
                 {label === "P. hoy" ? <span className="stamp">{updatedLabel(props.runs, props.bundle.quotes)}</span> : null}
@@ -464,13 +467,14 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
             ))}</tr>
           </thead>
           <tbody>
-            {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={10} className="nd">N/D</td></tr> : null}
+            {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={11} className="nd">N/D</td></tr> : null}
             {views.map(({ company, view }) => (
               <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
                 <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} /></td>
-                <td className={view.shares === null ? "nd" : ""}>{view.shares === null ? "N/D" : fmt(view.shares, 4)}</td>
+                <td className={view.shares === null ? "nd" : ""}>{view.shares === null ? "N/D" : fmt(view.shares, 4)}{company.price_note?.includes("1,36K") ? <span className="stamp" title="IBKR 1,36K"> aprox.</span> : null}</td>
                 <td>{fmt(view.avg)}</td>
-                <td>{fmt(view.price)}</td>
+                <td>{view.price === null ? <span className="nd">Pendiente</span> : fmt(view.price)}</td>
+                <td className={view.price === null ? "nd" : tone(view.rentHoy, "plain")}>{view.price === null ? "Pendiente" : pct(view.rentHoy) + (view.pnlNowEur === null ? "" : " · " + money(view.pnlNowEur, "EUR"))}</td>
                 <td>{view.weightPct === null ? "N/D" : fmt(view.weightPct, 2) + " %"}</td>
                 <td>{fmt(view.target1)}{marcaUnAnio(view.target1From, props.mode) ? <span className="stamp"> {marcaUnAnio(view.target1From, props.mode)}</span> : null}</td>
                 <td className={tone(view.pnl1Eur, "blue")}>{money(view.pnl1Eur, "EUR")}</td>
