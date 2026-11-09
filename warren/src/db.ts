@@ -40,9 +40,14 @@ export async function loadIsOwner(): Promise<boolean> {
 }
 
 export async function loadSyncRuns(): Promise<SyncRun[]> {
-  const { data, error } = await supabase.from("warren_sync_runs").select("id,started_at,finished_at,trigger,status,prices_ok,prices_fail,fx_ok,detail").order("started_at", { ascending: false }).limit(10);
+  const { data, error } = await supabase.from("warren_sync_runs").select("id,started_at,finished_at,trigger,status,prices_ok,prices_fail,fx_ok,kind,detail").order("started_at", { ascending: false }).limit(10);
   if (error || !data) return [];
   return data as SyncRun[];
+}
+
+export async function runRadarSync(): Promise<string | null> {
+  const { error } = await supabase.rpc("warren_run_radar_sync", { p_trigger: "manual" });
+  return error ? error.message : null;
 }
 
 export async function runNewsDetect(): Promise<string | null> {
@@ -126,7 +131,7 @@ export async function loadPhase2(): Promise<{ phase2: Phase2; error: string | nu
     return { phase2: { radar: [], news: [], virtuals: [], benchmarks: [], missing: false }, error: failed.error.message };
   }
   const phase2: Phase2 = {
-    radar: (radar.data ?? []) as RadarItem[],
+    radar: ((radar.data ?? []) as RadarItem[]).map((row) => rowNum(row, ["price", "target_1a", "target_3a", "potencial_1a", "rent_3a", "cagr_3a", "max_price_15", "target_bajista", "target_optimista", "sort"])),
     news: (news.data ?? []) as NewsItem[],
     virtuals: ((virtuals.data ?? []) as VirtualEntry[]).map((row) => rowNum(row, ["entry_price"])),
     benchmarks: ((benchmarks.data ?? []) as BenchmarkLevel[]).map((row) => rowNum(row, ["level"])),

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { importIbkr, runNewsDetect, saveRadar, saveVirtual } from "./db";
-import { fecha, fechaCorta, fmt, parseInput, pct } from "./format";
+import { importIbkr, runNewsDetect, runRadarSync, saveRadar, saveVirtual } from "./db";
+import { fecha, fechaCorta, fechaDiaMes, fmt, parseInput, pct } from "./format";
 import { newsGroups, newsVisible, type NewsFilter } from "./news";
 import { parseIbkrCsv, type IbkrRow } from "./ibkr";
 import { priceReturn } from "./math";
@@ -50,32 +50,55 @@ export function BenchmarkCard(props: { bundle: Bundle; levels: BenchmarkLevel[] 
   );
 }
 
-export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode; today: string; onSaved: () => void }) {
+function radarValue(value: number | null | undefined, text: string): string {
+  return value === null || value === undefined || !Number.isFinite(value) ? "Pendiente" : text;
+}
+
+export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode; today: string; owner: boolean; onSaved: () => void }) {
   const [ticker, setTicker] = useState("");
   const [name, setName] = useState("");
   const [status, setStatus] = useState<RadarItem["status"]>("vigilar");
   const [thesis, setThesis] = useState("");
   const [asOf, setAsOf] = useState("");
   const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
   const labels: Record<RadarItem["status"], string> = { vigilar: "Vigilar", en_analisis: "En análisis", descartada: "Descartada" };
+  const items = [...props.phase2.radar].sort((a, b) => (a.sort ?? 1e9) - (b.sort ?? 1e9));
+  const computed = items.map((item) => item.computed_at).filter((value): value is string => Boolean(value)).sort().at(-1) ?? null;
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Radar de oportunidades</h1>
-      <p style={{ color: INK3 }}>Candidatas. El precio y el CAGR salen de la ficha si el ticker ya existe. Si no hay cierre, es N/D.</p>
+      <p className="stamp">Radar · domingo 19:00 Madrid · {computed ? fechaDiaMes(computed) : "Pendiente"}</p>
+      <p style={{ color: INK3 }}>Candidatas ordenadas por el CAGR guardado. Si falta un objetivo, queda en Pendiente.</p>
+      {props.owner ? <button type="button" style={{ ...btn(true), marginBottom: 12 }} disabled={props.phase2.missing || busy} onClick={() => void (async () => {
+        setBusy(true);
+        setMsg("");
+        const error = await runRadarSync();
+        setBusy(false);
+        if (error) { setMsg(error); return; }
+        props.onSaved();
+      })()}>{busy ? "Recalculando…" : "Recalcular Radar"}</button> : null}
       {props.phase2.missing ? <p className="stamp">Falta supabase/warren_phase2.sql. La lista está vacía y no se guarda nada.</p> : null}
-      {props.phase2.radar.length === 0 ? <p style={{ color: INK3 }}>Sin candidatas.</p> : props.phase2.radar.map((item) => {
+      {items.length === 0 ? <p style={{ color: INK3 }}>Sin candidatas.</p> : items.map((item) => {
         const company = companyFor(props.bundle, item.ticker, item.company_id);
-        const view = company ? companyView(props.bundle, company.id, props.mode, props.today) : null;
+        const priceDate = item.price_date ? fechaDiaMes(item.price_date) : null;
         return (
           <article key={item.id} style={{ ...card, marginTop: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><b>{item.ticker}</b><span className="stamp">{labels[item.status] ?? item.status}</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <b>{item.ticker}</b>
+              <span className="stamp">{labels[item.status] ?? item.status}{item.changed ? " · Cambió" : ""}</span>
+            </div>
             <div style={{ color: INK3 }}>{item.name || company?.name || "Sin nombre"}</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-              <span>Precio {view ? fmt(view.price) : "N/D"}</span>
-              <span>Fecha {view?.priceDate ? fecha(view.priceDate) : "N/D"}{view?.priceOld ? " · antiguo" : ""}</span>
-              <span>Obj. 3A {view ? fmt(view.target3) : "N/D"}</span>
-              <span>CAGR {view ? pct(view.cagr) : "N/D"}</span>
+              <span>Precio {radarValue(item.price, fmt(item.price ?? null) + (item.price_currency ? " " + item.price_currency : ""))}{priceDate ? " · " + priceDate : ""}</span>
+              <span>Obj. 3A {radarValue(item.target_3a, fmt(item.target_3a ?? null))}</span>
+              <span>CAGR 3A {radarValue(item.cagr_3a, pct(item.cagr_3a ?? null))}</span>
+              <span>Potencial 1A <span className={item.potencial_1a == null ? "stamp" : undefined}>{radarValue(item.potencial_1a, pct(item.potencial_1a ?? null))}</span></span>
+              <span>Escenario {item.scenario || "pendiente"}</span>
             </div>
+            {item.changed && item.change_note ? <p className="stamp">{item.change_note}</p> : null}
+            {item.pending_reason ? <p className="stamp">{item.pending_reason}</p> : null}
+            {item.target_bajista != null || item.target_optimista != null ? <p className="stamp">{item.target_bajista != null ? "Bajista " + fmt(item.target_bajista) : ""}{item.target_bajista != null && item.target_optimista != null ? " · " : ""}{item.target_optimista != null ? "Optimista " + fmt(item.target_optimista) : ""}</p> : null}
             {item.thesis ? <p>{item.thesis}</p> : null}
             {item.as_of ? <p className="stamp">Apuntada el {fecha(item.as_of)}</p> : null}
           </article>

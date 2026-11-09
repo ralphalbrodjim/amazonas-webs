@@ -34,6 +34,7 @@ export type SyncRun = {
   prices_ok: number | null;
   prices_fail: number | null;
   fx_ok: boolean | null;
+  kind?: string | null;
   detail: { tickers?: SyncTicker[] } | null;
 };
 
@@ -143,6 +144,23 @@ export type RadarItem = {
   as_of: string | null;
   note: string | null;
   sort: number;
+  price?: number | null;
+  price_date?: string | null;
+  price_currency?: string | null;
+  target_1a?: number | null;
+  target_3a?: number | null;
+  potencial_1a?: number | null;
+  rent_3a?: number | null;
+  cagr_3a?: number | null;
+  max_price_15?: number | null;
+  scenario?: string | null;
+  target_bajista?: number | null;
+  target_optimista?: number | null;
+  computed_at?: string | null;
+  data_hash?: string | null;
+  changed?: boolean | null;
+  change_note?: string | null;
+  pending_reason?: string | null;
 };
 
 export type NewsItem = {

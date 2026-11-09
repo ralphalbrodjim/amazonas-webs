@@ -203,7 +203,7 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
       {screen === "ficha" && !company ? <p style={{ color: INK3 }}>Elige una empresa en Resumen.</p> : null}
       {screen === "intelligence" ? <Intelligence phase2={phase2} owner={owner} onSaved={() => void reload()} /> : null}
       {screen === "virtual" ? <VirtualBook bundle={bundle} phase2={phase2} onSaved={() => void reload()} /> : null}
-      {screen === "radar" ? <Radar bundle={bundle} phase2={phase2} mode={mode} today={today} onSaved={() => void reload()} /> : null}
+      {screen === "radar" ? <Radar bundle={bundle} phase2={phase2} mode={mode} today={today} owner={owner} onSaved={() => void reload()} /> : null}
       <p style={{ color: INK3, fontSize: 12, marginTop: 22 }}>Cierres diarios, sin dividendos. Mixto = 50 % TIKR + 50 % Warren, y solo si los dos existen. Horizonte máximo: 3 años.</p>
       <button type="button" style={{ ...btn(false), marginTop: 8 }} onClick={() => download(bundle)}>Exportar copia JSON</button>
     </Frame>
@@ -261,7 +261,7 @@ function SyncLog(props: { runs: SyncRun[] }) {
         const fallos = (run.detail?.tickers ?? []).filter((item) => item.ok === false);
         return (
           <div key={run.id} style={{ borderTop: "1px solid " + LINE, paddingTop: 8, marginTop: 8, fontSize: 13 }}>
-            <div>{horaMadrid(run.started_at)} · {run.trigger} · {run.status}</div>
+            <div>{horaMadrid(run.started_at)} · {run.kind ? run.kind + " · " : ""}{run.trigger} · {run.status}</div>
             <div style={{ color: INK3 }}>ok {run.prices_ok ?? "N/D"} · fallos {run.prices_fail ?? "N/D"} · FX {run.fx_ok === null ? "N/D" : run.fx_ok ? "ok" : "no"}</div>
             {fallos.length > 0 ? <button type="button" style={{ ...btn(false), minHeight: 32, marginTop: 6 }} onClick={() => setOpen(open === run.id ? null : run.id)}>{open === run.id ? "Ocultar" : "Ver símbolos"}</button> : null}
             {open === run.id ? <ul style={{ margin: "6px 0", paddingLeft: 18 }}>{fallos.map((item, index) => <li key={(item.ticker || item.symbol || "x") + index}>{item.ticker || item.symbol || "N/D"} · {failureReason(item)}</li>)}</ul> : null}
