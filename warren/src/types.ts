@@ -11,6 +11,29 @@ export type Company = {
   verdict: string | null;
   notes: string | null;
   sort: number;
+  api_symbol?: string | null;
+  quote_unit?: string | null;
+  price_note?: string | null;
+};
+
+export type SyncTicker = {
+  ok?: boolean;
+  ticker?: string;
+  symbol?: string;
+  error?: string;
+  kept_last?: boolean;
+  price_date?: string;
+};
+
+export type SyncRun = {
+  id: number;
+  started_at: string;
+  trigger: string;
+  status: string;
+  prices_ok: number | null;
+  prices_fail: number | null;
+  fx_ok: boolean | null;
+  detail: { tickers?: SyncTicker[] } | null;
 };
 
 export type Quote = {

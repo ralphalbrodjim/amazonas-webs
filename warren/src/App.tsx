@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, FormEvent, ReactNode } from "react";
-import { loadPhase2, loadWarren, probeSchema, redirectTo, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
-import { fecha, fechaCorta, fmt, madridToday, mostCommonDate, parseInput, pct } from "./format";
+import { loadIsOwner, loadPhase2, loadSyncRuns, loadWarren, probeSchema, redirectTo, runPriceSync, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
+import { fecha, fechaCorta, fmt, madridToday, parseInput, pct } from "./format";
 import { mixto, type SourceMode } from "./math";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
-import { EMPTY, EMPTY_PHASE2, type Bundle, type Estimate, type Phase2 } from "./types";
+import { EMPTY, EMPTY_PHASE2, type Bundle, type Estimate, type Phase2, type SyncRun } from "./types";
 import { companyView, type CompanyView } from "./view";
 
 const NAVY = "#0D1933";
@@ -137,6 +137,10 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
   const [phase2, setPhase2] = useState<Phase2>({ ...EMPTY_PHASE2, missing: true });
   const [missing, setMissing] = useState(props.schemaMissing);
   const [error, setError] = useState<string | null>(null);
+  const [owner, setOwner] = useState(false);
+  const [runs, setRuns] = useState<SyncRun[]>([]);
+  const [syncing, setSyncing] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>("resumen");
   const [ticker, setTicker] = useState<string | null>(null);
   const [tab, setTab] = useState<"evo" | "val" | "rent">("rent");
@@ -156,6 +160,17 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
     const extra = await loadPhase2();
     setPhase2(extra.phase2);
     setError(extra.error);
+    setOwner(await loadIsOwner());
+    setRuns(await loadSyncRuns());
+  }
+
+  async function actualizarPrecios() {
+    setSyncing(true);
+    setToast(null);
+    const result = await runPriceSync();
+    setSyncing(false);
+    setToast(result.error ? result.error : `Precios ok ${result.ok ?? "N/D"} · fallos ${result.fail ?? "N/D"} · FX ${result.fx === null ? "N/D" : result.fx ? "ok" : "no"}`);
+    await reload();
   }
 
   useEffect(() => { void reload(); return watchWarren(() => { void reload(); }); }, []);
@@ -191,7 +206,7 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
       {!missing && phase2.missing ? <Banner>La fase 2 aún no está en la base de datos. Radar, Intelligence, la cartera virtual y el índice quedan vacíos hasta ejecutar <b>supabase/warren_phase2.sql</b>.</Banner> : null}
       {error ? <Banner>No se han podido leer los datos: {error}</Banner> : null}
       {screen === "resumen" || screen === "cartera" || screen === "ficha" ? <Mode mode={mode} onChange={setMode} /> : null}
-      {screen === "resumen" ? <Resumen bundle={bundle} phase2={phase2} mode={mode} today={today} q={q} setQ={setQ} cartera={cartera} setCartera={setCartera} cagrMin={cagrMin} setCagrMin={setCagrMin} sort={sort} setSort={setSort} onOpen={open} /> : null}
+      {screen === "resumen" ? <Resumen bundle={bundle} phase2={phase2} mode={mode} today={today} q={q} setQ={setQ} cartera={cartera} setCartera={setCartera} cagrMin={cagrMin} setCagrMin={setCagrMin} sort={sort} setSort={setSort} onOpen={open} owner={owner} runs={runs} syncing={syncing} toast={toast} onSync={() => void actualizarPrecios()} /> : null}
       {screen === "cartera" ? <Cartera bundle={bundle} mode={mode} today={today} missing={missing || phase2.missing} onOpen={open} onSaved={() => void reload()} /> : null}
       {screen === "ficha" && company && view ? <Ficha companyName={company.name} ticker={company.ticker} currency={company.currency} notes={company.notes} verdict={company.verdict} view={view} mode={mode} bundle={bundle} companyId={company.id} tab={tab} setTab={setTab} today={today} missing={missing} onBack={() => setScreen("resumen")} onSaved={() => void reload()} /> : null}
       {screen === "ficha" && !company ? <p style={{ color: INK3 }}>Elige una empresa en Resumen.</p> : null}
@@ -226,11 +241,47 @@ function Mode(props: { mode: SourceMode; onChange: (mode: SourceMode) => void })
   );
 }
 
+function horaMadrid(iso: string): string {
+  const date = new Date(iso);
+  if (!Number.isFinite(date.getTime())) return "N/D";
+  return new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+function PrecioHoy(props: { view: CompanyView }) {
+  return (
+    <span>
+      {fmt(props.view.price)}
+      <span className="stamp"> {props.view.priceDate ? fechaCorta(props.view.priceDate) : "N/D"}{props.view.priceOld ? " · Dato antiguo" : ""}</span>
+    </span>
+  );
+}
+
+function SyncLog(props: { runs: SyncRun[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+  return (
+    <details style={{ ...card, marginBottom: 12 }}>
+      <summary style={{ cursor: "pointer", fontWeight: 700 }}>Sincronización · últimas {props.runs.length}</summary>
+      {props.runs.length === 0 ? <p style={{ color: INK3 }}>Sin registros.</p> : props.runs.map((run) => {
+        const fallos = (run.detail?.tickers ?? []).filter((item) => item.ok === false);
+        return (
+          <div key={run.id} style={{ borderTop: "1px solid " + LINE, paddingTop: 8, marginTop: 8, fontSize: 13 }}>
+            <div>{horaMadrid(run.started_at)} · {run.trigger} · {run.status}</div>
+            <div style={{ color: INK3 }}>ok {run.prices_ok ?? "N/D"} · fallos {run.prices_fail ?? "N/D"} · FX {run.fx_ok === null ? "N/D" : run.fx_ok ? "ok" : "no"}</div>
+            {fallos.length > 0 ? <button type="button" style={{ ...btn(false), minHeight: 32, marginTop: 6 }} onClick={() => setOpen(open === run.id ? null : run.id)}>{open === run.id ? "Ocultar" : "Ver símbolos"}</button> : null}
+            {open === run.id ? <ul style={{ margin: "6px 0", paddingLeft: 18 }}>{fallos.map((item, index) => <li key={(item.ticker || item.symbol || "x") + index}>{item.ticker || item.symbol || "N/D"}{item.kept_last ? " · cierre anterior" : ""}{item.error ? " · " + item.error : ""}</li>)}</ul> : null}
+          </div>
+        );
+      })}
+    </details>
+  );
+}
+
 function Resumen(props: {
   bundle: Bundle; phase2: Phase2; mode: SourceMode; today: string; q: string; setQ: (q: string) => void;
   cartera: "todas" | "si" | "no"; setCartera: (v: "todas" | "si" | "no") => void;
   cagrMin: number | null; setCagrMin: (v: number | null) => void; sort: SortKey; setSort: (v: SortKey) => void;
   onOpen: (ticker: string) => void;
+  owner: boolean; runs: SyncRun[]; syncing: boolean; toast: string | null; onSync: () => void;
 }) {
   const rows = useMemo(() => {
     const needle = props.q.trim().toLowerCase();
@@ -251,11 +302,6 @@ function Resumen(props: {
     });
     return list;
   }, [props]);
-  const priced = rows.map((company) => companyView(props.bundle, company.id, props.mode, props.today));
-  const usual = mostCommonDate(priced.map((view) => view.priceDate));
-  const usualOld = typeof usual === "string" && priced.some((view) => view.priceDate === usual && view.priceOld);
-  const priceNote = usual === undefined ? null : usual === null ? "N/D" : fechaCorta(usual) + (usualOld ? " · antiguo" : "");
-
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Resumen de inversiones</h1>
@@ -266,6 +312,13 @@ function Resumen(props: {
         <label style={card}>CAGR mínimo<select style={inputS} value={props.cagrMin === null ? "" : String(props.cagrMin)} onChange={(event) => props.setCagrMin(event.target.value === "" ? null : Number(event.target.value))}><option value="">Sin límite</option><option value="0.15">15 %</option><option value="0.2">20 %</option></select></label>
         <label style={card}>Orden<select style={inputS} value={props.sort} onChange={(event) => props.setSort(event.target.value as SortKey)}><option value="cagr">CAGR 3A desc.</option><option value="hoy">Rent. hoy desc.</option><option value="ticker">Ticker</option></select></label>
       </div>
+      {props.owner ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
+          <button type="button" style={btn(true)} disabled={props.syncing} onClick={props.onSync}>{props.syncing ? "Actualizando…" : "Actualizar precios"}</button>
+          {props.toast ? <span className="stamp" role="status">{props.toast}</span> : null}
+        </div>
+      ) : null}
+      {props.owner ? <SyncLog runs={props.runs} /> : null}
       {props.mode === "mixto" ? <p className="stamp">Si falta TIKR, Mixto se queda en N/D. No se rellena con el objetivo de Warren.</p> : null}
       <BenchmarkCard bundle={props.bundle} levels={props.phase2.benchmarks} />
       <div className="w-scroll">
@@ -273,10 +326,7 @@ function Resumen(props: {
           <thead>
             <tr>
               {["Empresa", "Cart.", "P. medio", "P. hoy", "Rent. hoy", "Obj 1A", "Rent 1A", "Obj 3A", "Rent 3A", "CAGR 3A"].map((label, index) => (
-                <th key={label} className={index === 0 ? "sticky" : ""}>
-                  {label}
-                  {label === "P. hoy" && priceNote ? <span className="stamp">{priceNote}</span> : null}
-                </th>
+                <th key={label} className={index === 0 ? "sticky" : ""}>{label}</th>
               ))}
             </tr>
           </thead>
@@ -289,7 +339,7 @@ function Resumen(props: {
                   <td className="sticky"><b>{company.ticker}</b><div style={{ color: INK3, fontWeight: 500 }}>{company.name}</div></td>
                   <td>{company.in_portfolio ? "Sí" : "No"}</td>
                   <td>{fmt(view.avg)}</td>
-                  <td>{fmt(view.price)}{(view.priceDate ?? null) !== usual ? <div className="stamp">{view.priceDate ? fechaCorta(view.priceDate) : "N/D"}{view.priceOld ? " · antiguo" : ""}</div> : null}</td>
+                  <td><PrecioHoy view={view} /></td>
                   <td className={tone(view.rentHoy, "plain")}>{pct(view.rentHoy)}</td>
                   <td>{fmt(view.target1)}</td>
                   <td className={tone(view.rent1, "blue")}>{pct(view.rent1)}</td>
@@ -344,7 +394,7 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
                 <td className="sticky"><b>{company.ticker}</b></td>
                 <td className={view.shares === null ? "nd" : ""}>{view.shares === null ? "N/D" : fmt(view.shares, 4)}</td>
                 <td>{fmt(view.avg)}</td>
-                <td>{fmt(view.price)}</td>
+                <td><PrecioHoy view={view} /></td>
                 <td>{view.weightPct === null ? "N/D" : fmt(view.weightPct, 2) + " %"}</td>
                 <td>{fmt(view.target1)}</td>
                 <td className={tone(view.pnl1Eur, "blue")}>{money(view.pnl1Eur, "EUR")}</td>

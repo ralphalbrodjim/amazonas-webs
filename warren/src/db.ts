@@ -1,7 +1,7 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../../shared/supabase.config";
 import { num } from "./format";
-import type { BenchmarkLevel, Bundle, Company, Estimate, FxRate, NewsItem, Phase2, Position, Quote, RadarItem, VirtualEntry, YearRow } from "./types";
+import type { BenchmarkLevel, Bundle, Company, Estimate, FxRate, NewsItem, Phase2, Position, Quote, RadarItem, SyncRun, VirtualEntry, YearRow } from "./types";
 import type { IbkrRow } from "./ibkr";
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
@@ -29,6 +29,32 @@ export async function probeSchema(): Promise<"missing" | "ready" | "error"> {
   if (!error) return "ready";
   if (migrationMissing(error)) return "missing";
   return "error";
+}
+
+export async function loadIsOwner(): Promise<boolean> {
+  const { data: session } = await supabase.auth.getSession();
+  const id = session.session?.user.id;
+  if (!id) return false;
+  const { data } = await supabase.from("warren_profile").select("role").eq("user_id", id).maybeSingle();
+  return data?.role === "owner";
+}
+
+export async function loadSyncRuns(): Promise<SyncRun[]> {
+  const { data, error } = await supabase.from("warren_sync_runs").select("id,started_at,trigger,status,prices_ok,prices_fail,fx_ok,detail").order("started_at", { ascending: false }).limit(10);
+  if (error || !data) return [];
+  return data as SyncRun[];
+}
+
+export async function runPriceSync(): Promise<{ ok: number | null; fail: number | null; fx: boolean | null; error: string | null }> {
+  const { data, error } = await supabase.rpc("warren_run_price_sync", { p_trigger: "manual" });
+  if (error) return { ok: null, fail: null, fx: null, error: error.message };
+  const row = data && typeof data === "object" ? data as Record<string, unknown> : {};
+  return {
+    ok: typeof row.prices_ok === "number" ? row.prices_ok : null,
+    fail: typeof row.prices_fail === "number" ? row.prices_fail : null,
+    fx: typeof row.fx_ok === "boolean" ? row.fx_ok : null,
+    error: null,
+  };
 }
 
 export async function loadWarren(): Promise<{ bundle: Bundle | null; missing: boolean; error: string | null }> {
