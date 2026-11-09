@@ -8,6 +8,10 @@ test("the usual close is the most common date, and a tie keeps the first", () =>
   assert.equal(mostCommonDate(["2026-10-23", "2026-10-23", "2026-11-01"]), "2026-10-23");
   assert.equal(mostCommonDate([null, null, "2026-10-23"]), null);
   assert.equal(fechaCorta("2026-10-23"), "23/10");
+  assert.equal(fechaDiaMes("2026-11-17"), "17nov");
+  assert.equal(fechaDiaMes("2026-12-09"), "09dic");
+  assert.equal(fechaDiaMes("2026-12-10"), "10dic");
+  assert.equal(fechaDiaMes("2027-02-24"), "24feb");
   assert.equal(fechaDiaMes("2026-11-09T20:37:25Z"), "09nov");
   assert.equal(fechaDiaMes("2026-11-09T23:30:00Z"), "10nov");
   assert.equal(fechaDiaMes("2026-01-05T12:00:00Z"), "05ene");

@@ -1,7 +1,7 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../../shared/supabase.config";
 import { num } from "./format";
-import type { BenchmarkLevel, Bundle, Company, Estimate, FxRate, NewsItem, OpsDashboard, OpsHealth, Phase2, Position, Quote, RadarItem, SyncRun, VirtualEntry, YearRow } from "./types";
+import type { BenchmarkLevel, Bundle, Company, EarningsRow, Estimate, FxRate, NewsItem, OpsDashboard, OpsHealth, Phase2, Position, Quote, RadarItem, SyncRun, VirtualEntry, YearRow } from "./types";
 import type { IbkrRow } from "./ibkr";
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
@@ -73,13 +73,14 @@ export async function runSecFundamentals(): Promise<string | null> {
 }
 
 export async function loadWarren(): Promise<{ bundle: Bundle | null; missing: boolean; error: string | null }> {
-  const [companies, quotes, years, estimates, positions, fx] = await Promise.all([
+  const [companies, quotes, years, estimates, positions, fx, earnings] = await Promise.all([
     supabase.from("warren_companies").select("*").order("sort"),
     supabase.from("warren_quotes").select("*"),
     supabase.from("warren_financial_years").select("*"),
     supabase.from("warren_estimates").select("*"),
     supabase.from("warren_positions").select("*"),
     supabase.from("warren_fx_rates").select("*"),
+    supabase.from("warren_earnings").select("*"),
   ]);
   const failed = [companies, quotes, years, estimates, positions, fx].find((result) => result.error);
   if (failed?.error) {
@@ -93,7 +94,11 @@ export async function loadWarren(): Promise<{ bundle: Bundle | null; missing: bo
     estimates: ((estimates.data ?? []) as Estimate[]).map((row) => rowNum(row, ["bpa", "bpa_base", "growth", "per", "ev_fcf", "ev_ebitda", "ev_ebit", "fcf", "ebitda", "ebit", "net_debt", "equity_adjustments", "diluted_shares", "target_price"])),
     positions: ((positions.data ?? []) as Position[]).map((row) => rowNum(row, ["shares", "avg_price", "reported_weight_pct"])),
     fx: ((fx.data ?? []) as FxRate[]).map((row) => rowNum(row, ["units_per_eur"])),
+    earnings: earnings.error ? [] : (earnings.data ?? []) as EarningsRow[],
   };
+  if (earnings.error && !migrationMissing(earnings.error)) {
+    return { bundle: null, missing: false, error: earnings.error.message };
+  }
   return { bundle, missing: false, error: null };
 }
 
@@ -189,7 +194,7 @@ export async function importIbkr(rows: IbkrRow[]): Promise<string | null> {
 
 export function watchWarren(onChange: () => void): () => void {
   const channel = supabase.channel("warren-phase1");
-  for (const table of ["warren_companies", "warren_quotes", "warren_fx_rates", "warren_financial_years", "warren_estimates", "warren_positions"]) {
+  for (const table of ["warren_companies", "warren_quotes", "warren_fx_rates", "warren_financial_years", "warren_estimates", "warren_positions", "warren_earnings"]) {
     channel.on("postgres_changes", { event: "*", schema: "public", table }, () => onChange());
   }
   channel.subscribe();

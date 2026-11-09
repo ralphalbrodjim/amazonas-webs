@@ -6,6 +6,7 @@ import { failureReason, latestPriceUpdate, staleTickerReason } from "./stale";
 import { mixto, type SourceMode } from "./math";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
 import { EMPTY, EMPTY_PHASE2, type Bundle, type Company, type Estimate, type OpsDashboard, type Phase2, type SyncRun } from "./types";
+import { earningsOf, ProximosResultados } from "./earnings";
 import { companyView, type CompanyView } from "./view";
 import { seriesYears, type PeriodFilter } from "./years";
 
@@ -391,7 +392,7 @@ function Resumen(props: {
         <table className="w-table">
           <thead>
             <tr>
-              {["Empresa", "Cart.", "P. medio", "P. hoy", "Rent. hoy", "Obj 1A", "Rent 1A", "Obj 3A", "Rent 3A", "CAGR 3A"].map((label, index) => (
+              {["Empresa", "Próx. resultados", "Cart.", "P. medio", "P. hoy", "Rent. hoy", "Obj 1A", "Rent 1A", "Obj 3A", "Rent 3A", "CAGR 3A"].map((label, index) => (
                 <th key={label} className={index === 0 ? "sticky" : ""}>
                   {label}
                   {label === "P. hoy" ? <span className="stamp">{updatedLabel(props.runs, props.bundle.quotes)}</span> : null}
@@ -400,12 +401,13 @@ function Resumen(props: {
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? <tr><td className="sticky">Sin empresas</td><td colSpan={9} className="nd">N/D</td></tr> : null}
+            {rows.length === 0 ? <tr><td className="sticky">Sin empresas</td><td colSpan={10} className="nd">N/D</td></tr> : null}
             {rows.map((company) => {
               const view = companyView(props.bundle, company.id, props.mode, props.today);
               return (
                 <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
                   <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} name={company.name} /></td>
+                  <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
                   <td>{company.in_portfolio ? "Sí" : "No"}</td>
                   <td>{fmt(view.avg)}</td>
                   <td>{fmt(view.price)}</td>
@@ -454,7 +456,7 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
       <div className="w-scroll">
         <table className="w-table">
           <thead>
-            <tr>{["Empresa", "Acc.", "P. medio", "P. hoy", "Peso Excel", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A"].map((label, index) => (
+            <tr>{["Empresa", "Próx. resultados", "Acc.", "P. medio", "P. hoy", "Peso Excel", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A"].map((label, index) => (
               <th key={label} className={index === 0 ? "sticky" : ""}>
                 {label}
                 {label === "P. hoy" ? <span className="stamp">{updatedLabel(props.runs, props.bundle.quotes)}</span> : null}
@@ -462,10 +464,11 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
             ))}</tr>
           </thead>
           <tbody>
-            {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={9} className="nd">N/D</td></tr> : null}
+            {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={10} className="nd">N/D</td></tr> : null}
             {views.map(({ company, view }) => (
               <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
                 <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} /></td>
+                <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
                 <td className={view.shares === null ? "nd" : ""}>{view.shares === null ? "N/D" : fmt(view.shares, 4)}</td>
                 <td>{fmt(view.avg)}</td>
                 <td>{fmt(view.price)}</td>

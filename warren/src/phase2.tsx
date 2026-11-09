@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { importIbkr, runNewsDetect, runRadarSync } from "./db";
+import { earningsOf, ProximosResultados } from "./earnings";
 import { fecha, fechaCorta, fechaDiaMes, fmt, pct } from "./format";
 import { newsGroups, newsVisible, type NewsFilter } from "./news";
 import { parseIbkrCsv, type IbkrRow } from "./ibkr";
@@ -89,6 +90,7 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
               <span>CAGR 3A {radarValue(item.cagr_3a, pct(item.cagr_3a ?? null))}</span>
               <span>Potencial 1A <span className={item.potencial_1a == null ? "stamp" : undefined}>{radarValue(item.potencial_1a, pct(item.potencial_1a ?? null))}</span></span>
               <span>Escenario {item.scenario || "pendiente"}</span>
+              <span>Próx. resultados <ProximosResultados row={earningsOf(props.bundle.earnings, company?.id ?? item.company_id)} /></span>
             </div>
             {item.changed && item.change_note ? <p className="stamp">{item.change_note}</p> : null}
             {item.pending_reason ? <p className="stamp">{item.pending_reason}</p> : null}

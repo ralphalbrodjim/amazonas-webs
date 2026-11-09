@@ -246,6 +246,19 @@ export type Phase2 = {
 
 export const EMPTY_PHASE2: Phase2 = { radar: [], news: [], virtuals: [], benchmarks: [], missing: false };
 
+export type EarningsRow = {
+  id?: string;
+  company_id: string;
+  next_date: string | null;
+  fiscal_end?: string | null;
+  certainty: "confirmed" | "estimated" | string | null;
+  time_of_day: string | null;
+  source: string | null;
+  source_url?: string | null;
+  pending_reason: string | null;
+  updated_at?: string | null;
+};
+
 export type Bundle = {
   companies: Company[];
   quotes: Quote[];
@@ -253,6 +266,7 @@ export type Bundle = {
   estimates: Estimate[];
   positions: Position[];
   fx: FxRate[];
+  earnings: EarningsRow[];
 };
 
-export const EMPTY: Bundle = { companies: [], quotes: [], years: [], estimates: [], positions: [], fx: [] };
+export const EMPTY: Bundle = { companies: [], quotes: [], years: [], estimates: [], positions: [], fx: [], earnings: [] };
