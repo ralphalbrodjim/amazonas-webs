@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { fechaCorta, fechaDiaMes, fechaHoraMadrid, mostCommonDate } from "./format.ts";
+import { eur, fechaCorta, fechaDiaMes, fechaHoraMadrid, mostCommonDate } from "./format.ts";
 import { parseIbkrCsv } from "./ibkr.ts";
 
 test("the usual close is the most common date, and a tie keeps the first", () => {
@@ -8,6 +8,9 @@ test("the usual close is the most common date, and a tie keeps the first", () =>
   assert.equal(mostCommonDate(["2026-10-23", "2026-10-23", "2026-11-01"]), "2026-10-23");
   assert.equal(mostCommonDate([null, null, "2026-10-23"]), null);
   assert.equal(fechaCorta("2026-10-23"), "23/10");
+  assert.equal(eur(1234), "1.234 EUR");
+  assert.equal(eur(123493.4), "123.493 EUR");
+  assert.equal(eur(-1234), "-1.234 EUR");
   assert.equal(fechaDiaMes("2026-11-17"), "17nov");
   assert.equal(fechaDiaMes("2026-12-09"), "09dic");
   assert.equal(fechaDiaMes("2026-12-10"), "10dic");

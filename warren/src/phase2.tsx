@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { importIbkr, runNewsDetect, runRadarSync } from "./db";
 import { earningsOf, ProximosResultados } from "./earnings";
-import { fecha, fechaCorta, fechaDiaMes, fmt, pct } from "./format";
+import { eur, fecha, fechaCorta, fechaDiaMes, fmt, pct } from "./format";
 import { newsGroups, newsVisible, type NewsFilter } from "./news";
 import { parseIbkrCsv, type IbkrRow } from "./ibkr";
 import { priceReturn } from "./math";
@@ -85,7 +85,7 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
             </div>
             <div style={{ color: INK3 }}>{item.name || company?.name || "Sin nombre"}</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-              <span>Precio {radarValue(item.price, fmt(item.price ?? null) + (item.price_currency ? " " + item.price_currency : ""))}{priceDate ? " · " + priceDate : ""}</span>
+              <span>Precio {radarValue(item.price, item.price_currency === "EUR" ? eur(item.price, 2) : fmt(item.price ?? null) + (item.price_currency ? " " + item.price_currency : ""))}{priceDate ? " · " + priceDate : ""}</span>
               <span>Obj. 3A {radarValue(item.target_3a, fmt(item.target_3a ?? null))}</span>
               <span>CAGR 3A {radarValue(item.cagr_3a, pct(item.cagr_3a ?? null))}</span>
               <span>Potencial 1A <span className={item.potencial_1a == null ? "stamp" : undefined}>{radarValue(item.potencial_1a, pct(item.potencial_1a ?? null))}</span></span>

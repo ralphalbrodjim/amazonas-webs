@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { loadIsOwner, loadOpsDashboard, loadPhase2, loadSyncRuns, loadWarren, probeSchema, redirectTo, runHealthCheck, runSecFundamentals, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
-import { fecha, fechaDiaMes, fmt, fmtCompact, madridToday, parseInput, pct } from "./format";
+import { eur, fecha, fechaDiaMes, fmt, fmtCompact, madridToday, parseInput, pct } from "./format";
 import { failureReason, latestPriceUpdate, staleTickerReason } from "./stale";
-import { mixto, type SourceMode } from "./math";
+import { mixto, positionValueEur, type SourceMode } from "./math";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
 import { EMPTY, EMPTY_PHASE2, type Bundle, type Company, type Estimate, type OpsDashboard, type Phase2, type SyncRun } from "./types";
 import { earningsOf, ProximosResultados } from "./earnings";
@@ -29,12 +29,8 @@ type SortKey = "cagr" | "ticker" | "hoy";
 
 function money(value: number | null, currency: string): string {
   if (value === null) return "N/D";
+  if (currency === "EUR") return eur(value, 2);
   return fmt(value) + " " + currency;
-}
-
-function eurEntero(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return "N/D";
-  return value.toLocaleString("es-ES", { maximumFractionDigits: 0 }) + " EUR";
 }
 
 function tone(value: number | null, kind: "blue" | "green" | "plain"): string {
@@ -259,9 +255,7 @@ function TickerName(props: { company: Company; priceDate: string | null; runs: S
 }
 
 function euros(value: number | null | undefined): string {
-  const number = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(number)) return "N/D";
-  return number.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+  return eur(value);
 }
 
 function shortOpsError(error: string | null | undefined): string | null {
@@ -440,26 +434,29 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
     const known = views.map((row) => pick(row.view)).filter((value): value is number => value !== null);
     return { sum: known.length === 0 ? null : known.reduce((total, value) => total + value, 0), pending: views.length - known.length };
   };
+  const atPrice = (view: CompanyView, price: number | null) => positionValueEur(view.shares, price, view.priceCurrency, view.priceCurrency === "EUR" ? null : view.fx?.units_per_eur ?? null);
   const valueNow = part((view) => view.valueEur);
   const pnlNow = part((view) => view.pnlNowEur);
   const pnl1 = part((view) => view.pnl1Eur);
   const pnl3 = part((view) => view.pnl3Eur);
+  const value1 = part((view) => atPrice(view, view.target1));
+  const value3 = part((view) => atPrice(view, view.target3));
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Mi cartera real</h1>
       <p style={{ color: INK3, marginTop: 0 }}>Precio contra precio medio. Los euros salen solo con número de acciones y tipo BCE. El peso es el del Excel, no un cálculo nuevo.</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginBottom: 12 }}>
-        <Kpi label="Valor actual" value={eurEntero(valueNow.sum)} mark={valueNow.pending > 0 ? valueNow.pending + " Pendiente" : null} />
-        <Kpi label="Plusvalía actual" value={eurEntero(pnlNow.sum)} mark={pnlNow.pending > 0 ? pnlNow.pending + " Pendiente" : null} />
-        <Kpi label="Plusvalía 1 año" value={eurEntero(pnl1.sum)} mark={pnl1.pending > 0 ? pnl1.pending + " Pendiente" : null} />
-        <Kpi label="Plusvalía 3 años" value={eurEntero(pnl3.sum)} mark={pnl3.pending > 0 ? pnl3.pending + " Pendiente" : null} />
+        <Kpi label="Valor actual" value={eur(valueNow.sum)} mark={valueNow.pending > 0 ? valueNow.pending + " Pendiente" : null} />
+        <Kpi label="Plusvalía actual" value={eur(pnlNow.sum)} mark={pnlNow.pending > 0 ? pnlNow.pending + " Pendiente" : null} detail={"Valor: " + eur(valueNow.sum)} />
+        <Kpi label="Plusvalía 1 año" value={eur(pnl1.sum)} mark={pnl1.pending > 0 ? pnl1.pending + " Pendiente" : null} detail={"Valor: " + eur(value1.sum)} />
+        <Kpi label="Plusvalía 3 años" value={eur(pnl3.sum)} mark={pnl3.pending > 0 ? pnl3.pending + " Pendiente" : null} detail={"Valor: " + eur(value3.sum)} />
       </div>
       <p className="stamp">FX BCE: {fxDates.length ? fecha(fxDates.sort().at(-1) ?? null) : "N/D"}{views.some((row) => row.company.currency !== "EUR" && !row.view.fx) ? " · falta el cambio de alguna divisa" : ""}</p>
       <IbkrImport disabled={props.missing} onSaved={props.onSaved} />
       <div className="w-scroll">
         <table className="w-table">
           <thead>
-            <tr>{["Empresa", "Acc.", "P. medio", "P. hoy", "Plusv. hoy", "Peso Excel", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A", "Próx. resultados"].map((label, index) => (
+            <tr>{["Empresa", "P. medio", "P. hoy", "Plusv. hoy", "Peso Excel", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A", "Próx. resultados"].map((label, index) => (
               <th key={label} className={index === 0 ? "sticky" : ""}>
                 {label}
                 {label === "P. hoy" ? <span className="stamp">{updatedLabel(props.runs, props.bundle.quotes)}</span> : null}
@@ -467,19 +464,18 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
             ))}</tr>
           </thead>
           <tbody>
-            {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={11} className="nd">N/D</td></tr> : null}
+            {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={10} className="nd">N/D</td></tr> : null}
             {views.map(({ company, view }) => (
               <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
                 <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} /></td>
-                <td className={view.shares === null ? "nd" : ""}>{view.shares === null ? "N/D" : fmt(view.shares, 4)}</td>
                 <td>{fmt(view.avg)}</td>
                 <td>{view.price === null ? <span className="nd">Pendiente</span> : fmt(view.price)}</td>
-                <td className={view.price === null ? "nd" : tone(view.rentHoy, "plain")}>{view.price === null ? "Pendiente" : pct(view.rentHoy) + (view.pnlNowEur === null ? "" : " · " + eurEntero(view.pnlNowEur))}</td>
+                <td className={view.price === null ? "nd" : tone(view.rentHoy, "plain")}>{view.price === null ? "Pendiente" : pct(view.rentHoy) + (view.pnlNowEur === null ? "" : " · " + eur(view.pnlNowEur))}</td>
                 <td>{view.weightPct === null ? "N/D" : fmt(view.weightPct, 2) + " %"}</td>
                 <td>{fmt(view.target1)}{marcaUnAnio(view.target1From, props.mode) ? <span className="stamp"> {marcaUnAnio(view.target1From, props.mode)}</span> : null}</td>
-                <td className={tone(view.pnl1Eur, "blue")}>{eurEntero(view.pnl1Eur)}{marcaUnAnio(view.target1From, props.mode) ? <span className="stamp"> {marcaUnAnio(view.target1From, props.mode)}</span> : null}</td>
+                <td className={tone(view.pnl1Eur, "blue")}>{eur(view.pnl1Eur)}{marcaUnAnio(view.target1From, props.mode) ? <span className="stamp"> {marcaUnAnio(view.target1From, props.mode)}</span> : null}</td>
                 <td>{fmt(view.target3)}</td>
-                <td className={tone(view.pnl3Eur, "plain")}>{eurEntero(view.pnl3Eur)}</td>
+                <td className={tone(view.pnl3Eur, "plain")}>{eur(view.pnl3Eur)}</td>
                 <td className={tone(view.cagr, "green")}>{pct(view.cagr)}</td>
                 <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
               </tr>
@@ -492,8 +488,8 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
   );
 }
 
-function Kpi(props: { label: string; value: string; mark?: string | null }) {
-  return <div style={card}><div style={{ color: INK3, fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>{props.label}</div><div style={{ fontSize: 26, fontWeight: 800, color: CYAN, marginTop: 6 }}>{props.value}{props.mark ? <span className="stamp"> {props.mark}</span> : null}</div></div>;
+function Kpi(props: { label: string; value: string; mark?: string | null; detail?: string | null }) {
+  return <div style={card}><div style={{ color: INK3, fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>{props.label}</div><div style={{ fontSize: 26, fontWeight: 800, color: CYAN, marginTop: 6 }}>{props.value}{props.mark ? <span className="stamp"> {props.mark}</span> : null}</div>{props.detail ? <div style={{ color: INK3, fontSize: 12, marginTop: 4 }}>{props.detail}</div> : null}</div>;
 }
 
 function marcaUnAnio(from: CompanyView["target1From"], mode: SourceMode): string | null {

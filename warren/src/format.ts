@@ -19,6 +19,16 @@ export function fmt(value: number | null, digits = 2): string {
   return value.toLocaleString("es-ES", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
+/** Euros with a thousands dot even below 10.000: 1.234 EUR. Decimals stay when digits > 0. */
+export function eur(value: number | null | undefined, digits = 0): string {
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number)) return "N/D";
+  const negative = number < 0;
+  const [whole, frac] = Math.abs(number).toFixed(digits).split(".");
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return (negative ? "-" : "") + grouped + (frac ? "," + frac : "") + " EUR";
+}
+
 export function pct(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "N/D";
   const text = (value * 100).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
