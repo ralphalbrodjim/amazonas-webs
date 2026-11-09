@@ -45,6 +45,11 @@ export async function loadSyncRuns(): Promise<SyncRun[]> {
   return data as SyncRun[];
 }
 
+export async function runSecFundamentals(): Promise<string | null> {
+  const { error } = await supabase.functions.invoke("warren-sync-fundamentals");
+  return error ? error.message : null;
+}
+
 export async function runPriceSync(): Promise<{ ok: number | null; fail: number | null; fx: boolean | null; error: string | null }> {
   const { data, error } = await supabase.rpc("warren_run_price_sync", { p_trigger: "manual" });
   if (error) return { ok: null, fail: null, fx: null, error: error.message };

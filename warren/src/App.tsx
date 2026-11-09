@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, FormEvent, ReactNode } from "react";
-import { loadIsOwner, loadPhase2, loadSyncRuns, loadWarren, probeSchema, redirectTo, runPriceSync, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
-import { fecha, fechaCorta, fmt, madridToday, parseInput, pct } from "./format";
+import { loadIsOwner, loadPhase2, loadSyncRuns, loadWarren, probeSchema, redirectTo, runPriceSync, runSecFundamentals, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
+import { fecha, fechaCorta, fmt, fmtCompact, madridToday, parseInput, pct } from "./format";
 import { failureReason, staleTickerReason } from "./stale";
 import { mixto, type SourceMode } from "./math";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
 import { EMPTY, EMPTY_PHASE2, type Bundle, type Company, type Estimate, type Phase2, type SyncRun } from "./types";
 import { companyView, type CompanyView } from "./view";
+import { seriesYears, type PeriodFilter } from "./years";
 
 const NAVY = "#0D1933";
 const PANEL = "#14284B";
@@ -209,7 +210,7 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
       {screen === "resumen" || screen === "cartera" || screen === "ficha" ? <Mode mode={mode} onChange={setMode} /> : null}
       {screen === "resumen" ? <Resumen bundle={bundle} phase2={phase2} mode={mode} today={today} q={q} setQ={setQ} cartera={cartera} setCartera={setCartera} cagrMin={cagrMin} setCagrMin={setCagrMin} sort={sort} setSort={setSort} onOpen={open} owner={owner} runs={runs} syncing={syncing} toast={toast} onSync={() => void actualizarPrecios()} /> : null}
       {screen === "cartera" ? <Cartera bundle={bundle} mode={mode} today={today} missing={missing || phase2.missing} runs={runs} onOpen={open} onSaved={() => void reload()} /> : null}
-      {screen === "ficha" && company && view ? <Ficha companyName={company.name} ticker={company.ticker} currency={company.currency} notes={company.notes} verdict={company.verdict} view={view} mode={mode} bundle={bundle} companyId={company.id} tab={tab} setTab={setTab} today={today} missing={missing} onBack={() => setScreen("resumen")} onSaved={() => void reload()} /> : null}
+      {screen === "ficha" && company && view ? <Ficha companyName={company.name} ticker={company.ticker} currency={company.currency} notes={company.notes} verdict={company.verdict} view={view} mode={mode} bundle={bundle} companyId={company.id} tab={tab} setTab={setTab} today={today} missing={missing} owner={owner} onBack={() => setScreen("resumen")} onSaved={() => void reload()} /> : null}
       {screen === "ficha" && !company ? <p style={{ color: INK3 }}>Elige una empresa en Resumen.</p> : null}
       {screen === "intelligence" ? <Intelligence phase2={phase2} onSaved={() => void reload()} /> : null}
       {screen === "virtual" ? <VirtualBook bundle={bundle} phase2={phase2} onSaved={() => void reload()} /> : null}
@@ -469,7 +470,7 @@ function Ficha(props: {
   companyName: string; ticker: string; currency: string; notes: string | null; verdict: string | null;
   view: CompanyView; mode: SourceMode; bundle: Bundle; companyId: string;
   tab: "evo" | "val" | "rent"; setTab: (tab: "evo" | "val" | "rent") => void;
-  today: string; missing: boolean; onBack: () => void; onSaved: () => void;
+  today: string; missing: boolean; owner: boolean; onBack: () => void; onSaved: () => void;
 }) {
   const tabs = [{ id: "evo" as const, label: "Evolución financiera" }, { id: "val" as const, label: "Valoración" }, { id: "rent" as const, label: "Rentabilidad" }];
   const extras = props.bundle.estimates.filter((row) => row.company_id === props.companyId && (row.source === "excel_bajista" || row.source === "excel_optimista") && row.horizon_years === 3);
@@ -486,7 +487,7 @@ function Ficha(props: {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         {tabs.map((item) => <button key={item.id} type="button" style={btn(props.tab === item.id)} onClick={() => props.setTab(item.id)}>{item.label}</button>)}
       </div>
-      {props.tab === "evo" ? <Evolucion view={props.view} missing={props.missing} onSaved={props.onSaved} /> : null}
+      {props.tab === "evo" ? <Evolucion view={props.view} missing={props.missing} owner={props.owner} onSaved={props.onSaved} /> : null}
       {props.tab === "val" ? <Valoracion view={props.view} mode={props.mode} companyId={props.companyId} currency={props.currency} today={props.today} missing={props.missing} onSaved={props.onSaved} /> : null}
       {props.tab === "rent" ? <Rentabilidad view={props.view} currency={props.currency} companyId={props.companyId} today={props.today} missing={props.missing} onSaved={props.onSaved} /> : null}
       {props.notes ? <p style={{ color: INK3 }}>{props.notes}</p> : null}
@@ -514,21 +515,39 @@ const LINES: { key: keyof CompanyView["years"][number]; label: string }[] = [
   { key: "shares_diluted", label: "Acciones" },
 ];
 
-function Evolucion(props: { view: CompanyView; missing: boolean; onSaved: () => void }) {
-  const years = props.view.years;
+const COMPACT = new Set<keyof CompanyView["years"][number]>(["sales", "ebitda", "ebit", "gross_debt", "cash", "net_debt", "cfo", "capex", "fcf"]);
+
+function Evolucion(props: { view: CompanyView; missing: boolean; owner: boolean; onSaved: () => void }) {
+  const [period, setPeriod] = useState<PeriodFilter>("anual");
   const [edit, setEdit] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const years = seriesYears(props.view.years, period);
+  const cuts: { id: PeriodFilter; label: string }[] = [{ id: "anual", label: "Anual" }, { id: "trimestre", label: "Trimestral" }];
   return (
     <div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
+        {cuts.map((item) => <button key={item.id} type="button" style={btn(period === item.id)} onClick={() => setPeriod(item.id)}>{item.label}</button>)}
+        {props.owner ? <button type="button" style={btn(true)} disabled={props.missing || syncing} onClick={() => void (async () => {
+          setSyncing(true);
+          setMsg("");
+          const error = await runSecFundamentals();
+          setSyncing(false);
+          if (error) { setMsg(error); return; }
+          setMsg("Fundamentales SEC actualizados.");
+          props.onSaved();
+        })()}>{syncing ? "Actualizando…" : "Actualizar fundamentales SEC"}</button> : null}
+      </div>
       <p style={{ color: AMBER }}>Editable solo el BPA estimado (amarillo). Histórico bloqueado. Lo que no está en la fuente sigue en N/D.</p>
-      {years.some((year) => year.source.toLowerCase() === "tikr") ? null : <p className="stamp">TIKR: N/D. Los ejercicios de TIKR se cargan a mano, como máximo tres, y todavía no hay ninguno.</p>}
+      {props.view.years.some((year) => year.source.toLowerCase() === "tikr") ? null : <p className="stamp">TIKR: N/D. Los ejercicios de TIKR se cargan a mano, como máximo tres, y todavía no hay ninguno.</p>}
+      {years.length === 0 ? <p>Pendiente.</p> : (
       <div className="w-scroll">
         <table className="w-table">
           <thead>
             <tr>
               <th className="sticky">Concepto</th>
-              {years.map((year) => <th key={year.id} className={year.kind === "estimado" ? "col-blue" : ""}>{year.fiscal_label}</th>)}
+              {years.map((year) => <th key={year.id} className={year.kind === "estimado" ? "col-blue" : ""}>{year.fiscal_label}<span className="stamp">{year.source}</span></th>)}
             </tr>
           </thead>
           <tbody>
@@ -539,13 +558,15 @@ function Evolucion(props: { view: CompanyView; missing: boolean; onSaved: () => 
                   const value = year[line.key];
                   const number = typeof value === "number" || value === null ? value : null;
                   const editable = edit && line.key === "bpa" && year.kind === "estimado";
-                  return <td key={year.id}>{editable ? <input aria-label={year.fiscal_label + " BPA"} style={{ ...inputS, width: 90 }} value={draft[year.id] ?? (number === null ? "" : String(number))} onChange={(event) => setDraft({ ...draft, [year.id]: event.target.value })} /> : number === null ? <span className="nd">N/D</span> : fmt(number)}</td>;
+                  const text = number === null ? null : COMPACT.has(line.key) ? fmtCompact(number) : fmt(number);
+                  return <td key={year.id}>{editable ? <input aria-label={year.fiscal_label + " BPA"} style={{ ...inputS, width: 90 }} value={draft[year.id] ?? (number === null ? "" : String(number))} onChange={(event) => setDraft({ ...draft, [year.id]: event.target.value })} /> : text === null ? <span className="nd">N/D</span> : text}</td>;
                 })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      )}
       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
         {edit ? <button type="button" style={btn(true)} onClick={() => void (async () => {
           for (const year of years.filter((row) => row.kind === "estimado")) {

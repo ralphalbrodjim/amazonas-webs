@@ -17,5 +17,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["chef/src", "warren/src", "semana/src", "semana/data", "shared"],
-  "exclude": ["warren/src/math.test.ts", "warren/src/format.test.ts", "warren/src/stale.test.ts", "semana/src/agendaStore.test.ts"]
+  "exclude": ["warren/src/math.test.ts", "warren/src/format.test.ts", "warren/src/stale.test.ts", "warren/src/years.test.ts", "semana/src/agendaStore.test.ts"]
 }

@@ -4,6 +4,16 @@ export function num(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/** Statement figures are stored in currency units. Billions stay readable in the year table; BPA does not use this. */
+export function fmtCompact(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "N/D";
+  const abs = Math.abs(value);
+  const scale = abs >= 1_000_000_000 ? 1_000_000_000 : abs >= 1_000_000 ? 1_000_000 : null;
+  if (scale === null) return fmt(value);
+  const text = (abs / scale).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return (value < 0 ? "-" : "") + text + (scale === 1_000_000_000 ? " B" : " M");
+}
+
 export function fmt(value: number | null, digits = 2): string {
   if (value === null || !Number.isFinite(value)) return "N/D";
   return value.toLocaleString("es-ES", { minimumFractionDigits: digits, maximumFractionDigits: digits });

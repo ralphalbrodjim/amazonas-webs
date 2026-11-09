@@ -70,6 +70,12 @@ export type YearRow = {
   source: string;
   as_of: string | null;
   note: string | null;
+  source_url?: string | null;
+  filed_on?: string | null;
+  captured_at?: string | null;
+  data_type?: string | null;
+  period_end?: string | null;
+  form?: string | null;
 };
 
 export type EstimateSource = "warren" | "tikr" | "excel_bajista" | "excel_optimista";
