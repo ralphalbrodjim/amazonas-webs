@@ -147,13 +147,6 @@ export async function saveRadar(row: { ticker: string; name: string; status: Rad
   return error ? error.message : null;
 }
 
-export async function saveNews(row: { ticker: string; published_on: string; kind: NewsItem["kind"]; title: string; url: string; source: string; summary: string }): Promise<string | null> {
-  const owner = await ownerId();
-  if (!owner) return "Sin sesión";
-  const { error } = await supabase.from("warren_news").insert({ ...row, owner_id: owner, ticker: row.ticker.toUpperCase() });
-  return error ? error.message : null;
-}
-
 export async function saveVirtual(row: { ticker: string; entered_on: string; entry_price: number; currency: string; price_source: string; note: string; company_id?: string | null }): Promise<string | null> {
   const owner = await ownerId();
   if (!owner) return "Sin sesión";

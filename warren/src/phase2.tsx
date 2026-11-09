@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { importIbkr, runNewsDetect, saveNews, saveRadar, saveVirtual } from "./db";
+import { importIbkr, runNewsDetect, saveRadar, saveVirtual } from "./db";
 import { fecha, fechaCorta, fmt, parseInput, pct } from "./format";
 import { newsGroups, newsVisible, type NewsFilter } from "./news";
 import { parseIbkrCsv, type IbkrRow } from "./ibkr";
@@ -154,13 +154,6 @@ function XCard(props: { item: NewsItem }) {
 }
 
 export function Intelligence(props: { phase2: Phase2; owner: boolean; onSaved: () => void }) {
-  const [published, setPublished] = useState("");
-  const [noteTicker, setNoteTicker] = useState("");
-  const [noteKind, setNoteKind] = useState<NewsItem["kind"]>("noticia");
-  const [title, setTitle] = useState("");
-  const [source, setSource] = useState("");
-  const [url, setUrl] = useState("");
-  const [summary, setSummary] = useState("");
   const [msg, setMsg] = useState("");
   const [detecting, setDetecting] = useState(false);
   const [company, setCompany] = useState("");
@@ -193,7 +186,6 @@ export function Intelligence(props: { phase2: Phase2; owner: boolean; onSaved: (
           const error = await runNewsDetect();
           setDetecting(false);
           if (error) { setMsg(error); return; }
-          setMsg("Detección hecha.");
           props.onSaved();
         })()}>{detecting ? "Detectando…" : "Detectar noticias SEC"}</button> : null}
       </div>
@@ -210,29 +202,6 @@ export function Intelligence(props: { phase2: Phase2; owner: boolean; onSaved: (
         );
       })}
       {msg ? <p style={{ color: AMBER }}>{msg}</p> : null}
-      <form style={{ ...card, marginTop: 12, display: "grid", gap: 8 }} onSubmit={(event: FormEvent) => {
-        event.preventDefault();
-        void (async () => {
-          if (!published || !title.trim()) { setMsg("Hacen falta fecha y título."); return; }
-          const error = await saveNews({ ticker: noteTicker, published_on: published, kind: noteKind, title, url, source, summary });
-          setMsg(error ?? "Guardada.");
-          if (!error) props.onSaved();
-        })();
-      }}>
-        <b>Añadir nota</b>
-        <input style={inputS} type="date" value={published} onChange={(event) => setPublished(event.target.value)} disabled={props.phase2.missing} />
-        <input style={inputS} placeholder="Ticker" value={noteTicker} onChange={(event) => setNoteTicker(event.target.value)} disabled={props.phase2.missing} />
-        <select style={inputS} value={noteKind} onChange={(event) => setNoteKind(event.target.value as NewsItem["kind"])} disabled={props.phase2.missing}>
-          <option value="noticia">Noticia</option>
-          <option value="comentario">Comentario</option>
-          <option value="idea">Idea</option>
-        </select>
-        <input style={inputS} placeholder="Título" value={title} onChange={(event) => setTitle(event.target.value)} disabled={props.phase2.missing} />
-        <input style={inputS} placeholder="Fuente" value={source} onChange={(event) => setSource(event.target.value)} disabled={props.phase2.missing} />
-        <input style={inputS} placeholder="Enlace" value={url} onChange={(event) => setUrl(event.target.value)} disabled={props.phase2.missing} />
-        <textarea style={inputS} placeholder="Resumen" value={summary} onChange={(event) => setSummary(event.target.value)} disabled={props.phase2.missing} />
-        <button type="submit" style={btn(true)} disabled={props.phase2.missing}>Guardar</button>
-      </form>
     </section>
   );
 }
