@@ -498,7 +498,6 @@ const LINES: { key: keyof CompanyView["years"][number]; label: string }[] = [
   { key: "cfo", label: "CFO" },
   { key: "capex", label: "CAPEX" },
   { key: "fcf", label: "FCF" },
-  { key: "shares_diluted", label: "Acciones" },
 ];
 
 const COMPACT = new Set<keyof CompanyView["years"][number]>(["sales", "ebitda", "ebit", "gross_debt", "cash", "net_debt", "cfo", "capex", "fcf"]);
