@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { loadIsOwner, loadPhase2, loadSyncRuns, loadWarren, probeSchema, redirectTo, runPriceSync, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
 import { fecha, fechaCorta, fmt, madridToday, parseInput, pct } from "./format";
+import { failureReason, staleTickerReason } from "./stale";
 import { mixto, type SourceMode } from "./math";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
-import { EMPTY, EMPTY_PHASE2, type Bundle, type Estimate, type Phase2, type SyncRun } from "./types";
+import { EMPTY, EMPTY_PHASE2, type Bundle, type Company, type Estimate, type Phase2, type SyncRun } from "./types";
 import { companyView, type CompanyView } from "./view";
 
 const NAVY = "#0D1933";
@@ -207,7 +208,7 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
       {error ? <Banner>No se han podido leer los datos: {error}</Banner> : null}
       {screen === "resumen" || screen === "cartera" || screen === "ficha" ? <Mode mode={mode} onChange={setMode} /> : null}
       {screen === "resumen" ? <Resumen bundle={bundle} phase2={phase2} mode={mode} today={today} q={q} setQ={setQ} cartera={cartera} setCartera={setCartera} cagrMin={cagrMin} setCagrMin={setCagrMin} sort={sort} setSort={setSort} onOpen={open} owner={owner} runs={runs} syncing={syncing} toast={toast} onSync={() => void actualizarPrecios()} /> : null}
-      {screen === "cartera" ? <Cartera bundle={bundle} mode={mode} today={today} missing={missing || phase2.missing} onOpen={open} onSaved={() => void reload()} /> : null}
+      {screen === "cartera" ? <Cartera bundle={bundle} mode={mode} today={today} missing={missing || phase2.missing} runs={runs} onOpen={open} onSaved={() => void reload()} /> : null}
       {screen === "ficha" && company && view ? <Ficha companyName={company.name} ticker={company.ticker} currency={company.currency} notes={company.notes} verdict={company.verdict} view={view} mode={mode} bundle={bundle} companyId={company.id} tab={tab} setTab={setTab} today={today} missing={missing} onBack={() => setScreen("resumen")} onSaved={() => void reload()} /> : null}
       {screen === "ficha" && !company ? <p style={{ color: INK3 }}>Elige una empresa en Resumen.</p> : null}
       {screen === "intelligence" ? <Intelligence phase2={phase2} onSaved={() => void reload()} /> : null}
@@ -251,8 +252,18 @@ function PrecioHoy(props: { view: CompanyView }) {
   return (
     <span>
       {fmt(props.view.price)}
-      <span className="stamp"> {props.view.priceDate ? fechaCorta(props.view.priceDate) : "N/D"}{props.view.priceOld ? " · Dato antiguo" : ""}</span>
+      <span className="stamp"> {props.view.priceDate ? fechaCorta(props.view.priceDate) : "N/D"}</span>
     </span>
+  );
+}
+
+function TickerName(props: { company: Company; priceDate: string | null; runs: SyncRun[]; name?: string }) {
+  const reason = staleTickerReason(props.company, props.priceDate, props.runs[0] ?? null, new Date());
+  return (
+    <>
+      <b className={reason ? "neg" : undefined} title={reason ?? undefined}>{props.company.ticker}</b>
+      {props.name ? <div style={{ color: INK3, fontWeight: 500 }}>{props.name}</div> : null}
+    </>
   );
 }
 
@@ -268,7 +279,7 @@ function SyncLog(props: { runs: SyncRun[] }) {
             <div>{horaMadrid(run.started_at)} · {run.trigger} · {run.status}</div>
             <div style={{ color: INK3 }}>ok {run.prices_ok ?? "N/D"} · fallos {run.prices_fail ?? "N/D"} · FX {run.fx_ok === null ? "N/D" : run.fx_ok ? "ok" : "no"}</div>
             {fallos.length > 0 ? <button type="button" style={{ ...btn(false), minHeight: 32, marginTop: 6 }} onClick={() => setOpen(open === run.id ? null : run.id)}>{open === run.id ? "Ocultar" : "Ver símbolos"}</button> : null}
-            {open === run.id ? <ul style={{ margin: "6px 0", paddingLeft: 18 }}>{fallos.map((item, index) => <li key={(item.ticker || item.symbol || "x") + index}>{item.ticker || item.symbol || "N/D"}{item.kept_last ? " · cierre anterior" : ""}{item.error ? " · " + item.error : ""}</li>)}</ul> : null}
+            {open === run.id ? <ul style={{ margin: "6px 0", paddingLeft: 18 }}>{fallos.map((item, index) => <li key={(item.ticker || item.symbol || "x") + index}>{item.ticker || item.symbol || "N/D"} · {failureReason(item)}</li>)}</ul> : null}
           </div>
         );
       })}
@@ -336,7 +347,7 @@ function Resumen(props: {
               const view = companyView(props.bundle, company.id, props.mode, props.today);
               return (
                 <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
-                  <td className="sticky"><b>{company.ticker}</b><div style={{ color: INK3, fontWeight: 500 }}>{company.name}</div></td>
+                  <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} name={company.name} /></td>
                   <td>{company.in_portfolio ? "Sí" : "No"}</td>
                   <td>{fmt(view.avg)}</td>
                   <td><PrecioHoy view={view} /></td>
@@ -356,7 +367,7 @@ function Resumen(props: {
   );
 }
 
-function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missing: boolean; onOpen: (ticker: string) => void; onSaved: () => void }) {
+function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missing: boolean; runs: SyncRun[]; onOpen: (ticker: string) => void; onSaved: () => void }) {
   const rows = props.bundle.companies.filter((company) => company.in_portfolio);
   const views = rows.map((company) => ({ company, view: companyView(props.bundle, company.id, props.mode, props.today) }));
   const total = (pick: (view: CompanyView) => number | null) => {
@@ -391,7 +402,7 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
             {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={9} className="nd">N/D</td></tr> : null}
             {views.map(({ company, view }) => (
               <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
-                <td className="sticky"><b>{company.ticker}</b></td>
+                <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} /></td>
                 <td className={view.shares === null ? "nd" : ""}>{view.shares === null ? "N/D" : fmt(view.shares, 4)}</td>
                 <td>{fmt(view.avg)}</td>
                 <td><PrecioHoy view={view} /></td>

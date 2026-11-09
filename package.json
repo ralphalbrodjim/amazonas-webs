@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test:warren": "node --experimental-strip-types --test warren/src/math.test.ts warren/src/format.test.ts",
+    "test:warren": "node --experimental-strip-types --test warren/src/math.test.ts warren/src/format.test.ts warren/src/stale.test.ts",
     "build:chef": "vite build --config chef/vite.config.ts",
     "build:warren": "vite build --config warren/vite.config.ts",
     "build:semana": "vite build --config semana/vite.config.ts",
