@@ -55,18 +55,6 @@ export async function runSecFundamentals(): Promise<string | null> {
   return error ? error.message : null;
 }
 
-export async function runPriceSync(): Promise<{ ok: number | null; fail: number | null; fx: boolean | null; error: string | null }> {
-  const { data, error } = await supabase.rpc("warren_run_price_sync", { p_trigger: "manual" });
-  if (error) return { ok: null, fail: null, fx: null, error: error.message };
-  const row = data && typeof data === "object" ? data as Record<string, unknown> : {};
-  return {
-    ok: typeof row.prices_ok === "number" ? row.prices_ok : null,
-    fail: typeof row.prices_fail === "number" ? row.prices_fail : null,
-    fx: typeof row.fx_ok === "boolean" ? row.fx_ok : null,
-    error: null,
-  };
-}
-
 export async function loadWarren(): Promise<{ bundle: Bundle | null; missing: boolean; error: string | null }> {
   const [companies, quotes, years, estimates, positions, fx] = await Promise.all([
     supabase.from("warren_companies").select("*").order("sort"),
