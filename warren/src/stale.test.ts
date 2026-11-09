@@ -1,10 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { expectedCloseDate, failureReason, staleTickerReason } from "./stale.ts";
+import { expectedCloseDate, failureReason, latestPriceUpdate, staleTickerReason } from "./stale.ts";
 import type { SyncRun } from "./types.ts";
 
 const mondayEvening = new Date("2026-11-09T20:09:00Z");
 const mondayMorning = new Date("2026-11-09T07:00:00Z");
+
+test("the header time is the latest finished price run, then the newest quote", () => {
+  const runs = [
+    { status: "ok", finished_at: "2026-11-09T20:34:56Z", prices_ok: 0 },
+    { status: "ok", finished_at: "2026-11-09T20:37:25Z", prices_ok: 19 },
+    { status: "error", finished_at: "2026-11-09T19:59:35Z", prices_ok: 0 },
+  ];
+  assert.equal(latestPriceUpdate([...runs].reverse(), [{ fetched_at: "2026-11-01T10:00:00Z" }]), "2026-11-09T20:37:25Z");
+  assert.equal(latestPriceUpdate(runs, [{ fetched_at: "2026-11-01T10:00:00Z" }]), "2026-11-09T20:37:25Z");
+  assert.equal(latestPriceUpdate([{ status: "error", finished_at: "2026-11-09T19:59:35Z", prices_ok: 0 }], [{ fetched_at: "2026-11-08T18:00:00Z" }, { fetched_at: "2026-11-09T08:00:00Z" }]), "2026-11-09T08:00:00Z");
+});
 
 test("expected close is the session that has already finished", () => {
   assert.equal(expectedCloseDate("NASDAQ", "USD", mondayEvening), "2026-11-06");

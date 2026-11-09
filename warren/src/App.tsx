@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { loadIsOwner, loadPhase2, loadSyncRuns, loadWarren, probeSchema, redirectTo, runPriceSync, runSecFundamentals, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
-import { fecha, fechaCorta, fmt, fmtCompact, madridToday, parseInput, pct } from "./format";
-import { failureReason, staleTickerReason } from "./stale";
+import { fecha, fechaHoraMadrid, fmt, fmtCompact, madridToday, parseInput, pct } from "./format";
+import { failureReason, latestPriceUpdate, staleTickerReason } from "./stale";
 import { mixto, type SourceMode } from "./math";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
 import { EMPTY, EMPTY_PHASE2, type Bundle, type Company, type Estimate, type Phase2, type SyncRun } from "./types";
@@ -249,13 +249,8 @@ function horaMadrid(iso: string): string {
   return new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
-function PrecioHoy(props: { view: CompanyView }) {
-  return (
-    <span>
-      {fmt(props.view.price)}
-      <span className="stamp"> {props.view.priceDate ? fechaCorta(props.view.priceDate) : "N/D"}</span>
-    </span>
-  );
+function updatedLabel(runs: SyncRun[], quotes: Bundle["quotes"]): string {
+  return "Updated " + (fechaHoraMadrid(latestPriceUpdate(runs, quotes)) ?? "N/D");
 }
 
 function TickerName(props: { company: Company; priceDate: string | null; runs: SyncRun[]; name?: string }) {
@@ -338,7 +333,10 @@ function Resumen(props: {
           <thead>
             <tr>
               {["Empresa", "Cart.", "P. medio", "P. hoy", "Rent. hoy", "Obj 1A", "Rent 1A", "Obj 3A", "Rent 3A", "CAGR 3A"].map((label, index) => (
-                <th key={label} className={index === 0 ? "sticky" : ""}>{label}</th>
+                <th key={label} className={index === 0 ? "sticky" : ""}>
+                  {label}
+                  {label === "P. hoy" ? <span className="stamp">{updatedLabel(props.runs, props.bundle.quotes)}</span> : null}
+                </th>
               ))}
             </tr>
           </thead>
@@ -351,7 +349,7 @@ function Resumen(props: {
                   <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} name={company.name} /></td>
                   <td>{company.in_portfolio ? "Sí" : "No"}</td>
                   <td>{fmt(view.avg)}</td>
-                  <td><PrecioHoy view={view} /></td>
+                  <td>{fmt(view.price)}</td>
                   <td className={tone(view.rentHoy, "plain")}>{pct(view.rentHoy)}</td>
                   <td>{fmt(view.target1)}</td>
                   <td className={tone(view.rent1, "blue")}>{pct(view.rent1)}</td>
@@ -397,7 +395,12 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
       <div className="w-scroll">
         <table className="w-table">
           <thead>
-            <tr>{["Empresa", "Acc.", "P. medio", "P. hoy", "Peso Excel", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A"].map((label, index) => <th key={label} className={index === 0 ? "sticky" : ""}>{label}</th>)}</tr>
+            <tr>{["Empresa", "Acc.", "P. medio", "P. hoy", "Peso Excel", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A"].map((label, index) => (
+              <th key={label} className={index === 0 ? "sticky" : ""}>
+                {label}
+                {label === "P. hoy" ? <span className="stamp">{updatedLabel(props.runs, props.bundle.quotes)}</span> : null}
+              </th>
+            ))}</tr>
           </thead>
           <tbody>
             {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={9} className="nd">N/D</td></tr> : null}
@@ -406,7 +409,7 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
                 <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} /></td>
                 <td className={view.shares === null ? "nd" : ""}>{view.shares === null ? "N/D" : fmt(view.shares, 4)}</td>
                 <td>{fmt(view.avg)}</td>
-                <td><PrecioHoy view={view} /></td>
+                <td>{fmt(view.price)}</td>
                 <td>{view.weightPct === null ? "N/D" : fmt(view.weightPct, 2) + " %"}</td>
                 <td>{fmt(view.target1)}</td>
                 <td className={tone(view.pnl1Eur, "blue")}>{money(view.pnl1Eur, "EUR")}</td>

@@ -1,5 +1,12 @@
 import type { SyncRun, SyncTicker } from "./types";
 
+/** Newest finished price run that stored at least one close. Quote capture time is the fallback. */
+export function latestPriceUpdate(runs: { status: string; finished_at?: string | null; prices_ok?: number | null }[], quotes: { fetched_at?: string | null }[]): string | null {
+  const success = runs.find((run) => run.status.toLowerCase() === "ok" && Boolean(run.finished_at) && (run.prices_ok ?? 1) > 0);
+  if (success?.finished_at) return success.finished_at;
+  return quotes.map((row) => row.fetched_at).filter((value): value is string => Boolean(value)).sort().at(-1) ?? null;
+}
+
 type Clock = { iso: string; minutes: number; weekday: string };
 
 const MARKETS: Record<string, { timeZone: string; closeMinutes: number }> = {

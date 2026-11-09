@@ -40,7 +40,7 @@ export async function loadIsOwner(): Promise<boolean> {
 }
 
 export async function loadSyncRuns(): Promise<SyncRun[]> {
-  const { data, error } = await supabase.from("warren_sync_runs").select("id,started_at,trigger,status,prices_ok,prices_fail,fx_ok,detail").order("started_at", { ascending: false }).limit(10);
+  const { data, error } = await supabase.from("warren_sync_runs").select("id,started_at,finished_at,trigger,status,prices_ok,prices_fail,fx_ok,detail").order("started_at", { ascending: false }).limit(10);
   if (error || !data) return [];
   return data as SyncRun[];
 }

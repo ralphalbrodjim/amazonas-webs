@@ -54,6 +54,17 @@ export function mostCommonDate(dates: (string | null)[]): string | null | undefi
   return best === "" ? null : best;
 }
 
+export function fechaHoraMadrid(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (!Number.isFinite(date.getTime())) return null;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(date).map((part) => [part.type, part.value]));
+  const hour = parts.hour === "24" ? "00" : parts.hour;
+  return `${parts.day}/${parts.month}/${parts.year} ${hour}:${parts.minute}`;
+}
+
 export function madridToday(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }

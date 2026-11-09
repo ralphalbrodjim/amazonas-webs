@@ -28,6 +28,7 @@ export type SyncTicker = {
 export type SyncRun = {
   id: number;
   started_at: string;
+  finished_at?: string | null;
   trigger: string;
   status: string;
   prices_ok: number | null;
