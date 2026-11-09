@@ -392,7 +392,7 @@ function Resumen(props: {
         <table className="w-table">
           <thead>
             <tr>
-              {["Empresa", "Próx. resultados", "Cart.", "P. medio", "P. hoy", "Rent. hoy", "Obj 1A", "Rent 1A", "Obj 3A", "Rent 3A", "CAGR 3A"].map((label, index) => (
+              {["Empresa", "Cart.", "P. medio", "P. hoy", "Rent. hoy", "Obj 1A", "Rent 1A", "Obj 3A", "Rent 3A", "CAGR 3A", "Próx. resultados"].map((label, index) => (
                 <th key={label} className={index === 0 ? "sticky" : ""}>
                   {label}
                   {label === "P. hoy" ? <span className="stamp">{updatedLabel(props.runs, props.bundle.quotes)}</span> : null}
@@ -407,7 +407,6 @@ function Resumen(props: {
               return (
                 <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
                   <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} name={company.name} /></td>
-                  <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
                   <td>{company.in_portfolio ? "Sí" : "No"}</td>
                   <td>{fmt(view.avg)}</td>
                   <td>{fmt(view.price)}</td>
@@ -417,6 +416,7 @@ function Resumen(props: {
                   <td>{fmt(view.target3)}</td>
                   <td className={tone(view.rent3, "plain")}>{pct(view.rent3)}</td>
                   <td className={tone(view.cagr, "green")}>{pct(view.cagr)}</td>
+                  <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
                 </tr>
               );
             })}
@@ -456,7 +456,7 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
       <div className="w-scroll">
         <table className="w-table">
           <thead>
-            <tr>{["Empresa", "Próx. resultados", "Acc.", "P. medio", "P. hoy", "Peso Excel", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A"].map((label, index) => (
+            <tr>{["Empresa", "Acc.", "P. medio", "P. hoy", "Peso Excel", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A", "Próx. resultados"].map((label, index) => (
               <th key={label} className={index === 0 ? "sticky" : ""}>
                 {label}
                 {label === "P. hoy" ? <span className="stamp">{updatedLabel(props.runs, props.bundle.quotes)}</span> : null}
@@ -468,7 +468,6 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
             {views.map(({ company, view }) => (
               <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
                 <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} /></td>
-                <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
                 <td className={view.shares === null ? "nd" : ""}>{view.shares === null ? "N/D" : fmt(view.shares, 4)}</td>
                 <td>{fmt(view.avg)}</td>
                 <td>{fmt(view.price)}</td>
@@ -478,6 +477,7 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
                 <td>{fmt(view.target3)}</td>
                 <td className={tone(view.pnl3Eur, "plain")}>{money(view.pnl3Eur, "EUR")}</td>
                 <td className={tone(view.cagr, "green")}>{pct(view.cagr)}</td>
+                <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
               </tr>
             ))}
           </tbody>
