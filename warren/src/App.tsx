@@ -471,7 +471,7 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
             {views.map(({ company, view }) => (
               <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
                 <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} /></td>
-                <td className={view.shares === null ? "nd" : ""}>{view.shares === null ? "N/D" : fmt(view.shares, 4)}{company.price_note?.includes("1,36K") ? <span className="stamp" title="IBKR 1,36K"> aprox.</span> : null}</td>
+                <td className={view.shares === null ? "nd" : ""}>{view.shares === null ? "N/D" : fmt(view.shares, 4)}</td>
                 <td>{fmt(view.avg)}</td>
                 <td>{view.price === null ? <span className="nd">Pendiente</span> : fmt(view.price)}</td>
                 <td className={view.price === null ? "nd" : tone(view.rentHoy, "plain")}>{view.price === null ? "Pendiente" : pct(view.rentHoy) + (view.pnlNowEur === null ? "" : " · " + money(view.pnlNowEur, "EUR"))}</td>
