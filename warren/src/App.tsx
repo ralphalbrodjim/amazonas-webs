@@ -32,6 +32,11 @@ function money(value: number | null, currency: string): string {
   return fmt(value) + " " + currency;
 }
 
+function eurEntero(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "N/D";
+  return value.toLocaleString("es-ES", { maximumFractionDigits: 0 }) + " EUR";
+}
+
 function tone(value: number | null, kind: "blue" | "green" | "plain"): string {
   if (value === null) return "nd";
   if (value < 0) return "neg";
@@ -430,32 +435,24 @@ function Resumen(props: {
 function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missing: boolean; runs: SyncRun[]; onOpen: (ticker: string) => void; onSaved: () => void }) {
   const rows = props.bundle.companies.filter((company) => company.in_portfolio);
   const views = rows.map((company) => ({ company, view: companyView(props.bundle, company.id, props.mode, props.today) }));
-  const total = (pick: (view: CompanyView) => number | null) => {
-    if (views.length === 0) return null;
-    let sum = 0;
-    for (const row of views) {
-      const value = pick(row.view);
-      if (value === null) return null;
-      sum += value;
-    }
-    return sum;
-  };
   const fxDates = views.map((row) => row.view.fx?.rate_date).filter((value): value is string => Boolean(value));
-  const knownNow = views.map((row) => row.view.pnlNowEur).filter((value): value is number => value !== null);
-  const pendingNow = views.length - knownNow.length;
-  const pnlNow = knownNow.length === 0 ? null : knownNow.reduce((sum, value) => sum + value, 0);
-  const knownValue = views.map((row) => row.view.valueEur).filter((value): value is number => value !== null);
-  const pendingValue = views.length - knownValue.length;
-  const valueNow = knownValue.length === 0 ? null : knownValue.reduce((sum, value) => sum + value, 0);
+  const part = (pick: (view: CompanyView) => number | null) => {
+    const known = views.map((row) => pick(row.view)).filter((value): value is number => value !== null);
+    return { sum: known.length === 0 ? null : known.reduce((total, value) => total + value, 0), pending: views.length - known.length };
+  };
+  const valueNow = part((view) => view.valueEur);
+  const pnlNow = part((view) => view.pnlNowEur);
+  const pnl1 = part((view) => view.pnl1Eur);
+  const pnl3 = part((view) => view.pnl3Eur);
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Mi cartera real</h1>
       <p style={{ color: INK3, marginTop: 0 }}>Precio contra precio medio. Los euros salen solo con número de acciones y tipo BCE. El peso es el del Excel, no un cálculo nuevo.</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginBottom: 12 }}>
-        <Kpi label="Valor actual" value={money(valueNow, "EUR")} mark={pendingValue > 0 ? pendingValue + " Pendiente" : null} />
-        <Kpi label="Plusvalía actual" value={money(pnlNow, "EUR")} mark={pendingNow > 0 ? pendingNow + " Pendiente" : null} />
-        <Kpi label="Plusvalía 1 año" value={money(total((view) => view.pnl1Eur), "EUR")} />
-        <Kpi label="Plusvalía 3 años" value={money(total((view) => view.pnl3Eur), "EUR")} />
+        <Kpi label="Valor actual" value={eurEntero(valueNow.sum)} mark={valueNow.pending > 0 ? valueNow.pending + " Pendiente" : null} />
+        <Kpi label="Plusvalía actual" value={eurEntero(pnlNow.sum)} mark={pnlNow.pending > 0 ? pnlNow.pending + " Pendiente" : null} />
+        <Kpi label="Plusvalía 1 año" value={eurEntero(pnl1.sum)} mark={pnl1.pending > 0 ? pnl1.pending + " Pendiente" : null} />
+        <Kpi label="Plusvalía 3 años" value={eurEntero(pnl3.sum)} mark={pnl3.pending > 0 ? pnl3.pending + " Pendiente" : null} />
       </div>
       <p className="stamp">FX BCE: {fxDates.length ? fecha(fxDates.sort().at(-1) ?? null) : "N/D"}{views.some((row) => row.company.currency !== "EUR" && !row.view.fx) ? " · falta el cambio de alguna divisa" : ""}</p>
       <IbkrImport disabled={props.missing} onSaved={props.onSaved} />
@@ -477,12 +474,12 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
                 <td className={view.shares === null ? "nd" : ""}>{view.shares === null ? "N/D" : fmt(view.shares, 4)}</td>
                 <td>{fmt(view.avg)}</td>
                 <td>{view.price === null ? <span className="nd">Pendiente</span> : fmt(view.price)}</td>
-                <td className={view.price === null ? "nd" : tone(view.rentHoy, "plain")}>{view.price === null ? "Pendiente" : pct(view.rentHoy) + (view.pnlNowEur === null ? "" : " · " + money(view.pnlNowEur, "EUR"))}</td>
+                <td className={view.price === null ? "nd" : tone(view.rentHoy, "plain")}>{view.price === null ? "Pendiente" : pct(view.rentHoy) + (view.pnlNowEur === null ? "" : " · " + eurEntero(view.pnlNowEur))}</td>
                 <td>{view.weightPct === null ? "N/D" : fmt(view.weightPct, 2) + " %"}</td>
                 <td>{fmt(view.target1)}{marcaUnAnio(view.target1From, props.mode) ? <span className="stamp"> {marcaUnAnio(view.target1From, props.mode)}</span> : null}</td>
-                <td className={tone(view.pnl1Eur, "blue")}>{money(view.pnl1Eur, "EUR")}</td>
+                <td className={tone(view.pnl1Eur, "blue")}>{eurEntero(view.pnl1Eur)}{marcaUnAnio(view.target1From, props.mode) ? <span className="stamp"> {marcaUnAnio(view.target1From, props.mode)}</span> : null}</td>
                 <td>{fmt(view.target3)}</td>
-                <td className={tone(view.pnl3Eur, "plain")}>{money(view.pnl3Eur, "EUR")}</td>
+                <td className={tone(view.pnl3Eur, "plain")}>{eurEntero(view.pnl3Eur)}</td>
                 <td className={tone(view.cagr, "green")}>{pct(view.cagr)}</td>
                 <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
               </tr>
