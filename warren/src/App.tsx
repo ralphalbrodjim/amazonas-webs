@@ -431,12 +431,12 @@ function Resumen(props: {
 
 type Horizon = { pnl: number | null; value: number | null; kind: "target" | "hoy" | "pending" };
 
-function horizonOf(view: CompanyView, target: number | null, pnl: number | null): Horizon {
+function horizonOf(view: CompanyView, target: number | null): Horizon {
   const units = view.priceCurrency === "EUR" ? null : view.fx?.units_per_eur ?? null;
   if (target !== null) {
     const value = positionValueEur(view.shares, target, view.priceCurrency, units);
-    if (pnl === null || value === null) return { pnl: null, value: null, kind: "pending" };
-    return { pnl, value, kind: "target" };
+    if (view.valueEur === null || value === null) return { pnl: null, value: null, kind: "pending" };
+    return { pnl: value - view.valueEur, value, kind: "target" };
   }
   if (view.price === null || view.valueEur === null) return { pnl: null, value: null, kind: "pending" };
   return { pnl: 0, value: view.valueEur, kind: "hoy" };
@@ -466,8 +466,8 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
   };
   const valueNow = part((view) => view.valueEur);
   const pnlNow = part((view) => view.pnlNowEur);
-  const oneYear = views.map(({ view }) => horizonOf(view, view.target1, view.pnl1Eur));
-  const threeYear = views.map(({ view }) => horizonOf(view, view.target3, view.pnl3Eur));
+  const oneYear = views.map(({ view }) => horizonOf(view, view.target1));
+  const threeYear = views.map(({ view }) => horizonOf(view, view.target3));
   const h1 = sumHorizon(oneYear);
   const h3 = sumHorizon(threeYear);
   return (
