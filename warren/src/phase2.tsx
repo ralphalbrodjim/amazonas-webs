@@ -69,6 +69,7 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [vista, setVista] = useState<"radar" | "oportunidades">("radar");
+  const [cartera, setCartera] = useState<"todas" | "si" | "no">("todas");
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [approving, setApproving] = useState<string | null>(null);
 
@@ -78,7 +79,14 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
 
   useEffect(() => { void refreshOpportunities(); }, []);
   const labels: Record<RadarItem["status"], string> = { vigilar: "Vigilar", en_analisis: "En análisis", descartada: "Descartada" };
-  const items = [...props.phase2.radar].sort((a, b) => (a.sort ?? 1e9) - (b.sort ?? 1e9));
+  const ranked = [...props.phase2.radar].sort((a, b) => (a.sort ?? 1e9) - (b.sort ?? 1e9));
+  const items = ranked.filter((item) => {
+    const company = companyFor(props.bundle, item.ticker, item.company_id);
+    const inPortfolio = company?.in_portfolio === true;
+    if (cartera === "si") return inPortfolio;
+    if (cartera === "no") return !inPortfolio;
+    return true;
+  });
   const computed = items.map((item) => item.computed_at).filter((value): value is string => Boolean(value)).sort().at(-1) ?? null;
   return (
     <section>
@@ -96,6 +104,13 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
           props.onSaved();
         })()}>{busy ? "Recalculando…" : "Recalcular Radar"}</button> : null}
       </div>
+      {vista === "radar" ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+          {([["todas", "Todas"], ["si", "En cartera"], ["no", "No en cartera"]] as const).map(([id, label]) => (
+            <button key={id} type="button" style={{ ...btn(cartera === id), minHeight: 52, fontSize: 16, padding: "12px 16px" }} onClick={() => setCartera(id)}>{label}</button>
+          ))}
+        </div>
+      ) : null}
       {vista === "oportunidades" ? (
         <>
           <p style={{ color: INK3, marginTop: 0 }}>Warren propone. Alberto pulsa OK. No se añade ninguna acción a Mi cartera.</p>
@@ -120,7 +135,7 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
         <>
       <p style={{ color: INK3 }}>Candidatas ordenadas por el CAGR guardado. Si falta un objetivo, queda en Pendiente.</p>
       {props.phase2.missing ? <p className="stamp">Falta supabase/warren_phase2.sql. La lista está vacía y no se guarda nada.</p> : null}
-      {items.length === 0 ? <p style={{ color: INK3 }}>Sin candidatas.</p> : items.map((item) => {
+      {items.length === 0 ? <p style={{ color: INK3 }}>{ranked.length === 0 ? "Sin candidatas." : "Ninguna con este filtro."}</p> : items.map((item) => {
         const company = companyFor(props.bundle, item.ticker, item.company_id);
         const view = company ? companyView(props.bundle, company.id, props.mode, props.today) : null;
         const livePrice = view ? view.price : item.price ?? null;
