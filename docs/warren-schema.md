@@ -144,3 +144,21 @@ Repeat for the two following years only when the export contains them. `fcf` mus
 ### IBKR
 
 The Cartera screen accepts a positions or activity CSV. There is no IBKR API key. A row is stored only when it has a ticker and a share count. A mark price is stored only when the file also has its date. Missing cells stay null.
+
+## Opportunities
+
+Run `supabase/warren_opportunities.sql` once in the Supabase SQL editor. It creates `warren_opportunities` and `warren_approve_opportunity(uuid)`. It inserts nothing.
+
+Radar lists rows with `status = 'pending'`. Alberto taps OK. The function inserts `warren_companies` only when that ticker is missing, with `in_portfolio = false` (the same shape as DUOL), and never inserts `warren_positions`. A second tap finds the row already approved and does not create another company.
+
+Leave `cik` null when no free source publishes it. Currency and name are required; the function refuses to invent them.
+
+```sql
+insert into public.warren_opportunities
+  (owner_id, ticker, name, reason, currency, exchange, api_symbol, quote_unit, cik)
+select user_id, 'TICKER', 'Nombre legal', 'Motivo breve', 'USD', 'NASDAQ', 'TICKER', '1', null
+from public.warren_profile
+where role = 'owner';
+```
+
+Replace `TICKER`, the name, the reason, and the listing fields with a real proposal. Do not use this example as a seed.

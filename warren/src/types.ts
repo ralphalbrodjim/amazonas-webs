@@ -236,6 +236,18 @@ export type BenchmarkLevel = {
   source: string;
 };
 
+export type Opportunity = {
+  id: string;
+  ticker: string;
+  name: string;
+  reason: string;
+  currency: string | null;
+  exchange: string | null;
+  api_symbol: string | null;
+  status: "pending" | "approved";
+  created_at: string;
+};
+
 export type Phase2 = {
   radar: RadarItem[];
   news: NewsItem[];

@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { importIbkr, runNewsDetect, runRadarSync } from "./db";
+import { useEffect, useState } from "react";
+import { approveOpportunity, importIbkr, loadOpportunities, runNewsDetect, runRadarSync } from "./db";
 import { earningsOf, ProximosResultados } from "./earnings";
 import { eur, fecha, fechaCorta, fechaDiaMes, fmt, pct } from "./format";
 import { newsGroups, newsVisible, type NewsFilter } from "./news";
 import { parseIbkrCsv, type IbkrRow } from "./ibkr";
-import { priceReturn } from "./math";
-import type { BenchmarkLevel, Bundle, NewsItem, Phase2, RadarItem, VirtualEntry } from "./types";
+import { cagr3, priceReturn } from "./math";
+import type { BenchmarkLevel, Bundle, NewsItem, Opportunity, Phase2, RadarItem, VirtualEntry } from "./types";
 import { companyView, latestQuote, portfolioEurOn } from "./view";
 import type { SourceMode } from "./math";
 
@@ -54,9 +54,28 @@ function radarValue(value: number | null | undefined, text: string): string {
   return value === null || value === undefined || !Number.isFinite(value) ? "Pendiente" : text;
 }
 
+/** Same formulas as the company sheet: 1y is target/price − 1, 3y is (target/price)^(1/3) − 1. No target and a live price is 0, not a guessed target. */
+function shownCagr(target: number | null, price: number | null, years: 1 | 3): { text: string; sin: boolean } {
+  if (price === null || !(price > 0)) return { text: "Pendiente", sin: false };
+  if (target === null) return { text: pct(0), sin: true };
+  const value = years === 1 ? priceReturn(target, price) : cagr3(target, price);
+  if (value === null) return { text: "Pendiente", sin: false };
+  return { text: pct(value), sin: false };
+}
+
+const CAGR_YELLOW = "#FFE14A";
+
 export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode; today: string; owner: boolean; onOpen: (ticker: string) => void; onSaved: () => void }) {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [approving, setApproving] = useState<string | null>(null);
+
+  async function refreshOpportunities() {
+    setOpportunities(await loadOpportunities());
+  }
+
+  useEffect(() => { void refreshOpportunities(); }, []);
   const labels: Record<RadarItem["status"], string> = { vigilar: "Vigilar", en_analisis: "En análisis", descartada: "Descartada" };
   const items = [...props.phase2.radar].sort((a, b) => (a.sort ?? 1e9) - (b.sort ?? 1e9));
   const computed = items.map((item) => item.computed_at).filter((value): value is string => Boolean(value)).sort().at(-1) ?? null;
@@ -76,6 +95,10 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
       {props.phase2.missing ? <p className="stamp">Falta supabase/warren_phase2.sql. La lista está vacía y no se guarda nada.</p> : null}
       {items.length === 0 ? <p style={{ color: INK3 }}>Sin candidatas.</p> : items.map((item) => {
         const company = companyFor(props.bundle, item.ticker, item.company_id);
+        const view = company ? companyView(props.bundle, company.id, props.mode, props.today) : null;
+        const livePrice = view ? view.price : item.price ?? null;
+        const cagr1 = shownCagr(view ? view.target1 : item.target_1a ?? null, livePrice, 1);
+        const cagr3y = shownCagr(view ? view.target3 : item.target_3a ?? null, livePrice, 3);
         const priceDate = item.price_date ? fechaDiaMes(item.price_date) : null;
         return (
           <article key={item.id} style={{ ...card, marginTop: 8 }}>
@@ -84,11 +107,18 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
               <span className="stamp">{labels[item.status] ?? item.status}{item.changed ? " · Cambió" : ""}</span>
             </div>
             <div style={{ color: INK3 }}>{item.name || company?.name || "Sin nombre"}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
+              {[{ label: "CAGR 1A", item: cagr1 }, { label: "CAGR 3A", item: cagr3y }].map((block) => (
+                <div key={block.label}>
+                  <div style={{ color: CAGR_YELLOW, fontSize: 13, fontWeight: 700 }}>{block.label}</div>
+                  <div style={{ color: CAGR_YELLOW, fontSize: 32, fontWeight: 800, lineHeight: 1.1 }}>{block.item.text}</div>
+                  {block.item.sin ? <div className="stamp">sin objetivo</div> : null}
+                </div>
+              ))}
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
               <span>Precio {radarValue(item.price, item.price_currency === "EUR" ? eur(item.price, 2) : fmt(item.price ?? null) + (item.price_currency ? " " + item.price_currency : ""))}{priceDate ? " · " + priceDate : ""}</span>
               <span>Obj. 3A {radarValue(item.target_3a, fmt(item.target_3a ?? null))}</span>
-              <span>CAGR 3A {radarValue(item.cagr_3a, pct(item.cagr_3a ?? null))}</span>
-              <span>Potencial 1A <span className={item.potencial_1a == null ? "stamp" : undefined}>{radarValue(item.potencial_1a, pct(item.potencial_1a ?? null))}</span></span>
               <span>Escenario {item.scenario || "pendiente"}</span>
               <span>Próx. resultados <ProximosResultados row={earningsOf(props.bundle.earnings, company?.id ?? item.company_id)} /></span>
             </div>
@@ -100,6 +130,24 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
           </article>
         );
       })}
+      <h2 style={{ fontSize: 22, margin: "22px 0 8px" }}>Oportunidades</h2>
+      <p style={{ color: INK3, marginTop: 0 }}>Warren propone. Alberto pulsa OK. No se añade ninguna acción a Mi cartera.</p>
+      {opportunities.length === 0 ? <p style={{ color: INK3 }}>Warren aún no ha propuesto empresas.</p> : opportunities.map((proposal) => (
+        <article key={proposal.id} style={{ ...card, marginTop: 8 }}>
+          <b>{proposal.ticker}</b>
+          <div style={{ color: INK3 }}>{proposal.name}</div>
+          <p style={{ margin: "8px 0" }}>{proposal.reason}</p>
+          <button type="button" style={{ ...btn(true), width: "100%", minHeight: 52, fontSize: 18 }} disabled={approving === proposal.id} onClick={() => void (async () => {
+            setApproving(proposal.id);
+            setMsg("");
+            const error = await approveOpportunity(proposal.id);
+            setApproving(null);
+            if (error) { setMsg(error); return; }
+            await refreshOpportunities();
+            props.onSaved();
+          })()}>{approving === proposal.id ? "…" : "OK"}</button>
+        </article>
+      ))}
       {msg ? <p style={{ color: AMBER }}>{msg}</p> : null}
     </section>
   );

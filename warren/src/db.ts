@@ -1,7 +1,7 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../../shared/supabase.config";
 import { num } from "./format";
-import type { BenchmarkLevel, Bundle, Company, EarningsRow, Estimate, FxRate, NewsItem, OpsDashboard, OpsHealth, Phase2, Position, Quote, RadarItem, SyncRun, VirtualEntry, YearRow } from "./types";
+import type { BenchmarkLevel, Bundle, Company, EarningsRow, Estimate, FxRate, NewsItem, Opportunity, OpsDashboard, OpsHealth, Phase2, Position, Quote, RadarItem, SyncRun, VirtualEntry, YearRow } from "./types";
 import type { IbkrRow } from "./ibkr";
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
@@ -55,6 +55,17 @@ export async function runHealthCheck(): Promise<{ health: OpsHealth | null; erro
   const { data, error } = await supabase.rpc("warren_run_health_check");
   if (error) return { health: null, error: error.message };
   return { health: (data ?? null) as OpsHealth | null, error: null };
+}
+
+export async function loadOpportunities(): Promise<Opportunity[]> {
+  const { data, error } = await supabase.from("warren_opportunities").select("id,ticker,name,reason,currency,exchange,api_symbol,status,created_at").eq("status", "pending").order("created_at");
+  if (error || !data) return [];
+  return data as Opportunity[];
+}
+
+export async function approveOpportunity(id: string): Promise<string | null> {
+  const { error } = await supabase.rpc("warren_approve_opportunity", { p_id: id });
+  return error ? error.message : null;
 }
 
 export async function runRadarSync(): Promise<string | null> {
