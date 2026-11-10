@@ -139,7 +139,8 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
         const company = companyFor(props.bundle, item.ticker, item.company_id);
         const view = company ? companyView(props.bundle, company.id, props.mode, props.today) : null;
         const livePrice = view ? view.price : item.price ?? null;
-        const cagr1 = shownCagr(view ? view.target1 : item.target_1a ?? null, livePrice, 1);
+        const target1 = view ? view.target1 : item.target_1a ?? null;
+        const cagr1 = shownCagr(target1, livePrice, 1);
         const cagr3y = shownCagr(view ? view.target3 : item.target_3a ?? null, livePrice, 3);
         const priceDate = item.price_date ? fechaDiaMes(item.price_date) : null;
         return (
@@ -160,8 +161,9 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
               <span>Precio {radarValue(item.price, item.price_currency === "EUR" ? eur(item.price, 2) : fmt(item.price ?? null) + (item.price_currency ? " " + item.price_currency : ""))}{priceDate ? " · " + priceDate : ""}</span>
-              <span>Obj. 3A {radarValue(item.target_3a, fmt(item.target_3a ?? null))}</span>
               <span>Escenario {item.scenario || "pendiente"}</span>
+              <span>Obj. 1A {radarValue(target1, fmt(target1))}</span>
+              <span>Obj. 3A {radarValue(item.target_3a, fmt(item.target_3a ?? null))}</span>
               <span>Próx. resultados <ProximosResultados row={earningsOf(props.bundle.earnings, company?.id ?? item.company_id)} /></span>
             </div>
             {item.changed && item.change_note ? <p className="stamp">{item.change_note}</p> : null}
