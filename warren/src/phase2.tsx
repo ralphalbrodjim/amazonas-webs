@@ -54,7 +54,7 @@ function radarValue(value: number | null | undefined, text: string): string {
   return value === null || value === undefined || !Number.isFinite(value) ? "Pendiente" : text;
 }
 
-export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode; today: string; owner: boolean; onSaved: () => void }) {
+export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode; today: string; owner: boolean; onOpen: (ticker: string) => void; onSaved: () => void }) {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const labels: Record<RadarItem["status"], string> = { vigilar: "Vigilar", en_analisis: "En análisis", descartada: "Descartada" };
@@ -79,8 +79,8 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
         const priceDate = item.price_date ? fechaDiaMes(item.price_date) : null;
         return (
           <article key={item.id} style={{ ...card, marginTop: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-              <b>{item.ticker}</b>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              {company ? <button type="button" className="hit" onClick={() => props.onOpen(company.ticker)} style={{ background: "none", border: 0, color: "inherit", font: "inherit", fontWeight: 700, padding: 0, cursor: "pointer", textDecoration: "underline", textAlign: "left", minHeight: 44 }}>{item.ticker}</button> : <b>{item.ticker}</b>}
               <span className="stamp">{labels[item.status] ?? item.status}{item.changed ? " · Cambió" : ""}</span>
             </div>
             <div style={{ color: INK3 }}>{item.name || company?.name || "Sin nombre"}</div>

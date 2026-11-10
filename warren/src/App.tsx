@@ -172,9 +172,12 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
   const company = bundle.companies.find((row) => row.ticker === ticker) ?? null;
   const view = company ? companyView(bundle, company.id, mode, today) : null;
 
-  function open(next: string) {
+  const [sheetFrom, setSheetFrom] = useState<Screen>("resumen");
+
+  function open(next: string, origin: Screen = "resumen") {
     setTicker(next);
     setTab("rent");
+    setSheetFrom(origin);
     setScreen("ficha");
   }
 
@@ -201,11 +204,11 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
       {screen === "resumen" || screen === "cartera" || screen === "ficha" ? <Mode mode={mode} onChange={setMode} /> : null}
       {screen === "resumen" ? <Resumen bundle={bundle} phase2={phase2} mode={mode} today={today} q={q} setQ={setQ} cartera={cartera} setCartera={setCartera} cagrMin={cagrMin} setCagrMin={setCagrMin} sort={sort} setSort={setSort} onOpen={open} owner={owner} runs={runs} /> : null}
       {screen === "cartera" ? <Cartera bundle={bundle} mode={mode} today={today} missing={missing || phase2.missing} runs={runs} onOpen={open} onSaved={() => void reload()} /> : null}
-      {screen === "ficha" && company && view ? <Ficha companyName={company.name} ticker={company.ticker} currency={company.currency} notes={company.notes} verdict={company.verdict} view={view} mode={mode} bundle={bundle} companyId={company.id} tab={tab} setTab={setTab} today={today} missing={missing} owner={owner} onBack={() => setScreen("resumen")} onSaved={() => void reload()} /> : null}
+      {screen === "ficha" && company && view ? <Ficha companyName={company.name} ticker={company.ticker} currency={company.currency} notes={company.notes} verdict={company.verdict} view={view} mode={mode} bundle={bundle} companyId={company.id} tab={tab} setTab={setTab} today={today} missing={missing} owner={owner} backLabel={sheetFrom === "radar" ? "← Radar" : "← Resumen"} onBack={() => setScreen(sheetFrom)} onSaved={() => void reload()} /> : null}
       {screen === "ficha" && !company ? <p style={{ color: INK3 }}>Elige una empresa en Resumen.</p> : null}
       {screen === "intelligence" ? <Intelligence phase2={phase2} owner={owner} onSaved={() => void reload()} /> : null}
       {screen === "virtual" ? <VirtualBook bundle={bundle} phase2={phase2} onSaved={() => void reload()} /> : null}
-      {screen === "radar" ? <Radar bundle={bundle} phase2={phase2} mode={mode} today={today} owner={owner} onSaved={() => void reload()} /> : null}
+      {screen === "radar" ? <Radar bundle={bundle} phase2={phase2} mode={mode} today={today} owner={owner} onOpen={(ticker) => open(ticker, "radar")} onSaved={() => void reload()} /> : null}
       <p style={{ color: INK3, fontSize: 12, marginTop: 22 }}>Cierres diarios, sin dividendos. Mixto = 50 % TIKR + 50 % Warren, y solo si los dos existen. Horizonte máximo: 3 años.</p>
       <button type="button" style={{ ...btn(false), marginTop: 8 }} onClick={() => download(bundle)}>Exportar copia JSON</button>
     </Frame>
@@ -572,13 +575,13 @@ function Ficha(props: {
   companyName: string; ticker: string; currency: string; notes: string | null; verdict: string | null;
   view: CompanyView; mode: SourceMode; bundle: Bundle; companyId: string;
   tab: "evo" | "val" | "rent"; setTab: (tab: "evo" | "val" | "rent") => void;
-  today: string; missing: boolean; owner: boolean; onBack: () => void; onSaved: () => void;
+  today: string; missing: boolean; owner: boolean; backLabel?: string; onBack: () => void; onSaved: () => void;
 }) {
   const tabs = [{ id: "evo" as const, label: "Evolución financiera" }, { id: "val" as const, label: "Valoración" }, { id: "rent" as const, label: "Rentabilidad" }];
   const extras = props.bundle.estimates.filter((row) => row.company_id === props.companyId && (row.source === "excel_bajista" || row.source === "excel_optimista") && row.horizon_years === 3);
   return (
     <section>
-      <button type="button" style={btn(false)} onClick={props.onBack}>← Resumen</button>
+      <button type="button" style={btn(false)} onClick={props.onBack}>{props.backLabel ?? "← Resumen"}</button>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>{props.ticker} · {props.companyName}</h1>
       <p style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
         <Stamp source={props.view.priceManual ? "Manual" : props.view.priceSource} date={props.view.priceDate} old={props.view.priceOld} />
