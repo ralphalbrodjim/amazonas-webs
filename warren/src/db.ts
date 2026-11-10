@@ -58,7 +58,7 @@ export async function runHealthCheck(): Promise<{ health: OpsHealth | null; erro
 }
 
 export async function loadOpportunities(): Promise<Opportunity[]> {
-  const { data, error } = await supabase.from("warren_opportunities").select("id,ticker,name,reason,currency,exchange,api_symbol,status,created_at").eq("status", "pending").order("created_at");
+  const { data, error } = await supabase.from("warren_opportunities").select("id,ticker,name,reason,report_md,currency,exchange,api_symbol,status,created_at").eq("status", "pending").order("created_at");
   if (error || !data) return [];
   return data as Opportunity[];
 }

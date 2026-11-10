@@ -7,6 +7,7 @@ import { mixto, positionValueEur, type SourceMode } from "./math";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
 import { EMPTY, EMPTY_PHASE2, type Bundle, type Company, type Estimate, type OpsDashboard, type Phase2, type SyncRun } from "./types";
 import { earningsOf, ProximosResultados } from "./earnings";
+import { clearRememberedOpportunity, opportunityHash, opportunityTickerFromHash, opportunityTickerNow, rememberedOpportunity, rememberOpportunityFromLocation } from "./opportunity";
 import { companyView, type CompanyView } from "./view";
 import { seriesYears, type PeriodFilter } from "./years";
 
@@ -100,6 +101,8 @@ function Login(props: { missing: boolean }) {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => { rememberOpportunityFromLocation(); }, []);
+
   async function run(action: "in" | "up" | "link") {
     setBusy(true);
     setMsg("");
@@ -143,7 +146,7 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [owner, setOwner] = useState(false);
   const [runs, setRuns] = useState<SyncRun[]>([]);
-  const [screen, setScreen] = useState<Screen>("resumen");
+  const [screen, setScreen] = useState<Screen>(opportunityTickerNow() ? "radar" : "resumen");
   const [ticker, setTicker] = useState<string | null>(null);
   const [tab, setTab] = useState<"evo" | "val" | "rent">("rent");
   const [mode, setMode] = useState<SourceMode>("mixto");
@@ -167,6 +170,32 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
   }
 
   useEffect(() => { void reload(); return watchWarren(() => { void reload(); }); }, []);
+  useEffect(() => {
+    function openLinkedReport() {
+      if (opportunityTickerFromHash(window.location.hash)) {
+        clearRememberedOpportunity();
+        setScreen("radar");
+        return;
+      }
+      const saved = rememberedOpportunity();
+      if (!saved) return;
+      clearRememberedOpportunity();
+      window.location.hash = opportunityHash(saved);
+    }
+    openLinkedReport();
+    window.addEventListener("hashchange", openLinkedReport);
+    return () => window.removeEventListener("hashchange", openLinkedReport);
+  }, []);
+
+  function go(next: Screen) {
+    if (next !== "radar") {
+      clearRememberedOpportunity();
+      if (opportunityTickerFromHash(window.location.hash)) {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
+    }
+    setScreen(next);
+  }
   useEffect(() => { if (missing || phase2.missing) return; return watchPhase2(() => { void reload(); }); }, [missing, phase2.missing]);
 
   const company = bundle.companies.find((row) => row.ticker === ticker) ?? null;
@@ -193,7 +222,7 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
     <Frame email={props.email} onExit={() => void supabase.auth.signOut()}>
       <nav style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
         {nav.map((item) => (
-          <button key={item.id} type="button" style={btn(screen === item.id)} onClick={() => setScreen(item.id)}>
+          <button key={item.id} type="button" style={btn(screen === item.id)} onClick={() => go(item.id)}>
             {item.label}
           </button>
         ))}

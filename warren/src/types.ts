@@ -241,6 +241,7 @@ export type Opportunity = {
   ticker: string;
   name: string;
   reason: string;
+  report_md: string | null;
   currency: string | null;
   exchange: string | null;
   api_symbol: string | null;

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { approveOpportunity, importIbkr, loadOpportunities, runNewsDetect, runRadarSync } from "./db";
+import { AnalysisReader } from "./markdown";
+import { clearRememberedOpportunity, opportunityHash, opportunityTickerFromHash, opportunityTickerNow } from "./opportunity";
 import { earningsOf, ProximosResultados } from "./earnings";
 import { eur, fecha, fechaCorta, fechaDiaMes, fmt, pct } from "./format";
 import { newsGroups, newsVisible, type NewsFilter } from "./news";
@@ -65,19 +67,56 @@ function shownCagr(target: number | null, price: number | null, years: 1 | 3): {
 
 const CAGR_YELLOW = "#FFE14A";
 
+function hasReport(proposal: Opportunity): boolean {
+  return Boolean(proposal.report_md && proposal.report_md.trim());
+}
+
 export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode; today: string; owner: boolean; onOpen: (ticker: string) => void; onSaved: () => void }) {
+  const linked = opportunityTickerNow();
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
-  const [vista, setVista] = useState<"radar" | "oportunidades">("radar");
+  const [vista, setVista] = useState<"radar" | "oportunidades">(linked ? "oportunidades" : "radar");
   const [cartera, setCartera] = useState<"todas" | "si" | "no">("todas");
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [opportunitiesReady, setOpportunitiesReady] = useState(false);
   const [approving, setApproving] = useState<string | null>(null);
+  const [reportTicker, setReportTicker] = useState<string | null>(linked);
 
   async function refreshOpportunities() {
     setOpportunities(await loadOpportunities());
+    setOpportunitiesReady(true);
   }
 
   useEffect(() => { void refreshOpportunities(); }, []);
+  useEffect(() => {
+    function sync() {
+      const ticker = opportunityTickerFromHash(window.location.hash);
+      if (ticker) {
+        setVista("oportunidades");
+        setReportTicker(ticker);
+        clearRememberedOpportunity();
+        return;
+      }
+      setReportTicker(null);
+    }
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
+
+  function openReport(ticker: string) {
+    const next = opportunityHash(ticker);
+    setVista("oportunidades");
+    setReportTicker(ticker.toUpperCase());
+    if (window.location.hash !== next) window.location.hash = next;
+  }
+
+  function closeReport() {
+    setReportTicker(null);
+    clearRememberedOpportunity();
+    if (opportunityTickerFromHash(window.location.hash)) {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+  }
   const labels: Record<RadarItem["status"], string> = { vigilar: "Vigilar", en_analisis: "En análisis", descartada: "Descartada" };
   const ranked = [...props.phase2.radar].sort((a, b) => (a.sort ?? 1e9) - (b.sort ?? 1e9));
   const items = ranked.filter((item) => {
@@ -88,6 +127,7 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
     return true;
   });
   const computed = items.map((item) => item.computed_at).filter((value): value is string => Boolean(value)).sort().at(-1) ?? null;
+  const openProposal = reportTicker ? opportunities.find((row) => row.ticker.toUpperCase() === reportTicker) ?? null : null;
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Radar de oportunidades</h1>
@@ -119,6 +159,7 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
               <b>{proposal.ticker}</b>
               <div style={{ color: INK3 }}>{proposal.name}</div>
               <p style={{ margin: "8px 0" }}>{proposal.reason}</p>
+              {hasReport(proposal) ? <button type="button" style={{ ...btn(false), width: "100%", minHeight: 52, fontSize: 17, marginBottom: 8 }} onClick={() => openReport(proposal.ticker)}>Ver análisis</button> : null}
               <button type="button" style={{ ...btn(true), width: "100%", minHeight: 52, fontSize: 18 }} disabled={approving === proposal.id} onClick={() => void (async () => {
                 setApproving(proposal.id);
                 setMsg("");
@@ -177,6 +218,7 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
         </>
       )}
       {msg ? <p style={{ color: AMBER }}>{msg}</p> : null}
+      {reportTicker ? <AnalysisReader ticker={reportTicker} name={openProposal?.name} source={opportunitiesReady ? (openProposal?.report_md ?? "") : null} onClose={closeReport} /> : null}
     </section>
   );
 }

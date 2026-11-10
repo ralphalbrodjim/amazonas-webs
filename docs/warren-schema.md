@@ -153,6 +153,14 @@ Radar lists rows with `status = 'pending'`. Alberto taps OK. The function insert
 
 Leave `cik` null when no free source publishes it. Currency and name are required; the function refuses to invent them.
 
+`report_md` is nullable text. It holds the full analysis in Markdown (bold headings, bullet lists, one pipe table, and URLs). The existing owner SELECT policy covers it, so the text stays behind login. The column is already on the live database; `supabase/warren_opportunities.sql` records it and does not need to be applied again. Do not copy a report into this repository.
+
+Radar shows «Ver análisis» only when `report_md` is non-empty. After login, this address opens that report:
+
+`https://ralphalbrodjim.github.io/amazonas-webs/warren/#oportunidad/TICKER`
+
+`TICKER` is the proposal ticker, for example `BKNG`.
+
 ```sql
 insert into public.warren_opportunities
   (owner_id, ticker, name, reason, currency, exchange, api_symbol, quote_unit, cik)

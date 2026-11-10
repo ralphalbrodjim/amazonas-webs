@@ -12,6 +12,7 @@ create table if not exists public.warren_opportunities (
   ticker text not null,
   name text not null,
   reason text not null,
+  report_md text,
   currency text,
   exchange text,
   api_symbol text,
@@ -23,6 +24,10 @@ create table if not exists public.warren_opportunities (
   approved_at timestamptz,
   unique (owner_id, ticker)
 );
+
+-- Already applied on the live database. report_md is the private Markdown analysis.
+-- The website only reads it. Do not store the text in this repository.
+alter table public.warren_opportunities add column if not exists report_md text;
 
 alter table public.warren_opportunities enable row level security;
 alter table public.warren_opportunities force row level security;
