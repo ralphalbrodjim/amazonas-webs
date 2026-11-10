@@ -68,6 +68,7 @@ const CAGR_YELLOW = "#FFE14A";
 export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode; today: string; owner: boolean; onOpen: (ticker: string) => void; onSaved: () => void }) {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [vista, setVista] = useState<"radar" | "oportunidades">("radar");
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [approving, setApproving] = useState<string | null>(null);
 
@@ -83,15 +84,41 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Radar de oportunidades</h1>
       <p className="stamp">Radar · domingo 19:00 Madrid · {computed ? fechaDiaMes(computed) : "Pendiente"}</p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
+        <button type="button" style={{ ...btn(vista === "radar"), minHeight: 52, fontSize: 17, padding: "12px 18px" }} onClick={() => setVista("radar")}>Radar</button>
+        <button type="button" style={{ ...btn(vista === "oportunidades"), minHeight: 52, fontSize: 17, padding: "12px 18px" }} onClick={() => setVista("oportunidades")}>Oportunidades</button>
+        {vista === "radar" && props.owner ? <button type="button" style={{ ...btn(true), minHeight: 52 }} disabled={props.phase2.missing || busy} onClick={() => void (async () => {
+          setBusy(true);
+          setMsg("");
+          const error = await runRadarSync();
+          setBusy(false);
+          if (error) { setMsg(error); return; }
+          props.onSaved();
+        })()}>{busy ? "Recalculando…" : "Recalcular Radar"}</button> : null}
+      </div>
+      {vista === "oportunidades" ? (
+        <>
+          <p style={{ color: INK3, marginTop: 0 }}>Warren propone. Alberto pulsa OK. No se añade ninguna acción a Mi cartera.</p>
+          {opportunities.length === 0 ? <p style={{ color: INK3 }}>Warren aún no ha propuesto empresas.</p> : opportunities.map((proposal) => (
+            <article key={proposal.id} style={{ ...card, marginTop: 8 }}>
+              <b>{proposal.ticker}</b>
+              <div style={{ color: INK3 }}>{proposal.name}</div>
+              <p style={{ margin: "8px 0" }}>{proposal.reason}</p>
+              <button type="button" style={{ ...btn(true), width: "100%", minHeight: 52, fontSize: 18 }} disabled={approving === proposal.id} onClick={() => void (async () => {
+                setApproving(proposal.id);
+                setMsg("");
+                const error = await approveOpportunity(proposal.id);
+                setApproving(null);
+                if (error) { setMsg(error); return; }
+                await refreshOpportunities();
+                props.onSaved();
+              })()}>{approving === proposal.id ? "…" : "OK"}</button>
+            </article>
+          ))}
+        </>
+      ) : (
+        <>
       <p style={{ color: INK3 }}>Candidatas ordenadas por el CAGR guardado. Si falta un objetivo, queda en Pendiente.</p>
-      {props.owner ? <button type="button" style={{ ...btn(true), marginBottom: 12 }} disabled={props.phase2.missing || busy} onClick={() => void (async () => {
-        setBusy(true);
-        setMsg("");
-        const error = await runRadarSync();
-        setBusy(false);
-        if (error) { setMsg(error); return; }
-        props.onSaved();
-      })()}>{busy ? "Recalculando…" : "Recalcular Radar"}</button> : null}
       {props.phase2.missing ? <p className="stamp">Falta supabase/warren_phase2.sql. La lista está vacía y no se guarda nada.</p> : null}
       {items.length === 0 ? <p style={{ color: INK3 }}>Sin candidatas.</p> : items.map((item) => {
         const company = companyFor(props.bundle, item.ticker, item.company_id);
@@ -130,24 +157,8 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
           </article>
         );
       })}
-      <h2 style={{ fontSize: 22, margin: "22px 0 8px" }}>Oportunidades</h2>
-      <p style={{ color: INK3, marginTop: 0 }}>Warren propone. Alberto pulsa OK. No se añade ninguna acción a Mi cartera.</p>
-      {opportunities.length === 0 ? <p style={{ color: INK3 }}>Warren aún no ha propuesto empresas.</p> : opportunities.map((proposal) => (
-        <article key={proposal.id} style={{ ...card, marginTop: 8 }}>
-          <b>{proposal.ticker}</b>
-          <div style={{ color: INK3 }}>{proposal.name}</div>
-          <p style={{ margin: "8px 0" }}>{proposal.reason}</p>
-          <button type="button" style={{ ...btn(true), width: "100%", minHeight: 52, fontSize: 18 }} disabled={approving === proposal.id} onClick={() => void (async () => {
-            setApproving(proposal.id);
-            setMsg("");
-            const error = await approveOpportunity(proposal.id);
-            setApproving(null);
-            if (error) { setMsg(error); return; }
-            await refreshOpportunities();
-            props.onSaved();
-          })()}>{approving === proposal.id ? "…" : "OK"}</button>
-        </article>
-      ))}
+        </>
+      )}
       {msg ? <p style={{ color: AMBER }}>{msg}</p> : null}
     </section>
   );
