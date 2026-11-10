@@ -505,7 +505,7 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
                 <td>{view.price === null ? <span className="nd">Pendiente</span> : fmt(view.price)}</td>
                 <td className={view.price === null ? "nd" : tone(view.rentHoy, "plain")}>{view.price === null ? "Pendiente" : pct(view.rentHoy) + (view.pnlNowEur === null ? "" : " · " + eur(view.pnlNowEur))}</td>
                 <td>{view.weightPct === null ? "N/D" : fmt(view.weightPct, 2) + " %"}</td>
-                <td className={one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : fmt(one.kind === "hoy" ? view.price : view.target1)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
+                <td className={one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : rentYPrecio(one.kind === "hoy" ? view.price : view.target1, view.price)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
                 <td className={one.kind === "target" ? tone(one.pnl, "blue") : one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : eur(one.pnl)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
                 <td className={three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : fmt(three.kind === "hoy" ? view.price : view.target3)}{three.kind === "hoy" ? <span className="stamp"> sin objetivo</span> : null}</td>
                 <td className={three.kind === "target" ? tone(three.pnl, "plain") : three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : eur(three.pnl)}{three.kind === "hoy" ? <span className="stamp"> sin objetivo</span> : null}</td>
@@ -524,6 +524,13 @@ function Cartera(props: { bundle: Bundle; mode: SourceMode; today: string; missi
 
 function Kpi(props: { label: string; value: string; mark?: string | null; detail?: string | null }) {
   return <div style={card}><div style={{ color: INK3, fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>{props.label}</div><div style={{ fontSize: 26, fontWeight: 800, color: CYAN, marginTop: 6 }}>{props.value}{props.mark ? <span className="stamp"> {props.mark}</span> : null}</div>{props.detail ? <div style={{ color: INK3, fontSize: 12, marginTop: 4 }}>{props.detail}</div> : null}</div>;
+}
+
+function rentYPrecio(target: number | null, price: number | null): string {
+  if (target === null || price === null || !(price > 0)) return "Pendiente";
+  const rent = (target - price) / price;
+  const text = (rent * 100).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return (rent > 0 ? "+" : "") + text + "% – " + fmt(target);
 }
 
 function marcaUnAnio(from: CompanyView["target1From"], mode: SourceMode): string | null {
