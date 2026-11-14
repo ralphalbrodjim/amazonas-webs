@@ -3,7 +3,8 @@ import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { loadIsOwner, loadOpsDashboard, loadPhase2, loadSyncRuns, loadWarren, probeSchema, redirectTo, runHealthCheck, runSecFundamentals, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
 import { eur, fecha, fechaDiaMes, fmt, fmtCompact, madridToday, parseInput, pct } from "./format";
 import { failureReason, latestPriceUpdate, staleTickerReason } from "./stale";
-import { positionValueEur } from "./math";
+import { cagr3, carteraFuenteTargets, positionValueEur, type CarteraFuente } from "./math";
+import { readChoice, writeChoice } from "./pendientes";
 import { AnalysisReader } from "./markdown";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
 import { EntradaMark, SourceCompare, Seguimiento, Stars, Calendario, Tikr3A, TikrConsenso, TIKR_3A_NOTE } from "./panels";
@@ -490,8 +491,14 @@ function sumHorizon(rows: Horizon[]) {
 }
 
 function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; missing: boolean; runs: SyncRun[]; onOpen: (ticker: string) => void; onSaved: () => void }) {
+  const [fuente, setFuente] = useState<CarteraFuente>(() => readChoice("warren.cartera.fuente", ["tikr", "warren", "mixto"] as const, "warren"));
   const rows = props.bundle.companies.filter((company) => company.in_portfolio);
-  const views = rows.map((company) => ({ company, view: companyView(props.bundle, company.id, "warren", props.today, radarTarget3Of(props.radar, company.id, company.ticker), radarTarget1Of(props.radar, company.id, company.ticker)) }));
+  const views = rows.map((company) => {
+    const view = companyView(props.bundle, company.id, "warren", props.today, radarTarget3Of(props.radar, company.id, company.ticker), radarTarget1Of(props.radar, company.id, company.ticker));
+    const radar = radarFor(props.radar, company.id, company.ticker);
+    const picked = carteraFuenteTargets(fuente, radar?.target_1a ?? null, radar?.target_1a_tikr ?? null, radar?.target_3a ?? null, radar?.target_3a_tikr ?? null);
+    return { company, view, picked };
+  });
   const fxDates = views.map((row) => row.view.fx?.rate_date).filter((value): value is string => Boolean(value));
   const part = (pick: (view: CompanyView) => number | null) => {
     const known = views.map((row) => pick(row.view)).filter((value): value is number => value !== null);
@@ -499,14 +506,19 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
   };
   const valueNow = part((view) => view.valueEur);
   const pnlNow = part((view) => view.pnlNowEur);
-  const oneYear = views.map(({ view }) => horizonOf(view, view.target1));
-  const threeYear = views.map(({ view }) => horizonOf(view, view.target3));
+  const oneYear = views.map(({ view, picked }) => horizonOf(view, picked.target1));
+  const threeYear = views.map(({ view, picked }) => horizonOf(view, picked.target3));
   const h1 = sumHorizon(oneYear);
   const h3 = sumHorizon(threeYear);
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Mi cartera real</h1>
       <p style={{ color: INK3, marginTop: 0 }}>Precio contra precio medio. Los euros salen solo con número de acciones y tipo BCE. El peso es el del Excel, no un cálculo nuevo.</p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+        {([["warren", "Warren"], ["tikr", "TIKR"], ["mixto", "Mixto"]] as const).map(([id, label]) => (
+          <button key={id} type="button" style={{ ...btn(fuente === id), minHeight: 52, fontSize: 16, padding: "12px 16px" }} onClick={() => { setFuente(id); writeChoice("warren.cartera.fuente", id); }}>{label}</button>
+        ))}
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginBottom: 12 }}>
         <Kpi label="Valor actual" value={eur(valueNow.sum)} mark={valueNow.pending > 0 ? valueNow.pending + " Pendiente" : null} />
         <Kpi label="Plusvalía actual" value={eur(pnlNow.sum)} mark={pnlNow.pending > 0 ? pnlNow.pending + " Pendiente" : null} detail={"Valor: " + eur(valueNow.sum)} />
@@ -527,10 +539,12 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
           </thead>
           <tbody>
             {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={12} className="nd">N/D</td></tr> : null}
-            {views.map(({ company, view }, index) => {
+            {views.map(({ company, view, picked }, index) => {
               const one = oneYear[index];
               const three = threeYear[index];
               const oneMark = one.kind === "hoy" ? "sin objetivo" : null;
+              const threeMark = three.kind === "hoy" ? "sin objetivo" : picked.warren3Fallback ? "Warren" : null;
+              const cagr = cagr3(three.kind === "target" ? picked.target3 : null, view.price);
               return (
               <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
                 <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} /></td>
@@ -538,12 +552,12 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
                 <td>{view.price === null ? <span className="nd">Pendiente</span> : fmt(view.price)}</td>
                 <td className={view.price === null ? "nd" : tone(view.rentHoy, "plain")}>{view.price === null ? "Pendiente" : pct(view.rentHoy) + (view.pnlNowEur === null ? "" : " · " + eur(view.pnlNowEur))}</td>
                 <td>{view.weightPct === null ? "N/D" : fmt(view.weightPct, 2) + " %"}</td>
-                <td className={one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : rentYPrecio(one.kind === "hoy" ? view.price : view.target1, view.price)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
+                <td className={one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : rentYPrecio(one.kind === "hoy" ? view.price : picked.target1, view.price)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
                 <td><TikrConsenso value={radarFor(props.radar, company.id, company.ticker)?.target_1a_tikr} price={view.price} /></td>
                 <td className={one.kind === "target" ? tone(one.pnl, "blue") : one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : eur(one.pnl)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
-                <td className={three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : fmt(three.kind === "hoy" ? view.price : view.target3)}{three.kind === "hoy" ? <span className="stamp"> sin objetivo</span> : null}</td>
-                <td className={three.kind === "target" ? tone(three.pnl, "plain") : three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : eur(three.pnl)}{three.kind === "hoy" ? <span className="stamp"> sin objetivo</span> : null}</td>
-                <td className={tone(view.cagr, "green")}>{pct(view.cagr)}</td>
+                <td className={three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : fmt(three.kind === "hoy" ? view.price : picked.target3)}{threeMark ? <span className="stamp"> {threeMark}</span> : null}</td>
+                <td className={three.kind === "target" ? tone(three.pnl, "plain") : three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : eur(three.pnl)}{threeMark ? <span className="stamp"> {threeMark}</span> : null}</td>
+                <td className={tone(cagr, "green")}>{pct(cagr)}</td>
                 <td><Tikr3A value={radarFor(props.radar, company.id, company.ticker)?.target_3a_tikr} /></td>
                 <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
               </tr>

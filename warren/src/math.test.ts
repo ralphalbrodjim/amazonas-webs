@@ -12,6 +12,7 @@ import {
   perTargetGrown,
   pickTarget,
   portfolioCagr,
+  carteraFuenteTargets,
   warrenTarget1,
   warrenTarget3,
   positionReturn,
@@ -52,6 +53,17 @@ test("Mixto is 50/50 and stays empty when TIKR is missing", () => {
   assert.equal(warrenTarget1(undefined, null, null), null);
   assert.ok(Math.abs(priceReturn(266, 295.77)! + 0.1007) < 0.001);
   assert.ok(Math.abs(priceReturn(192, 159.58)! - 0.2032) < 0.001);
+  const googl = carteraFuenteTargets("warren", 266, 400.37, 322.99, 38);
+  assert.equal(googl.target1, 266);
+  const googlTikr = carteraFuenteTargets("tikr", 266, 400.37, 322.99, null);
+  assert.equal(googlTikr.target1, 400.37);
+  assert.equal(googlTikr.target3, 322.99);
+  assert.equal(googlTikr.warren3Fallback, true);
+  const googlMix = carteraFuenteTargets("mixto", 266, 400.37, 322.99, 280);
+  assert.equal(googlMix.target1, (266 + 400.37) / 2);
+  assert.equal(googlMix.target3, (322.99 + 280) / 2);
+  assert.equal(carteraFuenteTargets("mixto", 192, null, 232, null).target1, 192);
+  assert.equal(carteraFuenteTargets("tikr", 192, null, 232, null).target1, null);
 });
 
 test("15% hurdle and position return do not invent a zero", () => {
