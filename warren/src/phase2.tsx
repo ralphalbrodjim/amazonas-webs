@@ -176,7 +176,7 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
                 </div>
               ))}
             </div>
-            <SourceCompare price={price} tikr1={item.target_1a_tikr ?? null} warren1={item.target_1a_warren ?? null} tikr3={item.target_3a_tikr ?? null} warren3={item.target_3a_warren ?? null} />
+            <SourceCompare price={price} tikr1={item.target_1a_tikr ?? null} warren1={item.target_1a_warren ?? null} tikr3={item.target_3a_tikr ?? null} warren3={target3} />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
               <span>Precio {radarValue(item.price, item.price_currency === "EUR" ? eur(item.price, 2) : fmt(item.price ?? null) + (item.price_currency ? " " + item.price_currency : ""))}{priceDate ? " · " + priceDate : ""}</span>
               <span>Entrada 15 % <EntradaMark company={company} radar={item} spot={price} /></span>

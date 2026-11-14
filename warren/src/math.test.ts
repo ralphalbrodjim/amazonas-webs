@@ -12,6 +12,7 @@ import {
   perTargetGrown,
   pickTarget,
   portfolioCagr,
+  warrenTarget3,
   positionReturn,
   priceReturn,
   toEur,
@@ -39,6 +40,11 @@ test("Mixto is 50/50 and stays empty when TIKR is missing", () => {
   assert.deepEqual(oneYearTarget("mixto", 68.8, null), { price: 68.8, from: "warren" });
   assert.deepEqual(oneYearTarget("mixto", 100, 300), { price: 200, from: "mixto" });
   assert.deepEqual(oneYearTarget("warren", null, 38.93), { price: null, from: null });
+  assert.equal(warrenTarget3(47, 68.8), 47);
+  assert.equal(warrenTarget3(null, 20.79), 20.79);
+  assert.equal(warrenTarget3(undefined, null), null);
+  assert.ok(Math.abs(cagr3(232, 159.58)! - 0.1328) < 0.0005);
+  assert.ok(Math.abs(cagr3(47, 27.91)! - 0.19) < 0.001);
 });
 
 test("15% hurdle and position return do not invent a zero", () => {

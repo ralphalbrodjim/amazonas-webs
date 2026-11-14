@@ -55,6 +55,13 @@ function threeCell(target: number | null, price: number | null, pending: string)
   return <span>{fmt(target)}{rate === null ? "" : <> · <span style={{ color: YELLOW, fontWeight: 800 }}>CAGR {pct(rate)}</span></>}</span>;
 }
 
+export const TIKR_3A_NOTE = "Cálculo de Warren: BPA de consenso del 3.er año × PER razonable; no es cifra de TIKR";
+
+export function Tikr3A(props: { value: number | null | undefined }) {
+  const value = typeof props.value === "number" && Number.isFinite(props.value) ? props.value : null;
+  return <span title={TIKR_3A_NOTE}>{value === null ? "—" : fmt(value)}</span>;
+}
+
 export function SourceCompare(props: { price: number | null; tikr1: number | null; warren1: number | null; tikr3: number | null; warren3: number | null }) {
   const head: CSSProperties = { textAlign: "left", color: INK3, fontSize: 12, padding: "8px 10px" };
   const cell: CSSProperties = { padding: "8px 10px", whiteSpace: "nowrap", borderTop: "1px solid " + LINE };
@@ -72,15 +79,21 @@ export function SourceCompare(props: { price: number | null; tikr1: number | nul
           <tr>
             <th style={{ ...cell, textAlign: "left" }}>TIKR (consenso)</th>
             <td style={cell}>{oneCell(props.tikr1, props.price, "TIKR pendiente")}</td>
-            <td style={cell}>{threeCell(props.tikr3, props.price, "TIKR pendiente")}</td>
+            <td style={cell} title={TIKR_3A_NOTE}>—</td>
           </tr>
           <tr>
             <th style={{ ...cell, textAlign: "left" }}>Warren (hijo de Buffett)</th>
             <td style={cell}>{oneCell(props.warren1, props.price, "Warren pendiente")}</td>
             <td style={cell}>{threeCell(props.warren3, props.price, "Warren pendiente")}</td>
           </tr>
+          <tr>
+            <th style={{ ...cell, textAlign: "left" }} title={TIKR_3A_NOTE}>TIKR 3A (implícita)</th>
+            <td style={cell} />
+            <td style={cell}><Tikr3A value={props.tikr3} /></td>
+          </tr>
         </tbody>
       </table>
+      <p className="stamp" style={{ color: INK3, fontWeight: 500, margin: "6px 10px" }}>{TIKR_3A_NOTE}</p>
     </div>
   );
 }
@@ -94,10 +107,10 @@ export function Seguimiento(props: { companies: Company[]; radar: RadarItem[]; e
       <div className="w-scroll">
         <table className="w-table">
           <thead>
-            <tr>{["Empresa", "P. hoy", "Obj. 1A", "Obj. 3A", "CAGR 1A", "CAGR 3A", "Entrada 15 %", "Warren", "Próx. resultados"].map((label, index) => <th key={label} className={index === 0 ? "sticky" : ""}>{label}</th>)}</tr>
+            <tr>{["Empresa", "P. hoy", "Obj. 1A", "Obj. 3A", "CAGR 1A", "CAGR 3A", "Entrada 15 %", "Warren", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => <th key={label} className={index === 0 ? "sticky" : ""} title={label.startsWith("TIKR 3A") ? TIKR_3A_NOTE : undefined}>{label}</th>)}</tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? <tr><td className="sticky">Sin seguimiento</td><td colSpan={8}>—</td></tr> : rows.map((company) => {
+            {rows.length === 0 ? <tr><td className="sticky">Sin seguimiento</td><td colSpan={9}>—</td></tr> : rows.map((company) => {
               const radar = props.radar.find((item) => item.company_id === company.id) ?? props.radar.find((item) => item.ticker.toUpperCase() === company.ticker.toUpperCase()) ?? null;
               const price = radar?.price ?? null;
               const cagr1 = shownReturn(radar?.target_1a ?? null, price, 1);
@@ -112,6 +125,7 @@ export function Seguimiento(props: { companies: Company[]; radar: RadarItem[]; e
                   <td style={{ color: YELLOW, fontWeight: 800 }}>{cagr3y.text}{cagr3y.sin ? <span className="stamp"> sin objetivo</span> : null}</td>
                   <td><EntradaMark company={company} radar={radar} spot={price} /></td>
                   <td><Stars stars={company.opportunity_stars} note={company.opportunity_stars_note} at={company.opportunity_stars_at} emphasize /></td>
+                  <td><Tikr3A value={radar?.target_3a_tikr} /></td>
                   <td><ProximosResultados row={props.earnings.find((row) => row.company_id === company.id) ?? null} /></td>
                 </tr>
               );
@@ -178,10 +192,10 @@ export function VirtualTable(props: { companies: Company[]; radar: RadarItem[]; 
       <div className="w-scroll">
         <table className="w-table">
           <thead>
-            <tr>{["Empresa", "Fecha análisis", "Precio compra", "P. hoy", "Rentabilidad", "Precio 1A", "Precio 3A", "Entrada 15 %", "Próx. resultados"].map((label, index) => <th key={label} className={index === 0 ? "sticky" : ""}>{label}</th>)}</tr>
+            <tr>{["Empresa", "Fecha análisis", "Precio compra", "P. hoy", "Rentabilidad", "Precio 1A", "Precio 3A", "Entrada 15 %", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => <th key={label} className={index === 0 ? "sticky" : ""} title={label.startsWith("TIKR 3A") ? TIKR_3A_NOTE : undefined}>{label}</th>)}</tr>
           </thead>
           <tbody>
-            {lines.length === 0 ? <tr><td className="sticky">Sin empresas</td><td colSpan={8}>—</td></tr> : lines.map((line) => {
+            {lines.length === 0 ? <tr><td className="sticky">Sin empresas</td><td colSpan={9}>—</td></tr> : lines.map((line) => {
               const company = props.companies.find((row) => row.id === line.companyId) ?? null;
               const radar = props.radar.find((row) => row.company_id === line.companyId) ?? null;
               return (
@@ -194,6 +208,7 @@ export function VirtualTable(props: { companies: Company[]; radar: RadarItem[]; 
                   <td>{line.target1 === null ? "—" : fmt(line.target1)}</td>
                   <td>{line.target3 === null ? "—" : fmt(line.target3)}</td>
                   <td><EntradaMark company={company} radar={radar} spot={line.price} /></td>
+                  <td><Tikr3A value={line.tikr3} /></td>
                   <td><ProximosResultados row={props.earnings.find((row) => row.company_id === line.companyId) ?? null} /></td>
                 </tr>
               );

@@ -1,4 +1,4 @@
-import { isOld, methodPrices, oneYearTarget, pickTarget, positionReturn, positionValueEur, priceReturn, cagr3, maxPriceForCagr, futurePnlEur, type MethodPrices, type SourceMode } from "./math";
+import { isOld, methodPrices, oneYearTarget, warrenTarget3, positionReturn, positionValueEur, priceReturn, cagr3, maxPriceForCagr, futurePnlEur, type MethodPrices, type SourceMode } from "./math";
 import type { Bundle, Estimate, FxRate, Position, Quote, YearRow } from "./types";
 
 const REQUIRED = 0.15;
@@ -83,7 +83,7 @@ export type CompanyView = {
   years: YearRow[];
 };
 
-export function companyView(bundle: Bundle, companyId: string, mode: SourceMode, today: string): CompanyView {
+export function companyView(bundle: Bundle, companyId: string, mode: SourceMode, today: string, radarTarget3?: number | null): CompanyView {
   const company = bundle.companies.find((row) => row.id === companyId);
   const quote = latestQuote(bundle, companyId);
   const position: Position | undefined = bundle.positions.find((row) => row.company_id === companyId);
@@ -96,7 +96,7 @@ export function companyView(bundle: Bundle, companyId: string, mode: SourceMode,
   const tikr3 = sideTarget(bundle, companyId, "tikr", 3);
   const year1 = oneYearTarget(mode, warren1.price, tikr1.price);
   const target1 = year1.price;
-  const target3 = pickTarget(mode, warren3.price, tikr3.price);
+  const target3 = warrenTarget3(radarTarget3, warren3.price);
   const years = bundle.years.filter((row) => row.company_id === companyId).sort((a, b) => a.fiscal_label.localeCompare(b.fiscal_label, "es", { numeric: true }));
   const financeDates = years.map((row) => row.as_of).filter((value): value is string => Boolean(value)).sort();
   const financeAsOf = financeDates[financeDates.length - 1] ?? null;

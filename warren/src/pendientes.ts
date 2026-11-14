@@ -185,6 +185,7 @@ export type VirtualLine = {
   rent: number | null;
   target1: number | null;
   target3: number | null;
+  tikr3: number | null;
   entrada: number | null;
   entradaNote: string | null;
   pendingBuy: boolean;
@@ -212,6 +213,7 @@ export function virtualLines(companies: Company[], radar: RadarItem[], virtuals:
       rent: buy !== null && price !== null && buy > 0 && sameCurrency ? price / buy - 1 : null,
       target1: finite(item.target_1a),
       target3: finite(item.target_3a),
+      tikr3: finite(item.target_3a_tikr),
       entrada: entrada.price,
       entradaNote: entrada.note,
       pendingBuy: buy === null,

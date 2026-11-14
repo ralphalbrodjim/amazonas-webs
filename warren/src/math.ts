@@ -30,6 +30,12 @@ export function pickTarget(mode: SourceMode, warren: number | null, tikr: number
   return mixto(warren, tikr);
 }
 
+/** The 3-year price is Warren's. A radar figure wins; otherwise Warren's own estimate. TIKR never fills it. */
+export function warrenTarget3(radar: number | null | undefined, estimate: number | null): number | null {
+  if (typeof radar === "number" && Number.isFinite(radar)) return radar;
+  return estimate;
+}
+
 /** One-year target. Mixto is 50/50 only when both exist; otherwise the single stored side. */
 export function oneYearTarget(mode: SourceMode, warren: number | null, tikr: number | null): { price: number | null; from: "warren" | "tikr" | "mixto" | null } {
   if (mode === "warren") return { price: warren, from: warren === null ? null : "warren" };
