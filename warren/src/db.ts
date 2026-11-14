@@ -1,7 +1,7 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../../shared/supabase.config";
 import { num } from "./format";
-import type { BenchmarkLevel, Bundle, Company, EarningsRow, Estimate, FxRate, NewsItem, Opportunity, OpsDashboard, OpsHealth, Phase2, Position, Quote, RadarItem, SyncRun, VirtualEntry, YearRow } from "./types";
+import type { BenchmarkLevel, Bundle, Company, EarningsRow, Estimate, FxRate, NewsItem, OpsDashboard, OpsHealth, Phase2, Position, Quote, RadarItem, SyncRun, VirtualEntry, YearRow } from "./types";
 import type { IbkrRow } from "./ibkr";
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
@@ -57,17 +57,6 @@ export async function runHealthCheck(): Promise<{ health: OpsHealth | null; erro
   return { health: (data ?? null) as OpsHealth | null, error: null };
 }
 
-export async function loadOpportunities(): Promise<Opportunity[]> {
-  const { data, error } = await supabase.from("warren_opportunities").select("id,ticker,name,reason,report_md,currency,exchange,api_symbol,status,created_at").eq("status", "pending").order("created_at");
-  if (error || !data) return [];
-  return data as Opportunity[];
-}
-
-export async function approveOpportunity(id: string): Promise<string | null> {
-  const { error } = await supabase.rpc("warren_approve_opportunity", { p_id: id });
-  return error ? error.message : null;
-}
-
 export async function runRadarSync(): Promise<string | null> {
   const { error } = await supabase.rpc("warren_run_radar_sync", { p_trigger: "manual" });
   return error ? error.message : null;
@@ -99,13 +88,13 @@ export async function loadWarren(): Promise<{ bundle: Bundle | null; missing: bo
     return { bundle: null, missing: false, error: failed.error.message };
   }
   const bundle: Bundle = {
-    companies: (companies.data ?? []) as Company[],
+    companies: ((companies.data ?? []) as Company[]).map((row) => ({ ...row, opportunity_stars: num(row.opportunity_stars), entry_price_15: num(row.entry_price_15) })),
     quotes: ((quotes.data ?? []) as Quote[]).map((row) => rowNum(row, ["price"])),
     years: ((years.data ?? []) as YearRow[]).map((row) => rowNum(row, ["sales", "ebitda", "ebit", "net_income", "bpa", "shares_diluted", "cash", "gross_debt", "net_debt", "cfo", "capex", "fcf"])),
     estimates: ((estimates.data ?? []) as Estimate[]).map((row) => rowNum(row, ["bpa", "bpa_base", "growth", "per", "ev_fcf", "ev_ebitda", "ev_ebit", "fcf", "ebitda", "ebit", "net_debt", "equity_adjustments", "diluted_shares", "target_price"])),
     positions: ((positions.data ?? []) as Position[]).map((row) => rowNum(row, ["shares", "avg_price", "reported_weight_pct"])),
     fx: ((fx.data ?? []) as FxRate[]).map((row) => rowNum(row, ["units_per_eur"])),
-    earnings: earnings.error ? [] : (earnings.data ?? []) as EarningsRow[],
+    earnings: earnings.error ? [] : ((earnings.data ?? []) as EarningsRow[]).map((row) => ({ ...row, estimate_eps: num(row.estimate_eps) })),
   };
   if (earnings.error && !migrationMissing(earnings.error)) {
     return { bundle: null, missing: false, error: earnings.error.message };
@@ -159,7 +148,7 @@ export async function loadPhase2(): Promise<{ phase2: Phase2; error: string | nu
     return { phase2: { radar: [], news: [], virtuals: [], benchmarks: [], missing: false }, error: failed.error.message };
   }
   const phase2: Phase2 = {
-    radar: ((radar.data ?? []) as RadarItem[]).map((row) => rowNum(row, ["price", "target_1a", "target_3a", "potencial_1a", "rent_3a", "cagr_3a", "max_price_15", "target_bajista", "target_optimista", "sort"])),
+    radar: ((radar.data ?? []) as RadarItem[]).map((row) => rowNum(row, ["price", "target_1a", "target_3a", "target_1a_tikr", "target_1a_warren", "target_3a_tikr", "target_3a_warren", "potencial_1a", "rent_3a", "cagr_3a", "max_price_15", "target_bajista", "target_optimista", "sort"])),
     news: (news.data ?? []) as NewsItem[],
     virtuals: ((virtuals.data ?? []) as VirtualEntry[]).map((row) => rowNum(row, ["entry_price"])),
     benchmarks: ((benchmarks.data ?? []) as BenchmarkLevel[]).map((row) => rowNum(row, ["level"])),

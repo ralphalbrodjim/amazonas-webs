@@ -4,13 +4,22 @@ export type Inline =
   | { type: "link"; href: string; children: Inline[] };
 
 export type Block =
+  | { type: "band"; children: Inline[] }
   | { type: "h"; children: Inline[] }
   | { type: "p"; children: Inline[] }
   | { type: "ul"; items: Inline[][] }
+  | { type: "ol"; items: Inline[][] }
   | { type: "table"; headers: Inline[][] | null; rows: Inline[][][] };
 
 const TABLE_LINE = /^\s*\|.*\|\s*$/;
 const LIST_LINE = /^\s*-\s+(.*)$/;
+const ORDER_LINE = /^\s*\d+\.\s+(.*)$/;
+
+function sectionTitle(line: string): string | null {
+  const stripped = line.trim().replace(/^\*\*/, "").replace(/\*\*$/, "").trim();
+  const match = stripped.match(/^(0[1-5])[.)]\s+(\S.*)$/);
+  return match ? match[1] + " " + match[2] : null;
+}
 
 /** Only http(s) can become a link. Anything else stays text. */
 export function safeHttpUrl(value: string): string | null {
@@ -147,6 +156,34 @@ export function parseMarkdown(source: string): Block[] {
         i += 1;
       }
       blocks.push({ type: "ul", items });
+      continue;
+    }
+    const section = sectionTitle(line);
+    if (section) {
+      blocks.push({ type: "h", children: parseInline(section) });
+      i += 1;
+      continue;
+    }
+    if (ORDER_LINE.test(line)) {
+      const items: Inline[][] = [];
+      while (i < lines.length && ORDER_LINE.test(lines[i]) && !sectionTitle(lines[i])) {
+        const item = ORDER_LINE.exec(lines[i]);
+        if (!item) break;
+        items.push(parseInline(item[1]));
+        i += 1;
+      }
+      blocks.push({ type: "ol", items });
+      continue;
+    }
+    const atx = line.trim().match(/^(#{1,3})\s+(\S.*)$/);
+    if (atx) {
+      blocks.push({ type: "h", children: parseInline(atx[2]) });
+      i += 1;
+      continue;
+    }
+    if (/^WARREN\b/i.test(line.trim())) {
+      blocks.push({ type: "band", children: parseInline(line.trim()) });
+      i += 1;
       continue;
     }
     const children = parseInline(line.trim());

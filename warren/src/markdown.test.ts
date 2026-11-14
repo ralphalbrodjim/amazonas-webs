@@ -76,6 +76,31 @@ test("a direct link names only the ticker", () => {
   assert.equal(opportunityTickerFromHash("#radar"), null);
 });
 
+test("the official report shape keeps sections, a band and a wide table", () => {
+  const blocks = parseMarkdown([
+    "WARREN • INTU • 10/11/2026",
+    "",
+    "**01. Cajas clave**",
+    "",
+    "| A | B | C | D | E | F |",
+    "|---|---|---|---|---|---|",
+    "| 1 | 2 | 3 | 4 | 5 | 6 |",
+    "",
+    "1. Primero",
+    "2. Segundo",
+    "",
+    "<script>alert(1)</script>",
+  ].join("\n"));
+  assert.equal(blocks[0].type, "band");
+  assert.equal(blocks[1].type, "h");
+  assert.equal(textOf(blocks[1].type === "h" ? blocks[1].children : []), "01 Cajas clave");
+  assert.equal(blocks[2].type, "table");
+  if (blocks[2].type === "table") assert.equal(blocks[2].headers?.length, 6);
+  assert.equal(blocks[3].type, "ol");
+  if (blocks[3].type === "ol") assert.equal(blocks[3].items.length, 2);
+  assert.equal(textOf(blocks[4].type === "p" ? blocks[4].children : []), "<script>alert(1)</script>");
+});
+
 test("the table sample keeps every column on its own row", () => {
   const blocks: Block[] = parseMarkdown("| Escenario | Múltiplo | Precio 1A |\n|---|---|---|\n| Base | 15x | 192 |");
   assert.equal(blocks.length, 1);

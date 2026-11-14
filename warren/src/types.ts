@@ -8,6 +8,14 @@ export type Company = {
   in_portfolio: boolean;
   classification: string | null;
   quality_stars: number | null;
+  opportunity_stars?: number | null;
+  opportunity_stars_note?: string | null;
+  opportunity_stars_at?: string | null;
+  report_md?: string | null;
+  report_sent_on?: string | null;
+  origin?: "manual" | "warren_proposal" | string | null;
+  entry_price_15?: number | null;
+  entry_price_15_note?: string | null;
   verdict: string | null;
   notes: string | null;
   sort: number;
@@ -175,6 +183,10 @@ export type RadarItem = {
   price_currency?: string | null;
   target_1a?: number | null;
   target_3a?: number | null;
+  target_1a_tikr?: number | null;
+  target_1a_warren?: number | null;
+  target_3a_tikr?: number | null;
+  target_3a_warren?: number | null;
   potencial_1a?: number | null;
   rent_3a?: number | null;
   cagr_3a?: number | null;
@@ -224,6 +236,8 @@ export type VirtualEntry = {
   currency: string;
   price_source: string;
   note: string;
+  auto?: boolean | null;
+  analysis_sent_on?: string | null;
 };
 
 export type BenchmarkLevel = {
@@ -268,6 +282,8 @@ export type EarningsRow = {
   time_of_day: string | null;
   source: string | null;
   source_url?: string | null;
+  estimate_eps?: number | null;
+  estimate_currency?: string | null;
   pending_reason: string | null;
   updated_at?: string | null;
 };

@@ -149,13 +149,9 @@ The Cartera screen accepts a positions or activity CSV. There is no IBKR API key
 
 Run `supabase/warren_opportunities.sql` once in the Supabase SQL editor. It creates `warren_opportunities` and `warren_approve_opportunity(uuid)`. It inserts nothing.
 
-Radar lists rows with `status = 'pending'`. Alberto taps OK. The function inserts `warren_companies` only when that ticker is missing, with `in_portfolio = false` (the same shape as DUOL), and never inserts `warren_positions`. A second tap finds the row already approved and does not create another company.
+The website no longer reads `warren_opportunities` and no longer shows an OK button. An approved proposal is a normal `warren_companies` row (`origin = 'warren_proposal'`, `in_portfolio = false`) and appears in Radar. The full analysis is `warren_companies.report_md`. Do not copy a report into this repository.
 
-Leave `cik` null when no free source publishes it. Currency and name are required; the function refuses to invent them.
-
-`report_md` is nullable text. It holds the full analysis in Markdown (bold headings, bullet lists, one pipe table, and URLs). The existing owner SELECT policy covers it, so the text stays behind login. The column is already on the live database; `supabase/warren_opportunities.sql` records it and does not need to be applied again. Do not copy a report into this repository.
-
-Radar shows «Ver análisis» only when `report_md` is non-empty. After login, this address opens that report:
+Radar shows «Ver análisis» only when that company `report_md` is non-empty. After login, this address opens that report:
 
 `https://ralphalbrodjim.github.io/amazonas-webs/warren/#oportunidad/TICKER`
 

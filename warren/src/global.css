@@ -3,6 +3,8 @@ html, body, #root {
   padding: 0;
   background: #0D1933;
   color: #FFFFFF;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -35,6 +37,7 @@ button:disabled {
 
 .w-scroll {
   overflow: auto;
+  max-width: 100%;
   max-height: 70vh;
   border: 1px solid rgba(130, 170, 230, 0.18);
   border-radius: 14px;

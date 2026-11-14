@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
-import { approveOpportunity, importIbkr, loadOpportunities, runNewsDetect, runRadarSync } from "./db";
+import { importIbkr, runNewsDetect, runRadarSync } from "./db";
 import { AnalysisReader } from "./markdown";
 import { clearRememberedOpportunity, opportunityHash, opportunityTickerFromHash, opportunityTickerNow } from "./opportunity";
+import { EntradaMark, SourceCompare, StarLegend, Stars, VirtualTable } from "./panels";
+import { compareRadar, inCartera, passesFloor, readChoice, shownReturn, writeChoice, type CarteraFilter, type RadarSort } from "./pendientes";
 import { earningsOf, ProximosResultados } from "./earnings";
 import { eur, fecha, fechaCorta, fechaDiaMes, fmt, pct } from "./format";
 import { newsGroups, newsVisible, type NewsFilter } from "./news";
 import { parseIbkrCsv, type IbkrRow } from "./ibkr";
-import { cagr3, priceReturn } from "./math";
-import type { BenchmarkLevel, Bundle, NewsItem, Opportunity, Phase2, RadarItem, VirtualEntry } from "./types";
-import { companyView, latestQuote, portfolioEurOn } from "./view";
+import { priceReturn } from "./math";
+import type { BenchmarkLevel, Bundle, Company, NewsItem, Phase2, RadarItem, VirtualEntry } from "./types";
+import { portfolioEurOn } from "./view";
 import type { SourceMode } from "./math";
 
 const NAVY = "#0D1933";
@@ -56,43 +58,30 @@ function radarValue(value: number | null | undefined, text: string): string {
   return value === null || value === undefined || !Number.isFinite(value) ? "Pendiente" : text;
 }
 
-/** Same formulas as the company sheet: 1y is target/price − 1, 3y is (target/price)^(1/3) − 1. No target and a live price is 0, not a guessed target. */
-function shownCagr(target: number | null, price: number | null, years: 1 | 3): { text: string; sin: boolean } {
-  if (price === null || !(price > 0)) return { text: "Pendiente", sin: false };
-  if (target === null) return { text: pct(0), sin: true };
-  const value = years === 1 ? priceReturn(target, price) : cagr3(target, price);
-  if (value === null) return { text: "Pendiente", sin: false };
-  return { text: pct(value), sin: false };
-}
-
 const CAGR_YELLOW = "#FFE14A";
+const SORTS = ["cagr3", "cagr1", "stars"] as const;
+const FLOORS = ["", "0", "0.1", "0.15", "0.2"] as const;
+const STAR_FLOORS = ["", "1", "2", "3", "4", "5"] as const;
 
-function hasReport(proposal: Opportunity): boolean {
-  return Boolean(proposal.report_md && proposal.report_md.trim());
+function hasReport(company: Company | null): boolean {
+  return Boolean(company?.report_md && company.report_md.trim());
 }
 
 export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode; today: string; owner: boolean; onOpen: (ticker: string) => void; onSaved: () => void }) {
   const linked = opportunityTickerNow();
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
-  const [vista, setVista] = useState<"radar" | "oportunidades">(linked ? "oportunidades" : "radar");
-  const [cartera, setCartera] = useState<"todas" | "si" | "no">("todas");
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [opportunitiesReady, setOpportunitiesReady] = useState(false);
-  const [approving, setApproving] = useState<string | null>(null);
+  const [cartera, setCartera] = useState<CarteraFilter>(() => readChoice("warren.radar.cartera", ["todas", "si", "no"] as const, "todas"));
+  const [sort, setSort] = useState<RadarSort>(() => readChoice("warren.radar.sort", SORTS, "cagr3"));
+  const [min1, setMin1] = useState(() => readChoice("warren.radar.min1", FLOORS, ""));
+  const [min3, setMin3] = useState(() => readChoice("warren.radar.min3", FLOORS, ""));
+  const [minStars, setMinStars] = useState(() => readChoice("warren.radar.stars", STAR_FLOORS, ""));
   const [reportTicker, setReportTicker] = useState<string | null>(linked);
 
-  async function refreshOpportunities() {
-    setOpportunities(await loadOpportunities());
-    setOpportunitiesReady(true);
-  }
-
-  useEffect(() => { void refreshOpportunities(); }, []);
   useEffect(() => {
     function sync() {
       const ticker = opportunityTickerFromHash(window.location.hash);
       if (ticker) {
-        setVista("oportunidades");
         setReportTicker(ticker);
         clearRememberedOpportunity();
         return;
@@ -105,7 +94,6 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
 
   function openReport(ticker: string) {
     const next = opportunityHash(ticker);
-    setVista("oportunidades");
     setReportTicker(ticker.toUpperCase());
     if (window.location.hash !== next) window.location.hash = next;
   }
@@ -118,79 +106,67 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
     }
   }
   const labels: Record<RadarItem["status"], string> = { vigilar: "Vigilar", en_analisis: "En análisis", descartada: "Descartada" };
-  const ranked = [...props.phase2.radar].sort((a, b) => (a.sort ?? 1e9) - (b.sort ?? 1e9));
-  const items = ranked.filter((item) => {
-    const company = companyFor(props.bundle, item.ticker, item.company_id);
-    const inPortfolio = company?.in_portfolio === true;
-    if (cartera === "si") return inPortfolio;
-    if (cartera === "no") return !inPortfolio;
+  const floor1 = min1 === "" ? null : Number(min1);
+  const floor3 = min3 === "" ? null : Number(min3);
+  const floorStars = minStars === "" ? null : Number(minStars);
+  const companyOf = (item: RadarItem) => companyFor(props.bundle, item.ticker, item.company_id);
+  const items = [...props.phase2.radar].filter((item) => {
+    const company = companyOf(item);
+    if (!inCartera(company, cartera)) return false;
+    if (!passesFloor(item.potencial_1a ?? null, floor1)) return false;
+    if (!passesFloor(item.cagr_3a ?? null, floor3)) return false;
+    if (!passesFloor(company?.opportunity_stars ?? null, floorStars)) return false;
     return true;
-  });
-  const computed = items.map((item) => item.computed_at).filter((value): value is string => Boolean(value)).sort().at(-1) ?? null;
-  const openProposal = reportTicker ? opportunities.find((row) => row.ticker.toUpperCase() === reportTicker) ?? null : null;
+  }).sort((a, b) => compareRadar(a, b, sort, companyOf));
+  const computed = props.phase2.radar.map((item) => item.computed_at).filter((value): value is string => Boolean(value)).sort().at(-1) ?? null;
+  const openCompany = reportTicker ? props.bundle.companies.find((row) => row.ticker.toUpperCase() === reportTicker) ?? null : null;
+  function choose<T extends string>(key: string, value: T, set: (value: T) => void) {
+    set(value);
+    writeChoice(key, value);
+  }
   return (
     <section>
-      <h1 style={{ fontSize: 28, marginBottom: 4 }}>Radar de oportunidades</h1>
+      <h1 style={{ fontSize: 28, marginBottom: 4 }}>Radar</h1>
       <p className="stamp">Radar · domingo 19:00 Madrid · {computed ? fechaDiaMes(computed) : "Pendiente"}</p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
-        <button type="button" style={{ ...btn(vista === "radar"), minHeight: 52, fontSize: 17, padding: "12px 18px" }} onClick={() => setVista("radar")}>Radar</button>
-        <button type="button" style={{ ...btn(vista === "oportunidades"), minHeight: 52, fontSize: 17, padding: "12px 18px" }} onClick={() => setVista("oportunidades")}>Oportunidades</button>
-        {vista === "radar" && props.owner ? <button type="button" style={{ ...btn(true), minHeight: 52 }} disabled={props.phase2.missing || busy} onClick={() => void (async () => {
-          setBusy(true);
-          setMsg("");
-          const error = await runRadarSync();
-          setBusy(false);
-          if (error) { setMsg(error); return; }
-          props.onSaved();
-        })()}>{busy ? "Recalculando…" : "Recalcular Radar"}</button> : null}
+      {props.owner ? <button type="button" style={{ ...btn(true), minHeight: 52, marginBottom: 12 }} disabled={props.phase2.missing || busy} onClick={() => void (async () => {
+        setBusy(true);
+        setMsg("");
+        const error = await runRadarSync();
+        setBusy(false);
+        if (error) { setMsg(error); return; }
+        props.onSaved();
+      })()}>{busy ? "Recalculando…" : "Recalcular Radar"}</button> : null}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+        {([["todas", "Todas"], ["si", "En cartera"], ["no", "No en cartera"]] as const).map(([id, label]) => (
+          <button key={id} type="button" style={{ ...btn(cartera === id), minHeight: 52, fontSize: 16, padding: "12px 16px" }} onClick={() => choose("warren.radar.cartera", id, setCartera)}>{label}</button>
+        ))}
       </div>
-      {vista === "radar" ? (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-          {([["todas", "Todas"], ["si", "En cartera"], ["no", "No en cartera"]] as const).map(([id, label]) => (
-            <button key={id} type="button" style={{ ...btn(cartera === id), minHeight: 52, fontSize: 16, padding: "12px 16px" }} onClick={() => setCartera(id)}>{label}</button>
-          ))}
-        </div>
-      ) : null}
-      {vista === "oportunidades" ? (
-        <>
-          <p style={{ color: INK3, marginTop: 0 }}>Warren propone. Alberto pulsa OK. No se añade ninguna acción a Mi cartera.</p>
-          {opportunities.length === 0 ? <p style={{ color: INK3 }}>Warren aún no ha propuesto empresas.</p> : opportunities.map((proposal) => (
-            <article key={proposal.id} style={{ ...card, marginTop: 8 }}>
-              <b>{proposal.ticker}</b>
-              <div style={{ color: INK3 }}>{proposal.name}</div>
-              <p style={{ margin: "8px 0" }}>{proposal.reason}</p>
-              {hasReport(proposal) ? <button type="button" style={{ ...btn(false), width: "100%", minHeight: 52, fontSize: 17, marginBottom: 8 }} onClick={() => openReport(proposal.ticker)}>Ver análisis</button> : null}
-              <button type="button" style={{ ...btn(true), width: "100%", minHeight: 52, fontSize: 18 }} disabled={approving === proposal.id} onClick={() => void (async () => {
-                setApproving(proposal.id);
-                setMsg("");
-                const error = await approveOpportunity(proposal.id);
-                setApproving(null);
-                if (error) { setMsg(error); return; }
-                await refreshOpportunities();
-                props.onSaved();
-              })()}>{approving === proposal.id ? "…" : "OK"}</button>
-            </article>
-          ))}
-        </>
-      ) : (
-        <>
-      <p style={{ color: INK3 }}>Candidatas ordenadas por el CAGR guardado. Si falta un objetivo, queda en Pendiente.</p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, marginBottom: 8 }}>
+        <label>Ordenar por<select aria-label="Ordenar por" style={inputS} value={sort} onChange={(event) => choose("warren.radar.sort", event.target.value as RadarSort, setSort)}><option value="cagr3">CAGR 3A</option><option value="cagr1">CAGR 1A</option><option value="stars">Estrellas Warren</option></select></label>
+        <label>CAGR 1A ≥<select aria-label="CAGR 1A mínimo" style={inputS} value={min1} onChange={(event) => choose("warren.radar.min1", event.target.value as typeof min1, setMin1)}><option value="">Sin mínimo</option><option value="0">0 %</option><option value="0.1">10 %</option><option value="0.15">15 %</option><option value="0.2">20 %</option></select></label>
+        <label>CAGR 3A ≥<select aria-label="CAGR 3A mínimo" style={inputS} value={min3} onChange={(event) => choose("warren.radar.min3", event.target.value as typeof min3, setMin3)}><option value="">Sin mínimo</option><option value="0">0 %</option><option value="0.1">10 %</option><option value="0.15">15 %</option><option value="0.2">20 %</option></select></label>
+        <label>Estrellas ≥<select aria-label="Estrellas mínimas" style={inputS} value={minStars} onChange={(event) => choose("warren.radar.stars", event.target.value as typeof minStars, setMinStars)}><option value="">Sin mínimo</option>{[1, 2, 3, 4, 5].map((n) => <option key={n} value={String(n)}>{n}</option>)}</select></label>
+      </div>
+      <StarLegend />
+      <p style={{ color: INK3 }}>Obj. 1A y Obj. 3A salen del radar guardado. Si falta un objetivo, el CAGR usa el precio de hoy y marca «sin objetivo».</p>
       {props.phase2.missing ? <p className="stamp">Falta supabase/warren_phase2.sql. La lista está vacía y no se guarda nada.</p> : null}
-      {items.length === 0 ? <p style={{ color: INK3 }}>{ranked.length === 0 ? "Sin candidatas." : "Ninguna con este filtro."}</p> : items.map((item) => {
-        const company = companyFor(props.bundle, item.ticker, item.company_id);
-        const view = company ? companyView(props.bundle, company.id, props.mode, props.today) : null;
-        const livePrice = view ? view.price : item.price ?? null;
-        const target1 = view ? view.target1 : item.target_1a ?? null;
-        const cagr1 = shownCagr(target1, livePrice, 1);
-        const cagr3y = shownCagr(view ? view.target3 : item.target_3a ?? null, livePrice, 3);
+      {items.length === 0 ? <p style={{ color: INK3 }}>{props.phase2.radar.length === 0 ? "Sin candidatas." : "Ninguna con este filtro."}</p> : items.map((item) => {
+        const company = companyOf(item);
+        const price = item.price ?? null;
+        const target1 = item.target_1a ?? null;
+        const target3 = item.target_3a ?? null;
+        const cagr1 = shownReturn(target1, price, 1);
+        const cagr3y = shownReturn(target3, price, 3);
         const priceDate = item.price_date ? fechaDiaMes(item.price_date) : null;
         return (
-          <article key={item.id} style={{ ...card, marginTop: 8 }}>
+          <article key={item.id} style={{ ...card, marginTop: 8, outline: company && !company.in_portfolio ? "1px solid " + CAGR_YELLOW : undefined }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               {company ? <button type="button" className="hit" onClick={() => props.onOpen(company.ticker)} style={{ background: "none", border: 0, color: "inherit", font: "inherit", fontWeight: 700, padding: 0, cursor: "pointer", textDecoration: "underline", textAlign: "left", minHeight: 44 }}>{item.ticker}</button> : <b>{item.ticker}</b>}
               <span className="stamp">{labels[item.status] ?? item.status}{item.changed ? " · Cambió" : ""}</span>
             </div>
-            <div style={{ color: INK3 }}>{item.name || company?.name || "Sin nombre"}</div>
+            <div style={{ color: INK3 }}>{item.name || company?.name || "Sin nombre"}{company?.origin === "warren_proposal" ? <span className="stamp"> · Propuesta Warren</span> : null}</div>
+            <div style={{ marginTop: 8 }}><Stars stars={company?.opportunity_stars} note={company?.opportunity_stars_note} at={company?.opportunity_stars_at} emphasize={company ? !company.in_portfolio : false} /></div>
+            {hasReport(company) ? <button type="button" style={{ ...btn(false), width: "100%", minHeight: 52, fontSize: 17, marginTop: 8 }} onClick={() => openReport(item.ticker)}>Ver análisis</button> : null}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
               {[{ label: "CAGR 1A", item: cagr1 }, { label: "CAGR 3A", item: cagr3y }].map((block) => (
                 <div key={block.label}>
@@ -200,13 +176,15 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
                 </div>
               ))}
             </div>
+            <SourceCompare price={price} tikr1={item.target_1a_tikr ?? null} warren1={item.target_1a_warren ?? null} tikr3={item.target_3a_tikr ?? null} warren3={item.target_3a_warren ?? null} />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
               <span>Precio {radarValue(item.price, item.price_currency === "EUR" ? eur(item.price, 2) : fmt(item.price ?? null) + (item.price_currency ? " " + item.price_currency : ""))}{priceDate ? " · " + priceDate : ""}</span>
+              <span>Entrada 15 % <EntradaMark company={company} radar={item} spot={price} /></span>
               <span>Escenario {item.scenario || "pendiente"}</span>
               <span>Obj. 1A {radarValue(target1, fmt(target1))}</span>
-              <span>Obj. 3A {radarValue(item.target_3a, fmt(item.target_3a ?? null))}</span>
-              <span>Próx. resultados <ProximosResultados row={earningsOf(props.bundle.earnings, company?.id ?? item.company_id)} /></span>
+              <span>Obj. 3A {radarValue(target3, fmt(target3))}</span>
             </div>
+            <div style={{ marginTop: 8 }}>Próx. resultados <ProximosResultados row={earningsOf(props.bundle.earnings, company?.id ?? item.company_id)} /></div>
             {item.changed && item.change_note ? <p className="stamp">{item.change_note}</p> : null}
             {item.pending_reason ? <p className="stamp">{item.pending_reason}</p> : null}
             {item.target_bajista != null || item.target_optimista != null ? <p className="stamp">{item.target_bajista != null ? "Bajista " + fmt(item.target_bajista) : ""}{item.target_bajista != null && item.target_optimista != null ? " · " : ""}{item.target_optimista != null ? "Optimista " + fmt(item.target_optimista) : ""}</p> : null}
@@ -215,10 +193,8 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
           </article>
         );
       })}
-        </>
-      )}
       {msg ? <p style={{ color: AMBER }}>{msg}</p> : null}
-      {reportTicker ? <AnalysisReader ticker={reportTicker} name={openProposal?.name} source={opportunitiesReady ? (openProposal?.report_md ?? "") : null} onClose={closeReport} /> : null}
+      {reportTicker ? <AnalysisReader ticker={reportTicker} name={openCompany?.name ?? props.phase2.radar.find((row) => row.ticker.toUpperCase() === reportTicker)?.name} sentOn={openCompany?.report_sent_on} source={props.bundle.companies.length === 0 ? null : (openCompany?.report_md ?? "")} onClose={closeReport} /> : null}
     </section>
   );
 }
@@ -322,32 +298,12 @@ export function Intelligence(props: { phase2: Phase2; owner: boolean; onSaved: (
   );
 }
 
-function virtualReturn(bundle: Bundle, entry: VirtualEntry): number | null {
-  const company = companyFor(bundle, entry.ticker, entry.company_id);
-  if (!company || entry.entry_price === null) return null;
-  const quote = latestQuote(bundle, company.id);
-  if (!quote || quote.price === null || quote.currency !== entry.currency) return null;
-  return priceReturn(quote.price, entry.entry_price);
-}
-
-export function VirtualBook(props: { bundle: Bundle; phase2: Phase2; onSaved: () => void }) {
+export function VirtualBook(props: { bundle: Bundle; phase2: Phase2; onOpen: (ticker: string) => void; onSaved: () => void }) {
   return (
-    <section>
-      <h1 style={{ fontSize: 28, marginBottom: 4 }}>Cartera virtual</h1>
-      <p style={{ color: INK3 }}>Sin acciones y sin euros. Rentabilidad = precio de hoy / precio de entrada − 1, en la misma divisa.</p>
+    <>
       {props.phase2.missing ? <p className="stamp">Falta supabase/warren_phase2.sql.</p> : null}
-      {props.phase2.virtuals.length === 0 ? <p style={{ color: INK3 }}>Sin entradas.</p> : props.phase2.virtuals.map((entry) => {
-        const result = virtualReturn(props.bundle, entry);
-        return (
-          <article key={entry.id} style={{ ...card, marginTop: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}><b>{entry.ticker}</b><span>{pct(result)}</span></div>
-            <p className="stamp">{fecha(entry.entered_on)} · entrada {fmt(entry.entry_price)} {entry.currency} · {entry.price_source}</p>
-            {result === null ? <p style={{ color: INK3 }}>N/D. No hay un cierre de hoy en {entry.currency}.</p> : null}
-            {entry.note ? <p>{entry.note}</p> : null}
-          </article>
-        );
-      })}
-    </section>
+      <VirtualTable companies={props.bundle.companies} radar={props.phase2.radar} virtuals={props.phase2.virtuals} earnings={props.bundle.earnings} onOpen={props.onOpen} />
+    </>
   );
 }
 

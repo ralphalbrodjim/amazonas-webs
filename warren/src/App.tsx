@@ -4,8 +4,10 @@ import { loadIsOwner, loadOpsDashboard, loadPhase2, loadSyncRuns, loadWarren, pr
 import { eur, fecha, fechaDiaMes, fmt, fmtCompact, madridToday, parseInput, pct } from "./format";
 import { failureReason, latestPriceUpdate, staleTickerReason } from "./stale";
 import { mixto, positionValueEur, type SourceMode } from "./math";
+import { AnalysisReader } from "./markdown";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
-import { EMPTY, EMPTY_PHASE2, type Bundle, type Company, type Estimate, type OpsDashboard, type Phase2, type SyncRun } from "./types";
+import { EntradaMark, SourceCompare, Seguimiento, Stars, Calendario } from "./panels";
+import { EMPTY, EMPTY_PHASE2, type Bundle, type Company, type Estimate, type OpsDashboard, type Phase2, type RadarItem, type SyncRun } from "./types";
 import { earningsOf, ProximosResultados } from "./earnings";
 import { clearRememberedOpportunity, opportunityHash, opportunityTickerFromHash, opportunityTickerNow, rememberedOpportunity, rememberOpportunityFromLocation } from "./opportunity";
 import { companyView, type CompanyView } from "./view";
@@ -25,7 +27,7 @@ const card: CSSProperties = { background: PANEL, border: "1px solid " + LINE, bo
 const inputS: CSSProperties = { background: NAVY, color: INK, border: "1px solid " + LINE, borderRadius: 10, padding: "10px 12px", width: "100%", boxSizing: "border-box" };
 const btn = (on: boolean): CSSProperties => ({ cursor: "pointer", minHeight: 44, padding: "8px 14px", borderRadius: 999, border: "1px solid " + (on ? BLUE : LINE), background: on ? BLUE : "transparent", color: on ? NAVY : INK, fontWeight: 700 });
 
-type Screen = "resumen" | "cartera" | "ficha" | "intelligence" | "virtual" | "radar";
+type Screen = "resumen" | "cartera" | "ficha" | "intelligence" | "virtual" | "radar" | "calendario";
 type SortKey = "cagr" | "ticker" | "hoy";
 
 function money(value: number | null, currency: string): string {
@@ -216,6 +218,7 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
     { id: "cartera", label: "Mi cartera" },
     { id: "virtual", label: "Cartera virtual" },
     { id: "radar", label: "Radar" },
+    { id: "calendario", label: "Calendario" },
   ];
 
   return (
@@ -233,11 +236,12 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
       {screen === "resumen" || screen === "cartera" || screen === "ficha" || screen === "radar" ? <Mode mode={mode} onChange={setMode} /> : null}
       {screen === "resumen" ? <Resumen bundle={bundle} phase2={phase2} mode={mode} today={today} q={q} setQ={setQ} cartera={cartera} setCartera={setCartera} cagrMin={cagrMin} setCagrMin={setCagrMin} sort={sort} setSort={setSort} onOpen={open} owner={owner} runs={runs} /> : null}
       {screen === "cartera" ? <Cartera bundle={bundle} mode={mode} today={today} missing={missing || phase2.missing} runs={runs} onOpen={open} onSaved={() => void reload()} /> : null}
-      {screen === "ficha" && company && view ? <Ficha companyName={company.name} ticker={company.ticker} currency={company.currency} notes={company.notes} verdict={company.verdict} view={view} mode={mode} bundle={bundle} companyId={company.id} tab={tab} setTab={setTab} today={today} missing={missing} owner={owner} backLabel={sheetFrom === "radar" ? "← Radar" : "← Resumen"} onBack={() => setScreen(sheetFrom)} onSaved={() => void reload()} /> : null}
+      {screen === "ficha" && company && view ? <Ficha company={company} companyName={company.name} ticker={company.ticker} currency={company.currency} notes={company.notes} verdict={company.verdict} view={view} mode={mode} bundle={bundle} companyId={company.id} radar={phase2.radar.find((row) => row.company_id === company.id) ?? phase2.radar.find((row) => row.ticker.toUpperCase() === company.ticker.toUpperCase()) ?? null} tab={tab} setTab={setTab} today={today} missing={missing} owner={owner} backLabel={sheetFrom === "radar" ? "← Radar" : sheetFrom === "calendario" ? "← Calendario" : sheetFrom === "virtual" ? "← Cartera virtual" : "← Resumen"} onBack={() => setScreen(sheetFrom)} onSaved={() => void reload()} /> : null}
       {screen === "ficha" && !company ? <p style={{ color: INK3 }}>Elige una empresa en Resumen.</p> : null}
       {screen === "intelligence" ? <Intelligence phase2={phase2} owner={owner} onSaved={() => void reload()} /> : null}
-      {screen === "virtual" ? <VirtualBook bundle={bundle} phase2={phase2} onSaved={() => void reload()} /> : null}
+      {screen === "virtual" ? <VirtualBook bundle={bundle} phase2={phase2} onOpen={(ticker) => open(ticker, "virtual")} onSaved={() => void reload()} /> : null}
       {screen === "radar" ? <Radar bundle={bundle} phase2={phase2} mode={mode} today={today} owner={owner} onOpen={(ticker) => open(ticker, "radar")} onSaved={() => void reload()} /> : null}
+      {screen === "calendario" ? <Calendario companies={bundle.companies} earnings={bundle.earnings} today={today} onOpen={(ticker) => open(ticker, "calendario")} /> : null}
       <p style={{ color: INK3, fontSize: 12, marginTop: 22 }}>Cierres diarios, sin dividendos. Mixto = 50 % TIKR + 50 % Warren, y solo si los dos existen. Horizonte máximo: 3 años.</p>
       <button type="button" style={{ ...btn(false), marginTop: 8 }} onClick={() => download(bundle)}>Exportar copia JSON</button>
     </Frame>
@@ -419,7 +423,8 @@ function Resumen(props: {
       {props.mode === "mixto" ? <p className="stamp">Si falta TIKR, Mixto se queda en N/D. No se rellena con el objetivo de Warren.</p> : null}
       <BenchmarkCard bundle={props.bundle} levels={props.phase2.benchmarks} />
       {props.owner ? <SyncLog runs={props.runs} /> : null}
-      <div className="w-scroll">
+      {props.cartera !== "no" ? <h2 style={{ fontSize: 22, marginBottom: 8 }}>Mi cartera</h2> : null}
+      {props.cartera !== "no" ? <div className="w-scroll">
         <table className="w-table">
           <thead>
             <tr>
@@ -432,8 +437,8 @@ function Resumen(props: {
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? <tr><td className="sticky">Sin empresas</td><td colSpan={10} className="nd">N/D</td></tr> : null}
-            {rows.map((company) => {
+            {rows.filter((company) => company.in_portfolio).length === 0 ? <tr><td className="sticky">Sin empresas</td><td colSpan={10} className="nd">N/D</td></tr> : null}
+            {rows.filter((company) => company.in_portfolio).map((company) => {
               const view = companyView(props.bundle, company.id, props.mode, props.today);
               return (
                 <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
@@ -453,7 +458,8 @@ function Resumen(props: {
             })}
           </tbody>
         </table>
-      </div>
+      </div> : null}
+      {props.cartera !== "si" ? <Seguimiento companies={rows.filter((company) => !company.in_portfolio)} radar={props.phase2.radar} earnings={props.bundle.earnings} onOpen={props.onOpen} /> : null}
     </section>
   );
 }
@@ -608,17 +614,22 @@ function SharesEditor(props: { rows: { id: string; ticker: string; currency: str
 }
 
 function Ficha(props: {
-  companyName: string; ticker: string; currency: string; notes: string | null; verdict: string | null;
-  view: CompanyView; mode: SourceMode; bundle: Bundle; companyId: string;
+  company: Company; companyName: string; ticker: string; currency: string; notes: string | null; verdict: string | null;
+  view: CompanyView; mode: SourceMode; bundle: Bundle; companyId: string; radar: RadarItem | null;
   tab: "evo" | "val" | "rent"; setTab: (tab: "evo" | "val" | "rent") => void;
   today: string; missing: boolean; owner: boolean; backLabel?: string; onBack: () => void; onSaved: () => void;
 }) {
+  const [report, setReport] = useState(false);
   const tabs = [{ id: "evo" as const, label: "Evolución financiera" }, { id: "val" as const, label: "Valoración" }, { id: "rent" as const, label: "Rentabilidad" }];
   const extras = props.bundle.estimates.filter((row) => row.company_id === props.companyId && (row.source === "excel_bajista" || row.source === "excel_optimista") && row.horizon_years === 3);
+  const analysis = props.company.report_md?.trim() ?? "";
   return (
     <section>
       <button type="button" style={btn(false)} onClick={props.onBack}>{props.backLabel ?? "← Resumen"}</button>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>{props.ticker} · {props.companyName}</h1>
+      <p style={{ marginTop: 0 }}><Stars stars={props.company.opportunity_stars} note={props.company.opportunity_stars_note} at={props.company.opportunity_stars_at} emphasize={!props.company.in_portfolio} /></p>
+      {props.company.origin === "warren_proposal" ? <p className="stamp">Propuesta Warren</p> : null}
+      {analysis ? <button type="button" style={{ ...btn(false), width: "100%", minHeight: 52, marginBottom: 12 }} onClick={() => setReport(true)}>Ver análisis</button> : null}
       <p style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
         <Stamp source={props.view.priceManual ? "Manual" : props.view.priceSource} date={props.view.priceDate} old={props.view.priceOld} />
         <Stamp source="Estados financieros" date={props.view.financeAsOf} old={props.view.financeOld} />
@@ -629,8 +640,9 @@ function Ficha(props: {
         {tabs.map((item) => <button key={item.id} type="button" style={btn(props.tab === item.id)} onClick={() => props.setTab(item.id)}>{item.label}</button>)}
       </div>
       {props.tab === "evo" ? <Evolucion view={props.view} missing={props.missing} owner={props.owner} onSaved={props.onSaved} /> : null}
-      {props.tab === "val" ? <Valoracion view={props.view} mode={props.mode} companyId={props.companyId} currency={props.currency} today={props.today} missing={props.missing} onSaved={props.onSaved} /> : null}
-      {props.tab === "rent" ? <Rentabilidad view={props.view} mode={props.mode} currency={props.currency} companyId={props.companyId} today={props.today} missing={props.missing} onSaved={props.onSaved} /> : null}
+      {props.tab === "val" ? <Valoracion view={props.view} mode={props.mode} companyId={props.companyId} currency={props.currency} today={props.today} missing={props.missing} radar={props.radar} onSaved={props.onSaved} /> : null}
+      {props.tab === "rent" ? <Rentabilidad view={props.view} mode={props.mode} currency={props.currency} companyId={props.companyId} today={props.today} missing={props.missing} company={props.company} radar={props.radar} onSaved={props.onSaved} /> : null}
+      {report ? <AnalysisReader ticker={props.ticker} name={props.companyName} sentOn={props.company.report_sent_on} source={analysis} onClose={() => setReport(false)} /> : null}
       {props.notes ? <p style={{ color: INK3 }}>{props.notes}</p> : null}
       {extras.length > 0 ? (
         <div style={card}>
@@ -729,7 +741,7 @@ function Evolucion(props: { view: CompanyView; missing: boolean; owner: boolean;
   );
 }
 
-function Valoracion(props: { view: CompanyView; mode: SourceMode; companyId: string; currency: string; today: string; missing: boolean; onSaved: () => void }) {
+function Valoracion(props: { view: CompanyView; mode: SourceMode; companyId: string; currency: string; today: string; missing: boolean; radar: RadarItem | null; onSaved: () => void }) {
   const warren = props.view.warren3;
   const tikr = props.view.tikr3;
   const methods = props.mode === "warren" ? warren.methods : props.mode === "tikr" ? tikr.methods : (warren.methods && tikr.methods && warren.price !== null && tikr.price !== null ? {
@@ -751,6 +763,9 @@ function Valoracion(props: { view: CompanyView; mode: SourceMode; companyId: str
   ];
   return (
     <div>
+      <h2 style={{ fontSize: 18, margin: "0 0 4px" }}>TIKR y Warren</h2>
+      <SourceCompare price={props.radar?.price ?? props.view.price} tikr1={props.radar?.target_1a_tikr ?? null} warren1={props.radar?.target_1a_warren ?? null} tikr3={props.radar?.target_3a_tikr ?? null} warren3={props.radar?.target_3a_warren ?? null} />
+      <p style={{ color: INK3 }}>Esta tabla no sustituye un lado por el otro. Un hueco es «—».</p>
       {props.mode === "mixto" && methods === null ? <p className="stamp">Mixto N/D: falta TIKR o falta Warren. No se calcula la media a medias.</p> : null}
       <div className="w-scroll">
         <table className="w-table">
@@ -856,7 +871,7 @@ function TikrForm(props: { companyId: string; currency: string; disabled: boolea
   );
 }
 
-function Rentabilidad(props: { view: CompanyView; mode: SourceMode; currency: string; companyId: string; today: string; missing: boolean; onSaved: () => void }) {
+function Rentabilidad(props: { view: CompanyView; mode: SourceMode; currency: string; companyId: string; today: string; missing: boolean; company: Company; radar: RadarItem | null; onSaved: () => void }) {
   const [edit, setEdit] = useState(false);
   const [price, setPrice] = useState("");
   const [date, setDate] = useState(props.today);
@@ -875,8 +890,8 @@ function Rentabilidad(props: { view: CompanyView; mode: SourceMode; currency: st
         {cards.map(([label, value]) => <Kpi key={label} label={label} value={value} mark={label === "Objetivo 1A" || label === "Rentabilidad 1A" ? marcaUnAnio(props.view.target1From, props.mode) : null} />)}
       </div>
       <div style={{ ...card, marginTop: 12, background: "#1F7A5A" }}>
-        <div style={{ letterSpacing: "0.06em", fontSize: 13 }}>PRECIO MÁXIMO PARA EXIGIR 15 % ANUAL · horizonte 3 años</div>
-        <div style={{ fontSize: 32, fontWeight: 800, marginTop: 6 }}>{money(props.view.maxPrice, props.currency)}</div>
+        <div style={{ letterSpacing: "0.06em", fontSize: 13 }}>ENTRADA 15 %</div>
+        <div style={{ fontSize: 32, fontWeight: 800, marginTop: 6 }}><EntradaMark company={props.company} radar={props.radar} spot={props.radar?.price ?? props.view.price} /></div>
       </div>
       <p>Plusvalía desde el precio medio, separada del potencial: {pct(props.view.rentHoy)}. Es solo precio. Los dividendos no entran.</p>
       {edit ? (
