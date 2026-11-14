@@ -12,6 +12,7 @@ import {
   perTargetGrown,
   pickTarget,
   portfolioCagr,
+  warrenTarget1,
   warrenTarget3,
   positionReturn,
   priceReturn,
@@ -45,6 +46,12 @@ test("Mixto is 50/50 and stays empty when TIKR is missing", () => {
   assert.equal(warrenTarget3(undefined, null), null);
   assert.ok(Math.abs(cagr3(232, 159.58)! - 0.1328) < 0.0005);
   assert.ok(Math.abs(cagr3(47, 27.91)! - 0.19) < 0.001);
+  assert.equal(warrenTarget1(192, 100, 215.66), 192);
+  assert.equal(warrenTarget1(null, 266, 400.37), 266);
+  assert.equal(warrenTarget1(null, null, 400.37), 400.37);
+  assert.equal(warrenTarget1(undefined, null, null), null);
+  assert.ok(Math.abs(priceReturn(266, 295.77)! + 0.1007) < 0.001);
+  assert.ok(Math.abs(priceReturn(192, 159.58)! - 0.2032) < 0.001);
 });
 
 test("15% hurdle and position return do not invent a zero", () => {

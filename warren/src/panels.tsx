@@ -62,6 +62,13 @@ export function Tikr3A(props: { value: number | null | undefined }) {
   return <span title={TIKR_3A_NOTE}>{value === null ? "—" : fmt(value)}</span>;
 }
 
+export function TikrConsenso(props: { value: number | null | undefined; price?: number | null }) {
+  const value = typeof props.value === "number" && Number.isFinite(props.value) ? props.value : null;
+  if (value === null) return <span>—</span>;
+  const rent = props.price != null && props.price > 0 ? priceReturn(value, props.price) : null;
+  return <span>{fmt(value)}{rent === null ? "" : " · " + pct(rent)}</span>;
+}
+
 export function SourceCompare(props: { price: number | null; tikr1: number | null; warren1: number | null; tikr3: number | null; warren3: number | null }) {
   const head: CSSProperties = { textAlign: "left", color: INK3, fontSize: 12, padding: "8px 10px" };
   const cell: CSSProperties = { padding: "8px 10px", whiteSpace: "nowrap", borderTop: "1px solid " + LINE };
@@ -107,10 +114,10 @@ export function Seguimiento(props: { companies: Company[]; radar: RadarItem[]; e
       <div className="w-scroll">
         <table className="w-table">
           <thead>
-            <tr>{["Empresa", "P. hoy", "Obj. 1A", "Obj. 3A", "CAGR 1A", "CAGR 3A", "Entrada 15 %", "Warren", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => <th key={label} className={index === 0 ? "sticky" : ""} title={label.startsWith("TIKR 3A") ? TIKR_3A_NOTE : undefined}>{label}</th>)}</tr>
+            <tr>{["Empresa", "P. hoy", "Obj. 1A", "TIKR (consenso)", "Obj. 3A", "CAGR 1A", "CAGR 3A", "Entrada 15 %", "Warren", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => <th key={label} className={index === 0 ? "sticky" : ""} title={label.startsWith("TIKR 3A") ? TIKR_3A_NOTE : undefined}>{label}</th>)}</tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? <tr><td className="sticky">Sin seguimiento</td><td colSpan={9}>—</td></tr> : rows.map((company) => {
+            {rows.length === 0 ? <tr><td className="sticky">Sin seguimiento</td><td colSpan={10}>—</td></tr> : rows.map((company) => {
               const radar = props.radar.find((item) => item.company_id === company.id) ?? props.radar.find((item) => item.ticker.toUpperCase() === company.ticker.toUpperCase()) ?? null;
               const price = radar?.price ?? null;
               const cagr1 = shownReturn(radar?.target_1a ?? null, price, 1);
@@ -120,6 +127,7 @@ export function Seguimiento(props: { companies: Company[]; radar: RadarItem[]; e
                   <td className="sticky"><b>{company.ticker}</b><div style={{ color: INK3, fontSize: 12 }}>{company.name}</div>{company.origin === "warren_proposal" ? <div className="stamp">Propuesta Warren</div> : null}</td>
                   <td>{price === null ? "—" : fmt(price) + (radar?.price_currency ? " " + radar.price_currency : "")}</td>
                   <td>{radar?.target_1a == null ? "—" : fmt(radar.target_1a)}</td>
+                  <td><TikrConsenso value={radar?.target_1a_tikr} price={price} /></td>
                   <td>{radar?.target_3a == null ? "—" : fmt(radar.target_3a)}</td>
                   <td style={{ color: YELLOW, fontWeight: 800 }}>{cagr1.text}{cagr1.sin ? <span className="stamp"> sin objetivo</span> : null}</td>
                   <td style={{ color: YELLOW, fontWeight: 800 }}>{cagr3y.text}{cagr3y.sin ? <span className="stamp"> sin objetivo</span> : null}</td>
@@ -192,10 +200,10 @@ export function VirtualTable(props: { companies: Company[]; radar: RadarItem[]; 
       <div className="w-scroll">
         <table className="w-table">
           <thead>
-            <tr>{["Empresa", "Fecha análisis", "Precio compra", "P. hoy", "Rentabilidad", "Precio 1A", "Precio 3A", "Entrada 15 %", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => <th key={label} className={index === 0 ? "sticky" : ""} title={label.startsWith("TIKR 3A") ? TIKR_3A_NOTE : undefined}>{label}</th>)}</tr>
+            <tr>{["Empresa", "Fecha análisis", "Precio compra", "P. hoy", "Rentabilidad", "Precio 1A", "TIKR (consenso)", "Precio 3A", "Entrada 15 %", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => <th key={label} className={index === 0 ? "sticky" : ""} title={label.startsWith("TIKR 3A") ? TIKR_3A_NOTE : undefined}>{label}</th>)}</tr>
           </thead>
           <tbody>
-            {lines.length === 0 ? <tr><td className="sticky">Sin empresas</td><td colSpan={9}>—</td></tr> : lines.map((line) => {
+            {lines.length === 0 ? <tr><td className="sticky">Sin empresas</td><td colSpan={10}>—</td></tr> : lines.map((line) => {
               const company = props.companies.find((row) => row.id === line.companyId) ?? null;
               const radar = props.radar.find((row) => row.company_id === line.companyId) ?? null;
               return (
@@ -206,6 +214,7 @@ export function VirtualTable(props: { companies: Company[]; radar: RadarItem[]; 
                   <td>{line.price === null ? "—" : fmt(line.price) + (line.priceCurrency ? " " + line.priceCurrency : "")}</td>
                   <td style={{ color: YELLOW, fontWeight: 800 }}>{line.rent === null ? "—" : pct(line.rent)}</td>
                   <td>{line.target1 === null ? "—" : fmt(line.target1)}</td>
+                  <td><TikrConsenso value={line.tikr1} price={line.price} /></td>
                   <td>{line.target3 === null ? "—" : fmt(line.target3)}</td>
                   <td><EntradaMark company={company} radar={radar} spot={line.price} /></td>
                   <td><Tikr3A value={line.tikr3} /></td>

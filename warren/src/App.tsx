@@ -3,10 +3,10 @@ import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { loadIsOwner, loadOpsDashboard, loadPhase2, loadSyncRuns, loadWarren, probeSchema, redirectTo, runHealthCheck, runSecFundamentals, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
 import { eur, fecha, fechaDiaMes, fmt, fmtCompact, madridToday, parseInput, pct } from "./format";
 import { failureReason, latestPriceUpdate, staleTickerReason } from "./stale";
-import { positionValueEur, type SourceMode } from "./math";
+import { positionValueEur } from "./math";
 import { AnalysisReader } from "./markdown";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
-import { EntradaMark, SourceCompare, Seguimiento, Stars, Calendario, Tikr3A, TIKR_3A_NOTE } from "./panels";
+import { EntradaMark, SourceCompare, Seguimiento, Stars, Calendario, Tikr3A, TikrConsenso, TIKR_3A_NOTE } from "./panels";
 import { EMPTY, EMPTY_PHASE2, type Bundle, type Company, type Estimate, type OpsDashboard, type Phase2, type RadarItem, type SyncRun } from "./types";
 import { earningsOf, ProximosResultados } from "./earnings";
 import { clearRememberedOpportunity, opportunityHash, opportunityTickerFromHash, opportunityTickerNow, rememberedOpportunity, rememberOpportunityFromLocation } from "./opportunity";
@@ -19,6 +19,10 @@ function radarFor(rows: RadarItem[], companyId: string, ticker: string): RadarIt
 
 function radarTarget3Of(rows: RadarItem[], companyId: string, ticker: string): number | null {
   return radarFor(rows, companyId, ticker)?.target_3a ?? null;
+}
+
+function radarTarget1Of(rows: RadarItem[], companyId: string, ticker: string): number | null {
+  return radarFor(rows, companyId, ticker)?.target_1a ?? null;
 }
 
 const NAVY = "#0D1933";
@@ -159,7 +163,6 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
   const [screen, setScreen] = useState<Screen>(opportunityTickerNow() ? "radar" : "resumen");
   const [ticker, setTicker] = useState<string | null>(null);
   const [tab, setTab] = useState<"evo" | "val" | "rent">("rent");
-  const [mode, setMode] = useState<SourceMode>("mixto");
   const [q, setQ] = useState("");
   const [cartera, setCartera] = useState<"todas" | "si" | "no">("todas");
   const [cagrMin, setCagrMin] = useState<number | null>(null);
@@ -209,7 +212,7 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
   useEffect(() => { if (missing || phase2.missing) return; return watchPhase2(() => { void reload(); }); }, [missing, phase2.missing]);
 
   const company = bundle.companies.find((row) => row.ticker === ticker) ?? null;
-  const view = company ? companyView(bundle, company.id, mode, today, radarTarget3Of(phase2.radar, company.id, company.ticker)) : null;
+  const view = company ? companyView(bundle, company.id, "warren", today, radarTarget3Of(phase2.radar, company.id, company.ticker), radarTarget1Of(phase2.radar, company.id, company.ticker)) : null;
 
   const [sheetFrom, setSheetFrom] = useState<Screen>("resumen");
 
@@ -241,16 +244,15 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
       {missing ? <Banner>Migración pendiente. No hay tablas de Warren todavía, así que todo sale en N/D y no se guarda nada. Ejecuta <b>supabase/warren_phase1.sql</b> y luego <b>supabase/warren_phase2.sql</b>.</Banner> : null}
       {!missing && phase2.missing ? <Banner>La fase 2 aún no está en la base de datos. Radar, Intelligence, la cartera virtual y el índice quedan vacíos hasta ejecutar <b>supabase/warren_phase2.sql</b>.</Banner> : null}
       {error ? <Banner>No se han podido leer los datos: {error}</Banner> : null}
-      {screen === "resumen" || screen === "cartera" || screen === "ficha" || screen === "radar" ? <Mode mode={mode} onChange={setMode} /> : null}
-      {screen === "resumen" ? <Resumen bundle={bundle} phase2={phase2} mode={mode} today={today} q={q} setQ={setQ} cartera={cartera} setCartera={setCartera} cagrMin={cagrMin} setCagrMin={setCagrMin} sort={sort} setSort={setSort} onOpen={open} owner={owner} runs={runs} /> : null}
-      {screen === "cartera" ? <Cartera bundle={bundle} radar={phase2.radar} mode={mode} today={today} missing={missing || phase2.missing} runs={runs} onOpen={open} onSaved={() => void reload()} /> : null}
-      {screen === "ficha" && company && view ? <Ficha company={company} companyName={company.name} ticker={company.ticker} currency={company.currency} notes={company.notes} verdict={company.verdict} view={view} mode={mode} bundle={bundle} companyId={company.id} radar={phase2.radar.find((row) => row.company_id === company.id) ?? phase2.radar.find((row) => row.ticker.toUpperCase() === company.ticker.toUpperCase()) ?? null} tab={tab} setTab={setTab} today={today} missing={missing} owner={owner} backLabel={sheetFrom === "radar" ? "← Radar" : sheetFrom === "calendario" ? "← Calendario" : sheetFrom === "virtual" ? "← Cartera virtual" : "← Resumen"} onBack={() => setScreen(sheetFrom)} onSaved={() => void reload()} /> : null}
+      {screen === "resumen" ? <Resumen bundle={bundle} phase2={phase2} today={today} q={q} setQ={setQ} cartera={cartera} setCartera={setCartera} cagrMin={cagrMin} setCagrMin={setCagrMin} sort={sort} setSort={setSort} onOpen={open} owner={owner} runs={runs} /> : null}
+      {screen === "cartera" ? <Cartera bundle={bundle} radar={phase2.radar} today={today} missing={missing || phase2.missing} runs={runs} onOpen={open} onSaved={() => void reload()} /> : null}
+      {screen === "ficha" && company && view ? <Ficha company={company} companyName={company.name} ticker={company.ticker} currency={company.currency} notes={company.notes} verdict={company.verdict} view={view} bundle={bundle} companyId={company.id} radar={phase2.radar.find((row) => row.company_id === company.id) ?? phase2.radar.find((row) => row.ticker.toUpperCase() === company.ticker.toUpperCase()) ?? null} tab={tab} setTab={setTab} today={today} missing={missing} owner={owner} backLabel={sheetFrom === "radar" ? "← Radar" : sheetFrom === "calendario" ? "← Calendario" : sheetFrom === "virtual" ? "← Cartera virtual" : "← Resumen"} onBack={() => setScreen(sheetFrom)} onSaved={() => void reload()} /> : null}
       {screen === "ficha" && !company ? <p style={{ color: INK3 }}>Elige una empresa en Resumen.</p> : null}
       {screen === "intelligence" ? <Intelligence phase2={phase2} owner={owner} onSaved={() => void reload()} /> : null}
       {screen === "virtual" ? <VirtualBook bundle={bundle} phase2={phase2} onOpen={(ticker) => open(ticker, "virtual")} onSaved={() => void reload()} /> : null}
-      {screen === "radar" ? <Radar bundle={bundle} phase2={phase2} mode={mode} today={today} owner={owner} onOpen={(ticker) => open(ticker, "radar")} onSaved={() => void reload()} /> : null}
+      {screen === "radar" ? <Radar bundle={bundle} phase2={phase2} today={today} owner={owner} onOpen={(ticker) => open(ticker, "radar")} onSaved={() => void reload()} /> : null}
       {screen === "calendario" ? <Calendario companies={bundle.companies} earnings={bundle.earnings} today={today} onOpen={(ticker) => open(ticker, "calendario")} /> : null}
-      <p style={{ color: INK3, fontSize: 12, marginTop: 22 }}>Cierres diarios, sin dividendos. A 1 año, Mixto = 50 % TIKR + 50 % Warren, y solo si los dos existen. El objetivo a 3 años es siempre el de Warren.</p>
+      <p style={{ color: INK3, fontSize: 12, marginTop: 22 }}>Cierres diarios, sin dividendos. El objetivo a 1 año es el de Warren, y el de TIKR solo si Warren no tiene. El de 3 años es siempre el de Warren.</p>
       <button type="button" style={{ ...btn(false), marginTop: 8 }} onClick={() => download(bundle)}>Exportar copia JSON</button>
     </Frame>
   );
@@ -263,19 +265,6 @@ function download(bundle: Bundle) {
   link.download = "warren-backup.json";
   link.click();
   URL.revokeObjectURL(link.href);
-}
-
-function Mode(props: { mode: SourceMode; onChange: (mode: SourceMode) => void }) {
-  const items: { id: SourceMode; label: string }[] = [
-    { id: "warren", label: "Warren" },
-    { id: "tikr", label: "TIKR" },
-    { id: "mixto", label: "Mixto 50/50" },
-  ];
-  return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-      {items.map((item) => <button key={item.id} type="button" style={btn(props.mode === item.id)} onClick={() => props.onChange(item.id)}>{item.label}</button>)}
-    </div>
-  );
 }
 
 function horaMadrid(iso: string): string {
@@ -393,7 +382,7 @@ function SyncLog(props: { runs: SyncRun[] }) {
 }
 
 function Resumen(props: {
-  bundle: Bundle; phase2: Phase2; mode: SourceMode; today: string; q: string; setQ: (q: string) => void;
+  bundle: Bundle; phase2: Phase2; today: string; q: string; setQ: (q: string) => void;
   cartera: "todas" | "si" | "no"; setCartera: (v: "todas" | "si" | "no") => void;
   cagrMin: number | null; setCagrMin: (v: number | null) => void; sort: SortKey; setSort: (v: SortKey) => void;
   onOpen: (ticker: string) => void;
@@ -405,13 +394,13 @@ function Resumen(props: {
       if (needle && !`${company.ticker} ${company.name}`.toLowerCase().includes(needle)) return false;
       if (props.cartera === "si" && !company.in_portfolio) return false;
       if (props.cartera === "no" && company.in_portfolio) return false;
-      const view = companyView(props.bundle, company.id, props.mode, props.today, radarTarget3Of(props.phase2.radar, company.id, company.ticker));
+      const view = companyView(props.bundle, company.id, "warren", props.today, radarTarget3Of(props.phase2.radar, company.id, company.ticker), radarTarget1Of(props.phase2.radar, company.id, company.ticker));
       if (props.cagrMin !== null && (view.cagr === null || view.cagr < props.cagrMin)) return false;
       return true;
     });
     list.sort((a, b) => {
-      const va = companyView(props.bundle, a.id, props.mode, props.today, radarTarget3Of(props.phase2.radar, a.id, a.ticker));
-      const vb = companyView(props.bundle, b.id, props.mode, props.today, radarTarget3Of(props.phase2.radar, b.id, b.ticker));
+      const va = companyView(props.bundle, a.id, "warren", props.today, radarTarget3Of(props.phase2.radar, a.id, a.ticker), radarTarget1Of(props.phase2.radar, a.id, a.ticker));
+      const vb = companyView(props.bundle, b.id, "warren", props.today, radarTarget3Of(props.phase2.radar, b.id, b.ticker), radarTarget1Of(props.phase2.radar, b.id, b.ticker));
       if (props.sort === "ticker") return a.ticker.localeCompare(b.ticker);
       if (props.sort === "hoy") return (vb.rentHoy ?? -999) - (va.rentHoy ?? -999);
       return (vb.cagr ?? -999) - (va.cagr ?? -999);
@@ -421,14 +410,13 @@ function Resumen(props: {
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Resumen de inversiones</h1>
-      <p style={{ color: INK3, marginTop: 0 }}>Ranking compacto · rentabilidad de precio, sin dividendos · {props.mode === "mixto" ? "Mixto solo con TIKR y Warren" : props.mode === "warren" ? "Escenario Warren" : "Consenso TIKR"}</p>
+      <p style={{ color: INK3, marginTop: 0 }}>Ranking compacto · rentabilidad de precio, sin dividendos · objetivo de Warren</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginBottom: 12 }}>
         <label style={card}>Buscar<input style={inputS} placeholder="Ticker o nombre" value={props.q} onChange={(event) => props.setQ(event.target.value)} /></label>
         <label style={card}>Cartera<select style={inputS} value={props.cartera} onChange={(event) => props.setCartera(event.target.value as "todas" | "si" | "no")}><option value="todas">Todas</option><option value="si">Sí</option><option value="no">No</option></select></label>
         <label style={card}>CAGR mínimo<select style={inputS} value={props.cagrMin === null ? "" : String(props.cagrMin)} onChange={(event) => props.setCagrMin(event.target.value === "" ? null : Number(event.target.value))}><option value="">Sin límite</option><option value="0.15">15 %</option><option value="0.2">20 %</option></select></label>
         <label style={card}>Orden<select style={inputS} value={props.sort} onChange={(event) => props.setSort(event.target.value as SortKey)}><option value="cagr">CAGR 3A desc.</option><option value="hoy">Rent. hoy desc.</option><option value="ticker">Ticker</option></select></label>
       </div>
-      {props.mode === "mixto" ? <p className="stamp">Si falta TIKR, Mixto se queda en N/D. No se rellena con el objetivo de Warren.</p> : null}
       <BenchmarkCard bundle={props.bundle} levels={props.phase2.benchmarks} />
       {props.owner ? <SyncLog runs={props.runs} /> : null}
       {props.cartera !== "no" ? <h2 style={{ fontSize: 22, marginBottom: 8 }}>Mi cartera</h2> : null}
@@ -436,7 +424,7 @@ function Resumen(props: {
         <table className="w-table">
           <thead>
             <tr>
-              {["Empresa", "Cart.", "P. medio", "P. hoy", "Rent. hoy", "Obj 1A", "Rent 1A", "Obj 3A", "Rent 3A", "CAGR 3A", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => (
+              {["Empresa", "Cart.", "P. medio", "P. hoy", "Rent. hoy", "Obj 1A", "Rent 1A", "TIKR (consenso)", "Obj 3A", "Rent 3A", "CAGR 3A", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => (
                 <th key={label} className={index === 0 ? "sticky" : ""} title={label.startsWith("TIKR 3A") ? TIKR_3A_NOTE : undefined}>
                   {label}
                   {label === "P. hoy" ? <span className="stamp">{updatedLabel(props.runs, props.bundle.quotes)}</span> : null}
@@ -445,9 +433,9 @@ function Resumen(props: {
             </tr>
           </thead>
           <tbody>
-            {rows.filter((company) => company.in_portfolio).length === 0 ? <tr><td className="sticky">Sin empresas</td><td colSpan={11} className="nd">N/D</td></tr> : null}
+            {rows.filter((company) => company.in_portfolio).length === 0 ? <tr><td className="sticky">Sin empresas</td><td colSpan={12} className="nd">N/D</td></tr> : null}
             {rows.filter((company) => company.in_portfolio).map((company) => {
-              const view = companyView(props.bundle, company.id, props.mode, props.today, radarTarget3Of(props.phase2.radar, company.id, company.ticker));
+              const view = companyView(props.bundle, company.id, "warren", props.today, radarTarget3Of(props.phase2.radar, company.id, company.ticker), radarTarget1Of(props.phase2.radar, company.id, company.ticker));
               return (
                 <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
                   <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} name={company.name} /></td>
@@ -455,8 +443,9 @@ function Resumen(props: {
                   <td>{fmt(view.avg)}</td>
                   <td>{view.price === null ? <span className="nd">Pendiente</span> : fmt(view.price)}</td>
                   <td className={tone(view.rentHoy, "plain")}>{pct(view.rentHoy)}</td>
-                  <td>{fmt(view.target1)}{marcaUnAnio(view.target1From, props.mode) ? <span className="stamp"> {marcaUnAnio(view.target1From, props.mode)}</span> : null}</td>
-                  <td className={tone(view.rent1, "blue")}>{pct(view.rent1)}{marcaUnAnio(view.target1From, props.mode) ? <span className="stamp"> {marcaUnAnio(view.target1From, props.mode)}</span> : null}</td>
+                  <td>{fmt(view.target1)}</td>
+                  <td className={tone(view.rent1, "blue")}>{pct(view.rent1)}</td>
+                  <td><TikrConsenso value={radarFor(props.phase2.radar, company.id, company.ticker)?.target_1a_tikr} price={view.price} /></td>
                   <td>{fmt(view.target3)}</td>
                   <td className={tone(view.rent3, "plain")}>{pct(view.rent3)}</td>
                   <td className={tone(view.cagr, "green")}>{pct(view.cagr)}</td>
@@ -500,9 +489,9 @@ function sumHorizon(rows: Horizon[]) {
   };
 }
 
-function Cartera(props: { bundle: Bundle; radar: RadarItem[]; mode: SourceMode; today: string; missing: boolean; runs: SyncRun[]; onOpen: (ticker: string) => void; onSaved: () => void }) {
+function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; missing: boolean; runs: SyncRun[]; onOpen: (ticker: string) => void; onSaved: () => void }) {
   const rows = props.bundle.companies.filter((company) => company.in_portfolio);
-  const views = rows.map((company) => ({ company, view: companyView(props.bundle, company.id, props.mode, props.today, radarTarget3Of(props.radar, company.id, company.ticker)) }));
+  const views = rows.map((company) => ({ company, view: companyView(props.bundle, company.id, "warren", props.today, radarTarget3Of(props.radar, company.id, company.ticker), radarTarget1Of(props.radar, company.id, company.ticker)) }));
   const fxDates = views.map((row) => row.view.fx?.rate_date).filter((value): value is string => Boolean(value));
   const part = (pick: (view: CompanyView) => number | null) => {
     const known = views.map((row) => pick(row.view)).filter((value): value is number => value !== null);
@@ -529,7 +518,7 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; mode: SourceMode; 
       <div className="w-scroll">
         <table className="w-table">
           <thead>
-            <tr>{["Empresa", "P. medio", "P. hoy", "Plusv. hoy", "Peso Excel", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => (
+            <tr>{["Empresa", "P. medio", "P. hoy", "Plusv. hoy", "Peso Excel", "Precio 1A", "TIKR (consenso)", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => (
               <th key={label} className={index === 0 ? "sticky" : ""} title={label.startsWith("TIKR 3A") ? TIKR_3A_NOTE : undefined}>
                 {label}
                 {label === "P. hoy" ? <span className="stamp">{updatedLabel(props.runs, props.bundle.quotes)}</span> : null}
@@ -537,11 +526,11 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; mode: SourceMode; 
             ))}</tr>
           </thead>
           <tbody>
-            {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={11} className="nd">N/D</td></tr> : null}
+            {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={12} className="nd">N/D</td></tr> : null}
             {views.map(({ company, view }, index) => {
               const one = oneYear[index];
               const three = threeYear[index];
-              const oneMark = one.kind === "hoy" ? "sin objetivo" : marcaUnAnio(view.target1From, props.mode);
+              const oneMark = one.kind === "hoy" ? "sin objetivo" : null;
               return (
               <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
                 <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} /></td>
@@ -550,6 +539,7 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; mode: SourceMode; 
                 <td className={view.price === null ? "nd" : tone(view.rentHoy, "plain")}>{view.price === null ? "Pendiente" : pct(view.rentHoy) + (view.pnlNowEur === null ? "" : " · " + eur(view.pnlNowEur))}</td>
                 <td>{view.weightPct === null ? "N/D" : fmt(view.weightPct, 2) + " %"}</td>
                 <td className={one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : rentYPrecio(one.kind === "hoy" ? view.price : view.target1, view.price)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
+                <td><TikrConsenso value={radarFor(props.radar, company.id, company.ticker)?.target_1a_tikr} price={view.price} /></td>
                 <td className={one.kind === "target" ? tone(one.pnl, "blue") : one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : eur(one.pnl)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
                 <td className={three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : fmt(three.kind === "hoy" ? view.price : view.target3)}{three.kind === "hoy" ? <span className="stamp"> sin objetivo</span> : null}</td>
                 <td className={three.kind === "target" ? tone(three.pnl, "plain") : three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : eur(three.pnl)}{three.kind === "hoy" ? <span className="stamp"> sin objetivo</span> : null}</td>
@@ -576,12 +566,6 @@ function rentYPrecio(target: number | null, price: number | null): string {
   const rent = (target - price) / price;
   const text = (rent * 100).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   return (rent > 0 ? "+" : "") + text + "% – " + fmt(target);
-}
-
-function marcaUnAnio(from: CompanyView["target1From"], mode: SourceMode): string | null {
-  if (from === "tikr") return "TIKR";
-  if (from === "warren" && mode === "mixto") return "solo Warren";
-  return null;
 }
 
 function SharesEditor(props: { rows: { id: string; ticker: string; currency: string; position: Bundle["positions"][number] | undefined }[]; disabled: boolean; onSaved: () => void }) {
@@ -625,7 +609,7 @@ function SharesEditor(props: { rows: { id: string; ticker: string; currency: str
 
 function Ficha(props: {
   company: Company; companyName: string; ticker: string; currency: string; notes: string | null; verdict: string | null;
-  view: CompanyView; mode: SourceMode; bundle: Bundle; companyId: string; radar: RadarItem | null;
+  view: CompanyView; bundle: Bundle; companyId: string; radar: RadarItem | null;
   tab: "evo" | "val" | "rent"; setTab: (tab: "evo" | "val" | "rent") => void;
   today: string; missing: boolean; owner: boolean; backLabel?: string; onBack: () => void; onSaved: () => void;
 }) {
@@ -650,8 +634,8 @@ function Ficha(props: {
         {tabs.map((item) => <button key={item.id} type="button" style={btn(props.tab === item.id)} onClick={() => props.setTab(item.id)}>{item.label}</button>)}
       </div>
       {props.tab === "evo" ? <Evolucion view={props.view} missing={props.missing} owner={props.owner} onSaved={props.onSaved} /> : null}
-      {props.tab === "val" ? <Valoracion view={props.view} mode={props.mode} companyId={props.companyId} currency={props.currency} today={props.today} missing={props.missing} radar={props.radar} onSaved={props.onSaved} /> : null}
-      {props.tab === "rent" ? <Rentabilidad view={props.view} mode={props.mode} currency={props.currency} companyId={props.companyId} today={props.today} missing={props.missing} company={props.company} radar={props.radar} onSaved={props.onSaved} /> : null}
+      {props.tab === "val" ? <Valoracion view={props.view} companyId={props.companyId} currency={props.currency} today={props.today} missing={props.missing} radar={props.radar} onSaved={props.onSaved} /> : null}
+      {props.tab === "rent" ? <Rentabilidad view={props.view} currency={props.currency} companyId={props.companyId} today={props.today} missing={props.missing} company={props.company} radar={props.radar} onSaved={props.onSaved} /> : null}
       {report ? <AnalysisReader ticker={props.ticker} name={props.companyName} sentOn={props.company.report_sent_on} source={analysis} onClose={() => setReport(false)} /> : null}
       {props.notes ? <p style={{ color: INK3 }}>{props.notes}</p> : null}
       {extras.length > 0 ? (
@@ -751,7 +735,7 @@ function Evolucion(props: { view: CompanyView; missing: boolean; owner: boolean;
   );
 }
 
-function Valoracion(props: { view: CompanyView; mode: SourceMode; companyId: string; currency: string; today: string; missing: boolean; radar: RadarItem | null; onSaved: () => void }) {
+function Valoracion(props: { view: CompanyView; companyId: string; currency: string; today: string; missing: boolean; radar: RadarItem | null; onSaved: () => void }) {
   const warren = props.view.warren3;
   const methods = warren.methods;
   const multiple = warren.row?.per ?? null;
@@ -761,7 +745,7 @@ function Valoracion(props: { view: CompanyView; mode: SourceMode; companyId: str
     { label: "EV / EBITDA", multiple: "N/D", y1: null, y2: null, y3: methods?.evEbitda ?? null },
     { label: "EV / EBIT", multiple: "N/D", y1: null, y2: null, y3: methods?.evEbit ?? null },
     { label: "Promedio de métodos", multiple: "—", y1: null, y2: null, y3: methods?.average ?? null },
-    { label: "Objetivo", multiple: "—", y1: props.view.tikr1.price, y2: null, y3: props.view.target3 },
+    { label: "Objetivo", multiple: "—", y1: props.view.target1, y2: null, y3: props.view.target3 },
   ];
   return (
     <div>
@@ -776,7 +760,7 @@ function Valoracion(props: { view: CompanyView; mode: SourceMode; companyId: str
               <tr key={row.label}>
                 <td className="sticky">{row.label}</td>
                 <td>{row.multiple}</td>
-                <td>{fmt(row.y1)}{row.label === "Objetivo" && row.y1 !== null ? <span className="stamp"> TIKR</span> : null}</td>
+                <td>{fmt(row.y1)}</td>
                 <td>{fmt(row.y2)}</td>
                 <td>{fmt(row.y3)}</td>
               </tr>
@@ -785,7 +769,7 @@ function Valoracion(props: { view: CompanyView; mode: SourceMode; companyId: str
         </table>
       </div>
       <p style={{ color: INK3 }}>Año 1 es el Street Target TIKR cuando está guardado. Año 2 sigue en N/D. El año 3 es el de Warren. <span title={TIKR_3A_NOTE}>TIKR 3A (implícita) <Tikr3A value={props.radar?.target_3a_tikr} /></span> · Street {money(props.view.tikr1.price, props.view.tikr1.row?.target_currency ?? props.currency)}</p>
-      {props.mode === "warren" && warren.row ? <EstimateEditor row={warren.row} disabled={props.missing} onSaved={props.onSaved} /> : null}
+      {warren.row ? <EstimateEditor row={warren.row} disabled={props.missing} onSaved={props.onSaved} /> : null}
       <TikrForm companyId={props.companyId} currency={props.currency} disabled={props.missing} onSaved={props.onSaved} />
     </div>
   );
@@ -872,7 +856,7 @@ function TikrForm(props: { companyId: string; currency: string; disabled: boolea
   );
 }
 
-function Rentabilidad(props: { view: CompanyView; mode: SourceMode; currency: string; companyId: string; today: string; missing: boolean; company: Company; radar: RadarItem | null; onSaved: () => void }) {
+function Rentabilidad(props: { view: CompanyView; currency: string; companyId: string; today: string; missing: boolean; company: Company; radar: RadarItem | null; onSaved: () => void }) {
   const [edit, setEdit] = useState(false);
   const [price, setPrice] = useState("");
   const [date, setDate] = useState(props.today);
@@ -888,8 +872,9 @@ function Rentabilidad(props: { view: CompanyView; mode: SourceMode; currency: st
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
-        {cards.map(([label, value]) => <Kpi key={label} label={label} value={value} mark={label === "Objetivo 1A" || label === "Rentabilidad 1A" ? marcaUnAnio(props.view.target1From, props.mode) : null} />)}
+        {cards.map(([label, value]) => <Kpi key={label} label={label} value={value} />)}
       </div>
+      <p style={{ color: INK3 }}>TIKR (consenso): <TikrConsenso value={props.radar?.target_1a_tikr} price={props.view.price} /></p>
       <p title={TIKR_3A_NOTE} style={{ color: INK3 }}>TIKR 3A (implícita): <Tikr3A value={props.radar?.target_3a_tikr} />. {TIKR_3A_NOTE}</p>
       <div style={{ ...card, marginTop: 12, background: "#1F7A5A" }}>
         <div style={{ letterSpacing: "0.06em", fontSize: 13 }}>ENTRADA 15 %</div>

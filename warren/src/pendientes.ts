@@ -42,8 +42,15 @@ export function shownReturn(target: number | null, price: number | null, years: 
   return { text: pct(value), sin: false };
 }
 
+export function potencial1(item: RadarItem): number | null {
+  const price = finite(item.price);
+  const target = finite(item.target_1a);
+  if (price === null || !(price > 0) || target === null) return null;
+  return target / price - 1;
+}
+
 export function radarScore(item: RadarItem, company: Company | null, sort: RadarSort): number | null {
-  if (sort === "cagr1") return finite(item.potencial_1a);
+  if (sort === "cagr1") return potencial1(item);
   if (sort === "cagr3") return finite(item.cagr_3a);
   return finite(company?.opportunity_stars);
 }
@@ -184,6 +191,7 @@ export type VirtualLine = {
   priceCurrency: string | null;
   rent: number | null;
   target1: number | null;
+  tikr1: number | null;
   target3: number | null;
   tikr3: number | null;
   entrada: number | null;
@@ -212,6 +220,7 @@ export function virtualLines(companies: Company[], radar: RadarItem[], virtuals:
       priceCurrency: item.price_currency ?? null,
       rent: buy !== null && price !== null && buy > 0 && sameCurrency ? price / buy - 1 : null,
       target1: finite(item.target_1a),
+      tikr1: finite(item.target_1a_tikr),
       target3: finite(item.target_3a),
       tikr3: finite(item.target_3a_tikr),
       entrada: entrada.price,

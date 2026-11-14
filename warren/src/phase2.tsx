@@ -3,7 +3,7 @@ import { importIbkr, runNewsDetect, runRadarSync } from "./db";
 import { AnalysisReader } from "./markdown";
 import { clearRememberedOpportunity, opportunityHash, opportunityTickerFromHash, opportunityTickerNow } from "./opportunity";
 import { EntradaMark, SourceCompare, StarLegend, Stars, VirtualTable } from "./panels";
-import { compareRadar, inCartera, passesFloor, readChoice, shownReturn, writeChoice, type CarteraFilter, type RadarSort } from "./pendientes";
+import { compareRadar, inCartera, passesFloor, potencial1, readChoice, shownReturn, writeChoice, type CarteraFilter, type RadarSort } from "./pendientes";
 import { earningsOf, ProximosResultados } from "./earnings";
 import { eur, fecha, fechaCorta, fechaDiaMes, fmt, pct } from "./format";
 import { newsGroups, newsVisible, type NewsFilter } from "./news";
@@ -11,7 +11,6 @@ import { parseIbkrCsv, type IbkrRow } from "./ibkr";
 import { priceReturn } from "./math";
 import type { BenchmarkLevel, Bundle, Company, NewsItem, Phase2, RadarItem, VirtualEntry } from "./types";
 import { portfolioEurOn } from "./view";
-import type { SourceMode } from "./math";
 
 const NAVY = "#0D1933";
 const PANEL = "#14284B";
@@ -67,7 +66,7 @@ function hasReport(company: Company | null): boolean {
   return Boolean(company?.report_md && company.report_md.trim());
 }
 
-export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode; today: string; owner: boolean; onOpen: (ticker: string) => void; onSaved: () => void }) {
+export function Radar(props: { bundle: Bundle; phase2: Phase2; today: string; owner: boolean; onOpen: (ticker: string) => void; onSaved: () => void }) {
   const linked = opportunityTickerNow();
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -113,7 +112,7 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
   const items = [...props.phase2.radar].filter((item) => {
     const company = companyOf(item);
     if (!inCartera(company, cartera)) return false;
-    if (!passesFloor(item.potencial_1a ?? null, floor1)) return false;
+    if (!passesFloor(potencial1(item), floor1)) return false;
     if (!passesFloor(item.cagr_3a ?? null, floor3)) return false;
     if (!passesFloor(company?.opportunity_stars ?? null, floorStars)) return false;
     return true;
@@ -148,7 +147,7 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; mode: SourceMode;
         <label>Estrellas ≥<select aria-label="Estrellas mínimas" style={inputS} value={minStars} onChange={(event) => choose("warren.radar.stars", event.target.value as typeof minStars, setMinStars)}><option value="">Sin mínimo</option>{[1, 2, 3, 4, 5].map((n) => <option key={n} value={String(n)}>{n}</option>)}</select></label>
       </div>
       <StarLegend />
-      <p style={{ color: INK3 }}>Obj. 1A y Obj. 3A salen del radar guardado. Si falta un objetivo, el CAGR usa el precio de hoy y marca «sin objetivo».</p>
+      <p style={{ color: INK3 }}>Obj. 1A es el de Warren, y el de TIKR solo si Warren no tiene. Obj. 3A es el de Warren. Si falta un objetivo, el CAGR usa el precio de hoy y marca «sin objetivo».</p>
       {props.phase2.missing ? <p className="stamp">Falta supabase/warren_phase2.sql. La lista está vacía y no se guarda nada.</p> : null}
       {items.length === 0 ? <p style={{ color: INK3 }}>{props.phase2.radar.length === 0 ? "Sin candidatas." : "Ninguna con este filtro."}</p> : items.map((item) => {
         const company = companyOf(item);

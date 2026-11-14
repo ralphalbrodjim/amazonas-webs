@@ -36,6 +36,14 @@ export function warrenTarget3(radar: number | null | undefined, estimate: number
   return estimate;
 }
 
+/** Main 1-year price: the radar figure (Warren, or TIKR only when Warren has none), else Warren's estimate, else TIKR. */
+export function warrenTarget1(radar: number | null | undefined, warren: number | null, tikr: number | null): number | null {
+  if (typeof radar === "number" && Number.isFinite(radar)) return radar;
+  if (typeof warren === "number" && Number.isFinite(warren)) return warren;
+  if (typeof tikr === "number" && Number.isFinite(tikr)) return tikr;
+  return null;
+}
+
 /** One-year target. Mixto is 50/50 only when both exist; otherwise the single stored side. */
 export function oneYearTarget(mode: SourceMode, warren: number | null, tikr: number | null): { price: number | null; from: "warren" | "tikr" | "mixto" | null } {
   if (mode === "warren") return { price: warren, from: warren === null ? null : "warren" };
