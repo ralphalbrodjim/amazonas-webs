@@ -12,6 +12,7 @@ export type Company = {
   opportunity_stars_note?: string | null;
   opportunity_stars_at?: string | null;
   report_md?: string | null;
+  report_json?: unknown | null;
   report_sent_on?: string | null;
   origin?: "manual" | "warren_proposal" | string | null;
   entry_price_15?: number | null;

@@ -193,7 +193,7 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; today: string; ow
         );
       })}
       {msg ? <p style={{ color: AMBER }}>{msg}</p> : null}
-      {reportTicker ? <AnalysisReader ticker={reportTicker} name={openCompany?.name ?? props.phase2.radar.find((row) => row.ticker.toUpperCase() === reportTicker)?.name} sentOn={openCompany?.report_sent_on} source={props.bundle.companies.length === 0 ? null : (openCompany?.report_md ?? "")} onClose={closeReport} /> : null}
+      {reportTicker ? <AnalysisReader ticker={reportTicker} name={openCompany?.name ?? props.phase2.radar.find((row) => row.ticker.toUpperCase() === reportTicker)?.name} sentOn={openCompany?.report_sent_on} source={props.bundle.companies.length === 0 ? null : (openCompany?.report_md ?? "")} reportJson={props.bundle.companies.length === 0 ? undefined : openCompany?.report_json} onClose={closeReport} /> : null}
     </section>
   );
 }

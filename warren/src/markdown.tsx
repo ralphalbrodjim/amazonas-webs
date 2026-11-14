@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { fecha } from "./format";
 import { parseMarkdown, safeHttpUrl, type Inline } from "./markdown-parse";
+import { asReport } from "./report";
+import { ReportDocument } from "./report-view";
 
 const NAVY = "#0D1933";
 const PANEL = "#14284B";
@@ -84,10 +86,12 @@ export function MarkdownDoc(props: { source: string }) {
   );
 }
 
-export function AnalysisReader(props: { ticker: string; name?: string | null; sentOn?: string | null; source: string | null; onClose: () => void }) {
+export function AnalysisReader(props: { ticker: string; name?: string | null; sentOn?: string | null; source: string | null; reportJson?: unknown; onClose: () => void }) {
   const report = props.source?.trim() ?? "";
+  const structured = asReport(props.reportJson);
   const sent = props.sentOn ? fecha(props.sentOn.slice(0, 10)) : null;
   const dated = sent && sent !== "N/D" ? sent : null;
+  const light = Boolean(structured);
   useEffect(() => {
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -101,14 +105,18 @@ export function AnalysisReader(props: { ticker: string; name?: string | null; se
     };
   }, [props.onClose]);
   return (
-    <div role="dialog" aria-modal="true" aria-label={"Análisis " + props.ticker} style={{ position: "fixed", inset: 0, zIndex: 40, background: NAVY, color: INK, overflow: "auto", padding: "12px 14px 48px", boxSizing: "border-box", fontFamily: "Inter, -apple-system, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif" }}>
+    <div role="dialog" aria-modal="true" aria-label={"Análisis " + props.ticker} style={{ position: "fixed", inset: 0, zIndex: 40, background: light ? "#F1F4F7" : NAVY, color: light ? "#173D69" : INK, overflow: "auto", padding: "12px 14px 48px", boxSizing: "border-box", fontFamily: "Inter, -apple-system, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif" }}>
       <div style={{ maxWidth: 760, margin: "0 auto", minWidth: 0 }}>
-        <div style={{ position: "sticky", top: 0, background: NAVY, paddingBottom: 10, zIndex: 2 }}>
-          <button type="button" style={{ ...btn(false), width: "100%", minHeight: 52, fontSize: 17 }} onClick={props.onClose}>← Cerrar</button>
+        <div style={{ position: "sticky", top: 0, background: light ? "#F1F4F7" : NAVY, paddingBottom: 10, zIndex: 2 }}>
+          <button type="button" style={{ ...btn(false), width: "100%", minHeight: 52, fontSize: 17, ...(light ? { color: "#173D69", borderColor: "#173D69" } : {}) }} onClick={props.onClose}>← Cerrar</button>
         </div>
-        <p style={{ background: PANEL, letterSpacing: "0.08em", fontWeight: 800, padding: "12px 14px", borderRadius: 12 }}>WARREN • {props.ticker}{dated ? " • " + dated : ""}</p>
-        <h2 style={{ fontSize: 22, margin: "8px 0 4px" }}>{props.ticker}{props.name ? " · " + props.name : ""}{dated ? " · análisis del " + dated : ""}</h2>
-        {props.source === null ? <p style={{ color: INK3 }}>Cargando…</p> : report ? <MarkdownDoc source={report} /> : <p style={{ color: INK3 }}>Este análisis no está disponible.</p>}
+        {structured ? <ReportDocument doc={structured} ticker={props.ticker} name={props.name} date={dated} /> : (
+          <>
+            <p style={{ background: PANEL, letterSpacing: "0.08em", fontWeight: 800, padding: "12px 14px", borderRadius: 12 }}>WARREN • {props.ticker}{dated ? " • " + dated : ""}</p>
+            <h2 style={{ fontSize: 22, margin: "8px 0 4px" }}>{props.ticker}{props.name ? " · " + props.name : ""}{dated ? " · análisis del " + dated : ""}</h2>
+            {props.source === null ? <p style={{ color: INK3 }}>Cargando…</p> : report ? <MarkdownDoc source={report} /> : <p style={{ color: INK3 }}>Este análisis no está disponible.</p>}
+          </>
+        )}
       </div>
     </div>
   );

@@ -707,7 +707,7 @@ function Ficha(props: {
       {props.tab === "evo" ? <Evolucion view={props.view} missing={props.missing} owner={props.owner} onSaved={props.onSaved} /> : null}
       {props.tab === "val" ? <Valoracion view={props.view} companyId={props.companyId} currency={props.currency} today={props.today} missing={props.missing} radar={props.radar} onSaved={props.onSaved} /> : null}
       {props.tab === "rent" ? <Rentabilidad view={props.view} currency={props.currency} companyId={props.companyId} today={props.today} missing={props.missing} company={props.company} radar={props.radar} onSaved={props.onSaved} /> : null}
-      {report ? <AnalysisReader ticker={props.ticker} name={props.companyName} sentOn={props.company.report_sent_on} source={analysis} onClose={() => setReport(false)} /> : null}
+      {report ? <AnalysisReader ticker={props.ticker} name={props.companyName} sentOn={props.company.report_sent_on} source={analysis} reportJson={props.company.report_json} onClose={() => setReport(false)} /> : null}
       {props.notes ? <p style={{ color: INK3 }}>{props.notes}</p> : null}
       {extras.length > 0 ? (
         <div style={card}>

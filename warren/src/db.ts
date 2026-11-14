@@ -88,7 +88,7 @@ export async function loadWarren(): Promise<{ bundle: Bundle | null; missing: bo
     return { bundle: null, missing: false, error: failed.error.message };
   }
   const bundle: Bundle = {
-    companies: ((companies.data ?? []) as Company[]).map((row) => ({ ...row, opportunity_stars: num(row.opportunity_stars), entry_price_15: num(row.entry_price_15) })),
+    companies: ((companies.data ?? []) as Company[]).map((row) => ({ ...row, opportunity_stars: num(row.opportunity_stars), entry_price_15: num(row.entry_price_15), report_json: row.report_json ?? null })),
     quotes: ((quotes.data ?? []) as Quote[]).map((row) => rowNum(row, ["price"])),
     years: ((years.data ?? []) as YearRow[]).map((row) => rowNum(row, ["sales", "ebitda", "ebit", "net_income", "bpa", "shares_diluted", "cash", "gross_debt", "net_debt", "cfo", "capex", "fcf"])),
     estimates: ((estimates.data ?? []) as Estimate[]).map((row) => rowNum(row, ["bpa", "bpa_base", "growth", "per", "ev_fcf", "ev_ebitda", "ev_ebit", "fcf", "ebitda", "ebit", "net_debt", "equity_adjustments", "diluted_shares", "target_price"])),
