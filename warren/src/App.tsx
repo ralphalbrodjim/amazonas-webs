@@ -3,7 +3,7 @@ import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { loadIsOwner, loadOpsDashboard, loadPhase2, loadSyncRuns, loadWarren, probeSchema, redirectTo, runHealthCheck, runSecFundamentals, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
 import { eur, fecha, fechaDiaMes, fmt, fmtCompact, madridToday, parseInput, pct } from "./format";
 import { failureReason, latestPriceUpdate, staleTickerReason } from "./stale";
-import { cagr3, carteraFuenteTargets, positionValueEur, type CarteraFuente } from "./math";
+import { cagr3, carteraFuenteTargets, positionValueEur, yearTwoPrice, type CarteraFuente } from "./math";
 import { readChoice, writeChoice } from "./pendientes";
 import { AnalysisReader } from "./markdown";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
@@ -510,6 +510,38 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
   const threeYear = views.map(({ view, picked }) => horizonOf(view, picked.target3));
   const h1 = sumHorizon(oneYear);
   const h3 = sumHorizon(threeYear);
+  let v0 = 0;
+  let v1 = 0;
+  let v2 = 0;
+  let v3 = 0;
+  let cost = 0;
+  let steps = 0;
+  for (const { view, picked } of views) {
+    if (view.valueEur === null || view.price === null || !(view.price > 0)) continue;
+    const units = view.priceCurrency === "EUR" ? null : view.fx?.units_per_eur ?? null;
+    const mid = yearTwoPrice(picked.target1, picked.target3, view.price);
+    const value1 = positionValueEur(view.shares, picked.target1 ?? view.price, view.priceCurrency, units);
+    const value2 = positionValueEur(view.shares, mid, view.priceCurrency, units);
+    const value3 = positionValueEur(view.shares, picked.target3 ?? view.price, view.priceCurrency, units);
+    if (value1 === null || value2 === null || value3 === null) continue;
+    v0 += view.valueEur;
+    v1 += value1;
+    v2 += value2;
+    v3 += value3;
+    steps += 1;
+    const bought = positionValueEur(view.shares, view.avg, view.priceCurrency, units);
+    if (bought !== null) cost += bought;
+  }
+  const yearly = steps === 0 ? null : {
+    actual: pnlNow.sum,
+    y1: v1 - v0,
+    y2: v2 - v1,
+    y3: v3 - v2,
+    cost,
+    v0,
+    v1,
+    v2,
+  };
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Mi cartera real</h1>
@@ -519,6 +551,17 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
           <button key={id} type="button" style={{ ...btn(fuente === id), minHeight: 52, fontSize: 16, padding: "12px 16px" }} onClick={() => { setFuente(id); writeChoice("warren.cartera.fuente", id); }}>{label}</button>
         ))}
       </div>
+      {yearly ? (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <YearChip label="Actual" euros={yearly.actual} base={yearly.cost} />
+            <YearChip label="Año 1" euros={yearly.y1} base={yearly.v0} />
+            <YearChip label="Año 2" euros={yearly.y2} base={yearly.v1} />
+            <YearChip label="Año 3" euros={yearly.y3} base={yearly.v2} />
+          </div>
+          <p style={{ color: INK3, fontSize: 12, margin: "4px 0 0" }}>Año 2 interpolado entre 1A y 3A</p>
+        </div>
+      ) : null}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginBottom: 12 }}>
         <Kpi label="Valor actual" value={eur(valueNow.sum)} mark={valueNow.pending > 0 ? valueNow.pending + " Pendiente" : null} />
         <Kpi label="Plusvalía actual" value={eur(pnlNow.sum)} mark={pnlNow.pending > 0 ? pnlNow.pending + " Pendiente" : null} detail={"Valor: " + eur(valueNow.sum)} />
@@ -570,6 +613,18 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
       </div>
       <SharesEditor rows={rows.map((company) => ({ id: company.id, ticker: company.ticker, currency: company.currency, position: props.bundle.positions.find((row) => row.company_id === company.id) }))} disabled={props.missing} onSaved={props.onSaved} />
     </section>
+  );
+}
+
+function YearChip(props: { label: string; euros: number | null; base: number | null }) {
+  const ratio = props.euros !== null && props.base !== null && props.base !== 0 ? props.euros / props.base : null;
+  const color = props.euros === null || props.euros === 0 ? INK : props.euros > 0 ? "#3DDC97" : "#FF6B6B";
+  const euroText = props.euros === null ? "N/D" : (props.euros > 0 ? "+" : "") + eur(props.euros);
+  const pctText = ratio === null ? "" : " (" + (ratio > 0 ? "+" : "") + (ratio * 100).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%)";
+  return (
+    <span style={{ fontSize: 13, lineHeight: 1.3, color: INK3, background: PANEL, border: "1px solid rgba(130,170,230,0.18)", borderRadius: 999, padding: "4px 10px" }}>
+      {props.label} <b style={{ color, fontWeight: 800 }}>{euroText}{pctText}</b>
+    </span>
   );
 }
 

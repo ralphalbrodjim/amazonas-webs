@@ -53,6 +53,14 @@ export function carteraFuenteTargets(fuente: CarteraFuente, warren1: number | nu
   return { target1: w1, target3: w3, warren3Fallback: false };
 }
 
+/** Year-2 price: geometric midpoint of the 1A and 3A targets. A missing target uses today's price. */
+export function yearTwoPrice(target1: number | null, target3: number | null, price: number | null): number | null {
+  const left = target1 ?? price;
+  const right = target3 ?? price;
+  if (left !== null && right !== null && left > 0 && right > 0) return Math.sqrt(left * right);
+  return price !== null && price > 0 ? price : null;
+}
+
 /** Main 1-year price: the radar figure (Warren, or TIKR only when Warren has none), else Warren's estimate, else TIKR. */
 export function warrenTarget1(radar: number | null | undefined, warren: number | null, tikr: number | null): number | null {
   if (typeof radar === "number" && Number.isFinite(radar)) return radar;

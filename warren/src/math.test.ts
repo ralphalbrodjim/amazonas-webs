@@ -15,6 +15,7 @@ import {
   carteraFuenteTargets,
   warrenTarget1,
   warrenTarget3,
+  yearTwoPrice,
   positionReturn,
   priceReturn,
   toEur,
@@ -64,6 +65,9 @@ test("Mixto is 50/50 and stays empty when TIKR is missing", () => {
   assert.equal(googlMix.target3, (322.99 + 280) / 2);
   assert.equal(carteraFuenteTargets("mixto", 192, null, 232, null).target1, 192);
   assert.equal(carteraFuenteTargets("tikr", 192, null, 232, null).target1, null);
+  assert.ok(Math.abs(yearTwoPrice(266, 351, 295.77)! - Math.sqrt(266 * 351)) < 1e-9);
+  assert.ok(Math.abs(yearTwoPrice(null, 351, 295.77)! - Math.sqrt(295.77 * 351)) < 1e-9);
+  assert.equal(yearTwoPrice(null, null, 295.77), 295.77);
 });
 
 test("15% hurdle and position return do not invent a zero", () => {
