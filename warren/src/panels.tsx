@@ -55,7 +55,7 @@ function threeCell(target: number | null, price: number | null, pending: string)
   return <span>{fmt(target)}{rate === null ? "" : <> · <span style={{ color: YELLOW, fontWeight: 800 }}>CAGR {pct(rate)}</span></>}</span>;
 }
 
-export const TIKR_3A_NOTE = "Cálculo de Warren: BPA de consenso del 3.er año × PER razonable; no es cifra de TIKR";
+export const TIKR_3A_NOTE = "Cálculo de Warren: objetivo medio de analistas × crecimiento del BPA de consenso hasta el 3.er año (mismo PER que pagan los analistas); no es cifra de TIKR";
 
 export function Tikr3A(props: { value: number | null | undefined }) {
   const value = typeof props.value === "number" && Number.isFinite(props.value) ? props.value : null;

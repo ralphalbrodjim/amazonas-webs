@@ -544,6 +544,8 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
               const three = threeYear[index];
               const oneMark = one.kind === "hoy" ? "sin objetivo" : null;
               const threeMark = three.kind === "hoy" ? "sin objetivo" : picked.warren3Fallback ? "Warren" : null;
+              const threePrice = three.kind === "hoy" ? view.price : picked.target3;
+              const threeReturn = three.kind === "pending" || view.price === null || !(view.price > 0) || threePrice === null ? null : (threePrice - view.price) / view.price;
               const cagr = cagr3(three.kind === "target" ? picked.target3 : null, view.price);
               return (
               <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
@@ -555,7 +557,7 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
                 <td className={one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : rentYPrecio(one.kind === "hoy" ? view.price : picked.target1, view.price)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
                 <td><TikrConsenso value={radarFor(props.radar, company.id, company.ticker)?.target_1a_tikr} price={view.price} /></td>
                 <td className={one.kind === "target" ? tone(one.pnl, "blue") : one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : eur(one.pnl)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
-                <td className={three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : fmt(three.kind === "hoy" ? view.price : picked.target3)}{threeMark ? <span className="stamp"> {threeMark}</span> : null}</td>
+                <td className={three.kind === "pending" ? "nd" : threeReturn !== null && threeReturn !== 0 ? tone(threeReturn, "plain") : undefined}>{three.kind === "pending" ? "Pendiente" : rentYPrecio(threePrice, view.price)}{threeMark ? <span className="stamp"> {threeMark}</span> : null}</td>
                 <td className={three.kind === "target" ? tone(three.pnl, "plain") : three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : eur(three.pnl)}{threeMark ? <span className="stamp"> {threeMark}</span> : null}</td>
                 <td className={tone(cagr, "green")}>{pct(cagr)}</td>
                 <td><Tikr3A value={radarFor(props.radar, company.id, company.ticker)?.target_3a_tikr} /></td>
