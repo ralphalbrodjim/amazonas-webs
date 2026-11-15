@@ -573,7 +573,7 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
       <div className="w-scroll">
         <table className="w-table">
           <thead>
-            <tr>{["Empresa", "P. medio", "P. hoy", "Plusv. hoy", "Peso Excel", "Precio 1A", "TIKR (consenso)", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => (
+            <tr>{["Empresa", "P. medio", "P. hoy", "Plusv. hoy", "Peso Excel", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => (
               <th key={label} className={index === 0 ? "sticky" : ""} title={label.startsWith("TIKR 3A") ? TIKR_3A_NOTE : undefined}>
                 {label}
                 {label === "P. hoy" ? <span className="stamp">{updatedLabel(props.runs, props.bundle.quotes)}</span> : null}
@@ -581,7 +581,7 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
             ))}</tr>
           </thead>
           <tbody>
-            {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={12} className="nd">N/D</td></tr> : null}
+            {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={11} className="nd">N/D</td></tr> : null}
             {views.map(({ company, view, picked }, index) => {
               const one = oneYear[index];
               const three = threeYear[index];
@@ -597,8 +597,7 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
                 <td>{view.price === null ? <span className="nd">Pendiente</span> : fmt(view.price)}</td>
                 <td className={view.price === null ? "nd" : tone(view.rentHoy, "plain")}>{view.price === null ? "Pendiente" : pct(view.rentHoy) + (view.pnlNowEur === null ? "" : " · " + eur(view.pnlNowEur))}</td>
                 <td>{view.weightPct === null ? "N/D" : fmt(view.weightPct, 2) + " %"}</td>
-                <td className={one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : rentYPrecio(one.kind === "hoy" ? view.price : picked.target1, view.price)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
-                <td><TikrConsenso value={radarFor(props.radar, company.id, company.ticker)?.target_1a_tikr} price={view.price} /></td>
+                <td className={one.kind === "pending" ? "nd" : "col-yellow"}>{one.kind === "pending" ? "Pendiente" : rentYPrecio(one.kind === "hoy" ? view.price : picked.target1, view.price)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
                 <td className={one.kind === "target" ? tone(one.pnl, "blue") : one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : eur(one.pnl)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
                 <td className={three.kind === "pending" ? "nd" : threeReturn !== null && threeReturn !== 0 ? tone(threeReturn, "plain") : undefined}>{three.kind === "pending" ? "Pendiente" : rentYPrecio(threePrice, view.price)}{threeMark ? <span className="stamp"> {threeMark}</span> : null}</td>
                 <td className={three.kind === "target" ? tone(three.pnl, "plain") : three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : eur(three.pnl)}{threeMark ? <span className="stamp"> {threeMark}</span> : null}</td>

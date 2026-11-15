@@ -91,6 +91,9 @@ button:disabled {
 
 .col-blue { background: rgba(71, 154, 255, 0.28); color: #fff; font-weight: 700; }
 .col-green { background: rgba(31, 122, 90, 0.85); color: #fff; font-weight: 700; }
+.col-yellow { background: #FFE14A; color: #0D1933; font-weight: 800; }
+.w-table tr.hit:hover td.col-yellow { background: #FFE14A; color: #0D1933; }
+.col-yellow .stamp { color: #0D1933; }
 .neg { color: #FF6B6B; font-weight: 700; }
 .pos { color: #3DDC97; font-weight: 700; }
 
