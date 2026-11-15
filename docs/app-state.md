@@ -78,3 +78,16 @@ Gimnasio y hogar usan la misma lista: `categoria` `gimnasio` o `hogar`, `hecho` 
 `kmMes` pisa el total de un mes cuando no se conocen todas las salidas. Octubre está en `35.86` km y `10` salidas. Sin esa clave, el mes es la suma de `entradas` con `categoria` running, `hecho` true y `km`. Noviembre no lleva pisado: sale de las salidas.
 
 La pestaña Inglés ya no se muestra. La fila `semana-ingles-v1` se deja como está.
+
+## Tu semana
+
+Cada semana de la agenda nueva es una fila de `public.app_state` con `site = 'semana'` y `key = 'agenda-semana-YYYY-Www'` (semana ISO, por ejemplo `agenda-semana-2026-W46`). El campo `value` es un objeto por actividad y día. Solo se escribe una casilla cuando Alberto la edita. Si la clave no está, o el día no está en el objeto, la casilla muestra el plan ya publicado (carrera, gimnasio, clase) y no lo guarda. Un texto vacío es una casilla borrada: el plan no vuelve a pisarla.
+
+```json
+{
+  "run": { "martes": "Descanso" },
+  "ingles": { "lunes": "11:00 Oliver" }
+}
+```
+
+Las filas (Gimnasio, Run, Inglés, Cultura, Cocina, Otros) están en `semana/src/agendaGrid.ts`. La fila antigua `semana-agenda-v1` no se borra: sigue alimentando el deporte.

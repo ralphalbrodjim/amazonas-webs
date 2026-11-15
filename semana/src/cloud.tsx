@@ -12,6 +12,7 @@ const sync = createSync("semana", [
   { key: "semana-agenda-v1", isEmpty: bagEmpty },
   { key: "semana-cultura-v1", isEmpty: bagEmpty },
   { key: "semana-deporte-v1", isEmpty: isEmptyValue },
+  { prefix: "agenda-semana-", authoritative: true },
 ]);
 
 const SyncContext = createContext<SiteSync>(sync);

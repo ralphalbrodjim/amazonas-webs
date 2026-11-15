@@ -5,7 +5,9 @@ export type SyncStatus = "synced" | "saving" | "offline";
 export type SyncSite = "chef" | "semana";
 
 export type SyncKey = {
-  key: string;
+  key?: string;
+  /** Matches every cloud key that starts with this, for example one row per week. */
+  prefix?: string;
   isEmpty?: (value: unknown) => boolean;
   /** When the cloud row exists, it wins even if it is empty. A phone must not upload an older local copy over it. */
   authoritative?: boolean;
@@ -54,6 +56,7 @@ export type SiteSync = {
   stop: () => void;
   push: (key: string, value: unknown) => void;
   onKey: (key: string, handler: Handler) => () => void;
+  onReady: (handler: () => void) => () => void;
   onStatus: (handler: (status: SyncStatus) => void) => () => void;
 };
 
@@ -61,9 +64,14 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
   const client: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const spec = new Map(keys.map((item) => [item.key, item]));
+  const exact = new Map(keys.filter((item) => item.key).map((item) => [item.key as string, item]));
+  const prefixes = keys.filter((item) => item.prefix);
+  function itemFor(key: string): SyncKey | undefined {
+    return exact.get(key) ?? prefixes.find((item) => item.prefix && key.startsWith(item.prefix));
+  }
   const handlers = new Map<string, Set<Handler>>();
   const statusHandlers = new Set<(status: SyncStatus) => void>();
+  const readyHandlers = new Set<() => void>();
   const applied = new Map<string, string>();
   const latest = new Map<string, unknown>();
   const dirty = new Set<string>();
@@ -91,6 +99,7 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
   }
 
   function deliver(key: string, value: unknown) {
+    latest.set(key, value);
     applied.set(key, stable(value));
     writeLocal(key, value);
     for (const fn of handlers.get(key) ?? []) fn(value);
@@ -117,7 +126,7 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
   }
 
   function push(key: string, value: unknown) {
-    if (!spec.has(key)) return;
+    if (!itemFor(key)) return;
     writeLocal(key, value);
     const sig = stable(value);
     latest.set(key, value);
@@ -131,7 +140,14 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
     let set = handlers.get(key);
     if (!set) handlers.set(key, set = new Set());
     set.add(handler);
+    if (latest.has(key)) handler(latest.get(key));
     return () => set!.delete(handler);
+  }
+
+  function onReady(handler: () => void) {
+    readyHandlers.add(handler);
+    if (ready) handler();
+    return () => readyHandlers.delete(handler);
   }
 
   function onStatus(handler: (status: SyncStatus) => void) {
@@ -149,7 +165,7 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
     const seen = new Set<string>();
     for (const row of data) {
       const key = String(row.key);
-      const item = spec.get(key);
+      const item = itemFor(key);
       if (!item) continue;
       seen.add(key);
       const local = readLocal(key);
@@ -175,7 +191,7 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
       deliver(key, choice.value);
     }
     for (const item of keys) {
-      if (seen.has(item.key)) continue;
+      if (!item.key || seen.has(item.key)) continue;
       if (item.authoritative) {
         if (dirty.has(item.key) && latest.has(item.key)) void upsert(item.key, latest.get(item.key));
         else deliver(item.key, "");
@@ -194,17 +210,19 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
     for (const key of dirty) {
       if (remoteHad.has(key)) continue;
       if (!latest.has(key)) continue;
-      const empty = spec.get(key)?.isEmpty ? spec.get(key)!.isEmpty!(latest.get(key)) : isEmptyValue(latest.get(key));
+      const specItem = itemFor(key);
+      const empty = specItem?.isEmpty ? specItem.isEmpty(latest.get(key)) : isEmptyValue(latest.get(key));
       if (empty) continue;
       schedule(key);
     }
     if (inflight === 0) setStatus("synced");
+    for (const fn of readyHandlers) fn();
     document.addEventListener("visibilitychange", onHide);
     window.addEventListener("pagehide", flush);
     channel = client.channel("app_state_" + site)
       .on("postgres_changes", { event: "*", schema: "public", table: "app_state", filter: "site=eq." + site }, (payload) => {
         const row = payload.new as { key?: string; value?: unknown } | null;
-        if (!row || typeof row.key !== "string" || !spec.has(row.key)) return;
+        if (!row || typeof row.key !== "string" || !itemFor(row.key)) return;
         if (applied.get(row.key) === stable(row.value)) return;
         remoteHad.add(row.key);
         deliver(row.key, row.value);
@@ -224,5 +242,5 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
     channel = null;
   }
 
-  return { start, stop, push, onKey, onStatus };
+  return { start, stop, push, onKey, onReady, onStatus };
 }
