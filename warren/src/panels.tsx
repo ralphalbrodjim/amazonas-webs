@@ -67,11 +67,13 @@ function threeCell(target: number | null, price: number | null, pending: string)
   return <span>{fmt(target)}{rate === null ? "" : <> · <ValueChip>CAGR {pct(rate)}</ValueChip></>}</span>;
 }
 
-export const TIKR_3A_NOTE = "Cálculo de Warren: objetivo medio de analistas × crecimiento del BPA de consenso hasta el 3.er año (mismo PER que pagan los analistas); no es cifra de TIKR";
+export const TIKR_3A_NOTE = "calc.: consenso llevado a 3 años con el crecimiento del BPA y el PER de los analistas.";
 
-export function Tikr3A(props: { value: number | null | undefined }) {
+export function Tikr3A(props: { value: number | null | undefined; price?: number | null }) {
   const value = typeof props.value === "number" && Number.isFinite(props.value) ? props.value : null;
-  return <span title={TIKR_3A_NOTE}>{value === null ? "—" : fmt(value)}</span>;
+  if (value === null) return <span>—</span>;
+  const rent = props.price != null && props.price > 0 ? priceReturn(value, props.price) : null;
+  return <span>{fmt(value)}{rent === null ? "" : " · " + pct(rent)} <span className="stamp" title={TIKR_3A_NOTE}>calc.</span></span>;
 }
 
 export function TikrConsenso(props: { value: number | null | undefined; price?: number | null }) {
@@ -96,19 +98,14 @@ export function SourceCompare(props: { price: number | null; tikr1: number | nul
         </thead>
         <tbody>
           <tr>
-            <th style={{ ...cell, textAlign: "left" }}>TIKR (consenso)</th>
+            <th style={{ ...cell, textAlign: "left" }}>TIKR (analistas)</th>
             <td style={cell}>{oneCell(props.tikr1, props.price, "TIKR pendiente")}</td>
-            <td style={cell} title={TIKR_3A_NOTE}>—</td>
+            <td style={cell}><Tikr3A value={props.tikr3} price={props.price} /></td>
           </tr>
           <tr>
-            <th style={{ ...cell, textAlign: "left" }}>Warren (hijo de Buffett)</th>
+            <th style={{ ...cell, textAlign: "left" }}>Warren</th>
             <td style={cell}>{oneCell(props.warren1, props.price, "Warren pendiente")}</td>
             <td style={cell}>{threeCell(props.warren3, props.price, "Warren pendiente")}</td>
-          </tr>
-          <tr>
-            <th style={{ ...cell, textAlign: "left" }} title={TIKR_3A_NOTE}>TIKR 3A (implícita)</th>
-            <td style={cell} />
-            <td style={cell}><Tikr3A value={props.tikr3} /></td>
           </tr>
         </tbody>
       </table>
@@ -141,7 +138,7 @@ export function Seguimiento(props: { fuente: CarteraFuente; companies: Company[]
                   <td>{price === null ? "—" : fmt(price) + (radar?.price_currency ? " " + radar.price_currency : "")}</td>
                   <td className="chip-cell">{picked.target1 === null ? "—" : <ValueChip>{fmt(picked.target1)}</ValueChip>}</td>
                   <td className="chip-cell">{rentChip(rent1)}</td>
-                  <td className="chip-cell">{picked.target3 === null ? "—" : <ValueChip>{fmt(picked.target3)}{picked.warren3Fallback ? <span className="stamp"> Warren</span> : null}</ValueChip>}</td>
+                  <td className="chip-cell">{picked.target3 === null ? "—" : <ValueChip>{fmt(picked.target3)}</ValueChip>}</td>
                   <td className="chip-cell">{rentChip(rent3)}</td>
                   <td className="chip-cell">{cagr === null ? "—" : <ValueChip>{pct(cagr)}</ValueChip>}</td>
                   <td><EntradaMark company={company} radar={radar} spot={price} /></td>
@@ -213,10 +210,10 @@ export function VirtualTable(props: { companies: Company[]; radar: RadarItem[]; 
       <div className="w-scroll">
         <table className="w-table">
           <thead>
-            <tr>{["Empresa", "Fecha análisis", "Precio compra", "P. hoy", "Rentabilidad", "Precio 1A", "TIKR (consenso)", "Precio 3A", "Entrada 15 %", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => <th key={label} className={index === 0 ? "sticky" : ""} title={label.startsWith("TIKR 3A") ? TIKR_3A_NOTE : undefined}>{label}</th>)}</tr>
+            <tr>{["Empresa", "Fecha análisis", "Precio compra", "P. hoy", "Rentabilidad", "Precio 1A", "TIKR (analistas)", "Precio 3A", "Entrada 15 %", "Próx. resultados"].map((label, index) => <th key={label} className={index === 0 ? "sticky" : ""} title={label === "TIKR (analistas)" ? TIKR_3A_NOTE : undefined}>{label}</th>)}</tr>
           </thead>
           <tbody>
-            {lines.length === 0 ? <tr><td className="sticky">Sin empresas</td><td colSpan={10}>—</td></tr> : lines.map((line) => {
+            {lines.length === 0 ? <tr><td className="sticky">Sin empresas</td><td colSpan={9}>—</td></tr> : lines.map((line) => {
               const company = props.companies.find((row) => row.id === line.companyId) ?? null;
               const radar = props.radar.find((row) => row.company_id === line.companyId) ?? null;
               return (
@@ -227,10 +224,9 @@ export function VirtualTable(props: { companies: Company[]; radar: RadarItem[]; 
                   <td>{line.price === null ? "—" : fmt(line.price) + (line.priceCurrency ? " " + line.priceCurrency : "")}</td>
                   <td className="chip-cell">{line.rent === null ? "—" : <ValueChip tone={line.rent > 0 ? "up" : line.rent < 0 ? "down" : "gold"}>{pct(line.rent)}</ValueChip>}</td>
                   <td>{line.target1 === null ? "—" : fmt(line.target1)}</td>
-                  <td><TikrConsenso value={line.tikr1} price={line.price} /></td>
+                  <td><TikrConsenso value={line.tikr1} price={line.price} /> · 3A <Tikr3A value={line.tikr3} price={line.price} /></td>
                   <td>{line.target3 === null ? "—" : fmt(line.target3)}</td>
                   <td><EntradaMark company={company} radar={radar} spot={line.price} /></td>
-                  <td><Tikr3A value={line.tikr3} /></td>
                   <td><ProximosResultados row={props.earnings.find((row) => row.company_id === line.companyId) ?? null} /></td>
                 </tr>
               );

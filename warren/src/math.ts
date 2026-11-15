@@ -42,15 +42,15 @@ function stored(value: number | null | undefined): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-/** Mi cartera only. Warren is target_1a/target_3a. TIKR 3A falls back to Warren and says so. Mixto averages both sides, otherwise Warren. */
-export function carteraFuenteTargets(fuente: CarteraFuente, warren1: number | null, tikr1: number | null, warren3: number | null, tikr3: number | null): { target1: number | null; target3: number | null; warren3Fallback: boolean } {
+/** Warren is target_1a/target_3a. TIKR is the analyst 1A and the implied 3A, with no substitution. Mixto averages a horizon when both sides exist, otherwise Warren. */
+export function carteraFuenteTargets(fuente: CarteraFuente, warren1: number | null, tikr1: number | null, warren3: number | null, tikr3: number | null): { target1: number | null; target3: number | null } {
   const w1 = stored(warren1);
   const t1 = stored(tikr1);
   const w3 = stored(warren3);
   const t3 = stored(tikr3);
-  if (fuente === "tikr") return { target1: t1, target3: t3 ?? w3, warren3Fallback: t3 === null && w3 !== null };
-  if (fuente === "mixto") return { target1: w1 !== null && t1 !== null ? (w1 + t1) / 2 : w1, target3: w3 !== null && t3 !== null ? (w3 + t3) / 2 : w3, warren3Fallback: false };
-  return { target1: w1, target3: w3, warren3Fallback: false };
+  if (fuente === "tikr") return { target1: t1, target3: t3 };
+  if (fuente === "mixto") return { target1: w1 !== null && t1 !== null ? (w1 + t1) / 2 : w1, target3: w3 !== null && t3 !== null ? (w3 + t3) / 2 : w3 };
+  return { target1: w1, target3: w3 };
 }
 
 /** Year-2 price: geometric midpoint of the 1A and 3A targets. A missing target uses today's price. */

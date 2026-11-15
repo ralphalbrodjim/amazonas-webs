@@ -61,8 +61,10 @@ test("Mixto is 50/50 and stays empty when TIKR is missing", () => {
   assert.equal(googl.target1, 266);
   const googlTikr = carteraFuenteTargets("tikr", 266, 400.37, 322.99, null);
   assert.equal(googlTikr.target1, 400.37);
-  assert.equal(googlTikr.target3, 322.99);
-  assert.equal(googlTikr.warren3Fallback, true);
+  assert.equal(googlTikr.target3, null);
+  const jdTikr = carteraFuenteTargets("tikr", 34.4, 38.83, 47, 48.9);
+  assert.equal(jdTikr.target1, 38.83);
+  assert.equal(jdTikr.target3, 48.9);
   const googlMix = carteraFuenteTargets("mixto", 266, 400.37, 322.99, 280);
   assert.equal(googlMix.target1, (266 + 400.37) / 2);
   assert.equal(googlMix.target3, (322.99 + 280) / 2);

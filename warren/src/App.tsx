@@ -456,7 +456,7 @@ function Resumen(props: {
                   <td className="chip-cell">{signedChip(view.rentHoy)}</td>
                   <td className="chip-cell">{picked.target1 === null ? <span className="nd">N/D</span> : <ValueChip>{fmt(picked.target1)}</ValueChip>}</td>
                   <td className="chip-cell">{signedChip(rent1)}</td>
-                  <td className="chip-cell">{picked.target3 === null ? <span className="nd">N/D</span> : <ValueChip>{fmt(picked.target3)}{picked.warren3Fallback ? <span className="stamp"> Warren</span> : null}</ValueChip>}</td>
+                  <td className="chip-cell">{picked.target3 === null ? <span className="nd">N/D</span> : <ValueChip>{fmt(picked.target3)}</ValueChip>}</td>
                   <td className="chip-cell">{signedChip(rent3)}</td>
                   <td className="chip-cell">{cagr === null ? <span className="nd">N/D</span> : <ValueChip>{pct(cagr)}</ValueChip>}</td>
                   <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
@@ -591,7 +591,7 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
               const one = oneYear[index];
               const three = threeYear[index];
               const oneMark = one.kind === "hoy" ? "sin objetivo" : null;
-              const threeMark = three.kind === "hoy" ? "sin objetivo" : picked.warren3Fallback ? "Warren" : null;
+              const threeMark = three.kind === "hoy" ? "sin objetivo" : null;
               const threePrice = three.kind === "hoy" ? view.price : picked.target3;
               const threeReturn = three.kind === "pending" || view.price === null || !(view.price > 0) || threePrice === null ? null : (threePrice - view.price) / view.price;
               const cagr = cagr3(three.kind === "target" ? picked.target3 : null, view.price);
@@ -639,7 +639,7 @@ function FuenteToggle(props: { value: CarteraFuente; onChange: (value: CarteraFu
   return (
     <div role="group" aria-label="Fuente del objetivo" style={{ display: "flex", width: "100%", maxWidth: 360, margin: "0 0 10px", padding: 3, borderRadius: 12, background: PANEL, border: "1px solid " + LINE }}>
       {([["warren", "Warren"], ["tikr", "TIKR"], ["mixto", "Mixto"]] as const).map(([id, label]) => (
-        <button key={id} type="button" aria-pressed={props.value === id} style={{ flex: 1, minHeight: 40, border: 0, borderRadius: 9, cursor: "pointer", fontWeight: 800, fontSize: 14, background: props.value === id ? BLUE : "transparent", color: props.value === id ? NAVY : INK3 }} onClick={() => props.onChange(id)}>{label}</button>
+        <button key={id} type="button" aria-pressed={props.value === id} title={id === "tikr" ? "TIKR (analistas)" : id === "warren" ? "Warren" : "Media de Warren y TIKR"} style={{ flex: 1, minHeight: 40, border: 0, borderRadius: 9, cursor: "pointer", fontWeight: 800, fontSize: 14, background: props.value === id ? BLUE : "transparent", color: props.value === id ? NAVY : INK3 }} onClick={() => props.onChange(id)}>{id === "tikr" ? "TIKR" : label}</button>
       ))}
     </div>
   );
@@ -859,7 +859,7 @@ function Valoracion(props: { view: CompanyView; companyId: string; currency: str
     <div>
       <h2 style={{ fontSize: 18, margin: "0 0 4px" }}>TIKR y Warren</h2>
       <SourceCompare price={props.radar?.price ?? props.view.price} tikr1={props.radar?.target_1a_tikr ?? props.view.tikr1.price} warren1={props.radar?.target_1a_warren ?? null} tikr3={props.radar?.target_3a_tikr ?? null} warren3={props.view.target3} />
-      <p style={{ color: INK3 }}>El objetivo a 3 años es el de Warren en todas las pestañas. No se promedia con TIKR.</p>
+      <p style={{ color: INK3 }}>En esta ficha el objetivo es el de Warren. Resumen y Mi cartera siguen el selector.</p>
       <div className="w-scroll">
         <table className="w-table">
           <thead><tr>{["Método", "Múltiplo", "Año 1", "Año 2", "Año 3"].map((label, index) => <th key={label} className={index === 0 ? "sticky" : index === 1 ? "col-blue" : ""}>{label}</th>)}</tr></thead>
@@ -876,7 +876,7 @@ function Valoracion(props: { view: CompanyView; companyId: string; currency: str
           </tbody>
         </table>
       </div>
-      <p style={{ color: INK3 }}>Año 1 es el Street Target TIKR cuando está guardado. Año 2 sigue en N/D. El año 3 es el de Warren. <span title={TIKR_3A_NOTE}>TIKR 3A (implícita) <Tikr3A value={props.radar?.target_3a_tikr} /></span> · Street {money(props.view.tikr1.price, props.view.tikr1.row?.target_currency ?? props.currency)}</p>
+      <p style={{ color: INK3 }}>Año 2 sigue en N/D. El año 3 de esta tabla es el de Warren. <span className="stamp">{TIKR_3A_NOTE}</span></p>
       {warren.row ? <EstimateEditor row={warren.row} disabled={props.missing} onSaved={props.onSaved} /> : null}
       <TikrForm companyId={props.companyId} currency={props.currency} disabled={props.missing} onSaved={props.onSaved} />
     </div>
@@ -982,8 +982,8 @@ function Rentabilidad(props: { view: CompanyView; currency: string; companyId: s
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
         {cards.map(([label, value]) => <Kpi key={label} label={label} value={value} chip={label === "CAGR 3A" && props.view.cagr !== null ? <ValueChip>{value}</ValueChip> : undefined} />)}
       </div>
-      <p style={{ color: INK3 }}>TIKR (consenso): <TikrConsenso value={props.radar?.target_1a_tikr} price={props.view.price} /></p>
-      <p title={TIKR_3A_NOTE} style={{ color: INK3 }}>TIKR 3A (implícita): <Tikr3A value={props.radar?.target_3a_tikr} />. {TIKR_3A_NOTE}</p>
+      <p style={{ color: INK3 }}>TIKR (analistas): <TikrConsenso value={props.radar?.target_1a_tikr} price={props.view.price} /> · 3A <Tikr3A value={props.radar?.target_3a_tikr} price={props.view.price} /></p>
+      <p className="stamp" style={{ color: INK3, fontWeight: 500 }}>{TIKR_3A_NOTE}</p>
       <div style={{ ...card, marginTop: 12, background: "#1F7A5A" }}>
         <div style={{ letterSpacing: "0.06em", fontSize: 13 }}>ENTRADA 15 %</div>
         <div style={{ fontSize: 32, fontWeight: 800, marginTop: 6 }}><EntradaMark company={props.company} radar={props.radar} spot={props.radar?.price ?? props.view.price} /></div>
