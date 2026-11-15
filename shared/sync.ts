@@ -1,12 +1,14 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./supabase.config";
-
+import { chooseIncoming } from "./syncChoice";
 export type SyncStatus = "synced" | "saving" | "offline";
 export type SyncSite = "chef" | "semana";
 
 export type SyncKey = {
   key: string;
   isEmpty?: (value: unknown) => boolean;
+  /** When the cloud row exists, it wins even if it is empty. A phone must not upload an older local copy over it. */
+  authoritative?: boolean;
 };
 
 type Handler = (value: unknown) => void;
@@ -72,6 +74,16 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
   let inflight = 0;
   let stopped = false;
   let channel: ReturnType<SupabaseClient["channel"]> | null = null;
+
+  function flush() {
+    for (const timer of timers.values()) window.clearTimeout(timer);
+    timers.clear();
+    for (const [key, value] of latest) void upsert(key, value);
+  }
+
+  function onHide() {
+    if (document.visibilityState === "hidden") flush();
+  }
 
   function setStatus(next: SyncStatus) {
     status = next;
@@ -143,24 +155,40 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
       const local = readLocal(key);
       const remoteEmpty = item.isEmpty ? item.isEmpty(row.value) : isEmptyValue(row.value);
       const localEmpty = local === undefined || (item.isEmpty ? item.isEmpty(local) : isEmptyValue(local));
-      if (remoteEmpty && !localEmpty) {
-        latest.set(key, local);
-        applied.set(key, stable(local));
-        void upsert(key, local);
+      if (item.authoritative) {
+        if (dirty.has(key) && latest.has(key)) {
+          void upsert(key, latest.get(key));
+          continue;
+        }
+        remoteHad.add(key);
+        deliver(key, row.value);
+        continue;
+      }
+      const choice = chooseIncoming({ remoteExists: true, remote: row.value, local, authoritative: false, remoteEmpty, localEmpty });
+      if (choice.use === "local") {
+        latest.set(key, choice.value);
+        applied.set(key, stable(choice.value));
+        void upsert(key, choice.value);
         continue;
       }
       remoteHad.add(key);
-      deliver(key, row.value);
+      deliver(key, choice.value);
     }
     for (const item of keys) {
       if (seen.has(item.key)) continue;
+      if (item.authoritative) {
+        if (dirty.has(item.key) && latest.has(item.key)) void upsert(item.key, latest.get(item.key));
+        else deliver(item.key, "");
+        continue;
+      }
       const local = readLocal(item.key);
       if (local === undefined) continue;
       const empty = item.isEmpty ? item.isEmpty(local) : isEmptyValue(local);
-      if (empty) continue;
-      latest.set(item.key, local);
-      applied.set(item.key, stable(local));
-      void upsert(item.key, local);
+      const choice = chooseIncoming({ remoteExists: false, remote: undefined, local, authoritative: false, remoteEmpty: true, localEmpty: empty });
+      if (choice.use !== "local") continue;
+      latest.set(item.key, choice.value);
+      applied.set(item.key, stable(choice.value));
+      void upsert(item.key, choice.value);
     }
     ready = true;
     for (const key of dirty) {
@@ -171,6 +199,8 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
       schedule(key);
     }
     if (inflight === 0) setStatus("synced");
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", flush);
     channel = client.channel("app_state_" + site)
       .on("postgres_changes", { event: "*", schema: "public", table: "app_state", filter: "site=eq." + site }, (payload) => {
         const row = payload.new as { key?: string; value?: unknown } | null;
@@ -188,6 +218,8 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
     stopped = true;
     for (const timer of timers.values()) window.clearTimeout(timer);
     timers.clear();
+    document.removeEventListener("visibilitychange", onHide);
+    window.removeEventListener("pagehide", flush);
     if (channel) void client.removeChannel(channel);
     channel = null;
   }

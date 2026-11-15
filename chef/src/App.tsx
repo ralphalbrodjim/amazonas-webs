@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { ChangeEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { watchContent, type ContentRow } from "../../shared/content";
@@ -262,7 +262,7 @@ function chefStateEmpty(value: unknown): boolean {
 }
 const chefSync = createSync("chef", [
   { key: KEY, isEmpty: chefStateEmpty },
-  { key: "chef-notas-nuevas" },
+  { key: "chef-notas-nuevas", authoritative: true },
 ]);
 
 const BASIC = new Set(["Agua", "Sal", "Pimienta", "Aceite"]);
@@ -413,9 +413,11 @@ export default function App() {
   const up = (p: Partial<St>) => setSt((s: St) => ({ ...s, ...p }));
 
   const [vista, setVista] = useState<string>("rec");
-  const [notasLibres, setNotasLibres] = useState<string>(() => { try { return localStorage.getItem("chef-notas-nuevas") || ""; } catch (e) { return ""; } });
+  const notasEdited = useRef(false);
+  const [notasLibres, setNotasLibres] = useState("");
   const [vaciarNotas, setVaciarNotas] = useState(false);
-  useEffect(() => { try { localStorage.setItem("chef-notas-nuevas", notasLibres); } catch (e) { /* sin almacenamiento */ } chefSync.push("chef-notas-nuevas", notasLibres); }, [notasLibres]);
+  const escribirNotas = (value: string) => { notasEdited.current = true; setNotasLibres(value); };
+  useEffect(() => { if (notasEdited.current) chefSync.push("chef-notas-nuevas", notasLibres); }, [notasLibres]);
   const mailtoNotas = "mailto:ralphdg@mail.grokbot.com?subject=" + encodeURIComponent("Nuevas recetas para el Chef") + "&body=" + encodeURIComponent(notasLibres);
   const [q, setQ] = useState<string>("");
   const [qOn, setQOn] = useState(false);
@@ -915,7 +917,7 @@ export default function App() {
       {vista === "notas" && (
         <Section heading="📝 Notas · Nuevas recetas">
           <Text>Escribe aquí las recetas que quieres. Se guardan en este navegador.</Text>
-          <textarea aria-label="Notas de nuevas recetas" value={notasLibres} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNotasLibres(e.target.value)} placeholder="Nombre, ingredientes, cómo te gusta…" style={{ width: "100%", minHeight: 220, fontSize: 16, lineHeight: 1.45, color: C.text, background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: 14, boxSizing: "border-box" }} />
+          <textarea className="notas-box" aria-label="Notas de nuevas recetas" value={notasLibres} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => escribirNotas(e.target.value)} placeholder="Nombre, ingredientes, cómo te gusta…" style={{ width: "100%", minHeight: 220, fontSize: 16, lineHeight: 1.45, color: C.text, background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: 14, boxSizing: "border-box" }} />
           <div style={{ ...row, marginTop: 12 }}>
             <a href={mailtoNotas} style={{ minHeight: 48, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "1 1 200px", borderRadius: 999, background: C.green, color: "#fff", fontWeight: 700, fontSize: 16, textDecoration: "none", padding: "12px 16px" }}>📨 Enviar al Chef</a>
             <button type="button" onClick={() => setVaciarNotas(true)} style={{ minHeight: 48, flex: "1 1 140px", borderRadius: 999, border: `1px solid ${C.line}`, background: C.card, color: C.text, fontWeight: 700, fontSize: 16 }}>Vaciar</button>
@@ -924,7 +926,7 @@ export default function App() {
             <div style={{ marginTop: 12, background: "#F8E6DC", borderRadius: 14, padding: 12 }}>
               <p style={{ margin: "0 0 8px", fontWeight: 700 }}>¿Vaciar las notas?</p>
               <div style={row}>
-                <button type="button" onClick={() => { setNotasLibres(""); setVaciarNotas(false); }} style={{ minHeight: 48, flex: "1 1 120px", borderRadius: 999, border: "none", background: "#8C3F2A", color: "#fff", fontWeight: 700, fontSize: 16 }}>Vaciar</button>
+                <button type="button" onClick={() => { escribirNotas(""); setVaciarNotas(false); }} style={{ minHeight: 48, flex: "1 1 120px", borderRadius: 999, border: "none", background: "#8C3F2A", color: "#fff", fontWeight: 700, fontSize: 16 }}>Vaciar</button>
                 <button type="button" onClick={() => setVaciarNotas(false)} style={{ minHeight: 48, flex: "1 1 120px", borderRadius: 999, border: `1px solid ${C.line}`, background: C.card, fontWeight: 700, fontSize: 16 }}>Cancelar</button>
               </div>
             </div>
