@@ -256,7 +256,7 @@ Replace the placeholder before running it. `active = false` hides a row.
 
 ## semana / organizacion_semana
 
-One row per cell of the weekday grid. The nine jefes and the five weekdays are fixed in the site. A row only fills a cell; it does not add a person or a day. Kaito is not a jefe, so a row with `jefe: "kaito"` is ignored. An empty `texto` leaves the cell blank. With no rows every cell stays empty.
+One row per cell of the week grid. The nine jefes and the seven days, Monday through Sunday, are fixed in the site. A row only fills a cell; it does not add a person or a day. Kaito is not a jefe, so a row with `jefe: "kaito"` is ignored. An empty `texto` leaves the cell blank. With no rows every cell stays empty.
 
 `id` is a stable slug, for example `ralph-lunes`. `sort` only breaks ties.
 
@@ -265,7 +265,7 @@ One row per cell of the weekday grid. The nine jefes and the five weekdays are f
 | field | type | meaning |
 | --- | --- | --- |
 | `jefe` | string | `ralph`, `lola`, `warren`, `martinez`, `chef`, `ateneo`, `rocky`, `edward`, or `vito` |
-| `dia` | string | `lunes`, `martes`, `miercoles`, `jueves`, or `viernes` |
+| `dia` | string | `lunes`, `martes`, `miercoles`, `jueves`, `viernes`, `sabado`, or `domingo` |
 | `texto` | string | what goes in the cell. `""` keeps it empty |
 
 ```json

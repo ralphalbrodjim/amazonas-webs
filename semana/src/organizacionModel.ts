@@ -4,6 +4,8 @@ export const DIAS = [
   { id: "miercoles", label: "Miércoles" },
   { id: "jueves", label: "Jueves" },
   { id: "viernes", label: "Viernes" },
+  { id: "sabado", label: "Sábado" },
+  { id: "domingo", label: "Domingo" },
 ] as const;
 
 export type DiaId = (typeof DIAS)[number]["id"];

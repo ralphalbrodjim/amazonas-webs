@@ -845,7 +845,7 @@ button.ws-cell-btn.on { outline: 2px solid var(--green); }
   text-align: left;
   border-bottom: 1px solid rgba(130, 170, 230, 0.18);
   color: #C9D6F0;
-  min-width: 92px;
+  min-width: 76px;
   vertical-align: middle;
   background: transparent;
 }
@@ -887,7 +887,7 @@ button.ws-cell-btn.on { outline: 2px solid var(--green); }
 .org-table th.org-today, .org-table td.org-today { background: rgba(255, 214, 10, 0.1); }
 .org-cell {
   display: block;
-  width: 140px;
+  width: 108px;
   min-height: 44px;
   max-height: 120px;
   resize: vertical;

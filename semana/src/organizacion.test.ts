@@ -13,4 +13,7 @@ test("a weekday cell is kept and Kaito is ignored", () => {
   assert.equal(textoCelda(celdas, "ralph", "lunes"), "Comité");
   assert.equal(textoCelda(celdas, "lola", "martes"), "");
   assert.equal(textoCelda(celdas, "warren", "viernes"), "");
+  const finde = celdasOrganizacion([{ kind: "organizacion_semana", id: "rocky-domingo", data: { jefe: "rocky", dia: "domingo", texto: "Descanso" } }]);
+  assert.equal(textoCelda(finde, "rocky", "domingo"), "Descanso");
+  assert.equal(textoCelda(finde, "rocky", "sabado"), "");
 });
