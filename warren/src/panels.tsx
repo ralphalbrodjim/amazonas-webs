@@ -2,8 +2,8 @@ import type { CSSProperties, ReactNode } from "react";
 import { ProximosResultados } from "./earnings";
 import { fecha, fmt, pct } from "./format";
 import { safeHttpUrl } from "./markdown-parse";
-import { cagr3, priceReturn } from "./math";
-import { calendarModel, calendarRows, certaintyLabel, entrada15, entradaHit, isSoon, meanRent, sessionLabel, shownReturn, STAR_LEGEND, virtualLines, weekday, type CalendarRow } from "./pendientes";
+import { cagr3, carteraFuenteTargets, priceReturn, type CarteraFuente } from "./math";
+import { calendarModel, calendarRows, certaintyLabel, entrada15, entradaHit, isSoon, meanRent, sessionLabel, STAR_LEGEND, virtualLines, weekday, type CalendarRow } from "./pendientes";
 import type { Company, EarningsRow, RadarItem, VirtualEntry } from "./types";
 
 const PANEL = "#14284B";
@@ -18,9 +18,10 @@ export function ValueChip(props: { children: ReactNode; tone?: "gold" | "up" | "
   return <span className={cls}>{props.children}</span>;
 }
 
-function cagrChip(row: { text: string; sin: boolean }) {
-  if (row.text === "Pendiente" || row.text === "—") return row.text;
-  return <ValueChip>{row.text}{row.sin ? <span className="stamp"> sin objetivo</span> : null}</ValueChip>;
+function rentChip(value: number | null) {
+  if (value === null) return <span>—</span>;
+  const tone = value > 0 ? "up" : value < 0 ? "down" : "gold";
+  return <ValueChip tone={tone}>{pct(value)}</ValueChip>;
 }
 
 function dash(title: string) {
@@ -116,7 +117,7 @@ export function SourceCompare(props: { price: number | null; tikr1: number | nul
   );
 }
 
-export function Seguimiento(props: { companies: Company[]; radar: RadarItem[]; earnings: EarningsRow[]; onOpen: (ticker: string) => void }) {
+export function Seguimiento(props: { fuente: CarteraFuente; companies: Company[]; radar: RadarItem[]; earnings: EarningsRow[]; onOpen: (ticker: string) => void }) {
   const rows = props.companies.filter((company) => !company.in_portfolio);
   return (
     <section style={{ marginTop: 18 }}>
@@ -124,30 +125,27 @@ export function Seguimiento(props: { companies: Company[]; radar: RadarItem[]; e
       <div className="w-scroll">
         <table className="w-table">
           <thead>
-            <tr>{["Empresa", "P. hoy", "Obj. 1A", "TIKR (consenso)", "Mixto", "Obj. 3A", "CAGR 1A", "CAGR 3A", "Entrada 15 %", "Warren", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => <th key={label} className={index === 0 ? "sticky" : ""} title={label.startsWith("TIKR 3A") ? TIKR_3A_NOTE : undefined}>{label}</th>)}</tr>
+            <tr>{["Empresa", "P. hoy", "Obj 1A", "Rent 1A", "Obj 3A", "Rent 3A", "CAGR 3A", "Entrada 15 %", "Warren", "Próx. resultados"].map((label, index) => <th key={label} className={index === 0 ? "sticky" : ""}>{label}</th>)}</tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? <tr><td className="sticky">Sin seguimiento</td><td colSpan={11}>—</td></tr> : rows.map((company) => {
+            {rows.length === 0 ? <tr><td className="sticky">Sin seguimiento</td><td colSpan={9}>—</td></tr> : rows.map((company) => {
               const radar = props.radar.find((item) => item.company_id === company.id) ?? props.radar.find((item) => item.ticker.toUpperCase() === company.ticker.toUpperCase()) ?? null;
               const price = radar?.price ?? null;
-              const warren1 = radar?.target_1a ?? null;
-              const tikr1 = radar?.target_1a_tikr ?? null;
-              const mixto = warren1 != null && tikr1 != null ? (warren1 + tikr1) / 2 : warren1 ?? tikr1;
-              const cagr1 = shownReturn(warren1, price, 1);
-              const cagr3y = shownReturn(radar?.target_3a ?? null, price, 3);
+              const picked = carteraFuenteTargets(props.fuente, radar?.target_1a ?? null, radar?.target_1a_tikr ?? null, radar?.target_3a ?? null, radar?.target_3a_tikr ?? null);
+              const rent1 = priceReturn(picked.target1, price);
+              const rent3 = priceReturn(picked.target3, price);
+              const cagr = cagr3(picked.target3, price);
               return (
                 <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
                   <td className="sticky"><b>{company.ticker}</b><div style={{ color: INK3, fontSize: 12 }}>{company.name}</div>{company.origin === "warren_proposal" ? <div className="stamp">Propuesta Warren</div> : null}</td>
                   <td>{price === null ? "—" : fmt(price) + (radar?.price_currency ? " " + radar.price_currency : "")}</td>
-                  <td>{warren1 == null ? "—" : fmt(warren1)}</td>
-                  <td><TikrConsenso value={tikr1} price={price} /></td>
-                  <td className="chip-cell">{mixto == null ? "—" : <ValueChip><TikrConsenso value={mixto} price={price} /></ValueChip>}</td>
-                  <td>{radar?.target_3a == null ? "—" : fmt(radar.target_3a)}</td>
-                  <td className="chip-cell">{cagrChip(cagr1)}</td>
-                  <td className="chip-cell">{cagrChip(cagr3y)}</td>
+                  <td className="chip-cell">{picked.target1 === null ? "—" : <ValueChip>{fmt(picked.target1)}</ValueChip>}</td>
+                  <td className="chip-cell">{rentChip(rent1)}</td>
+                  <td className="chip-cell">{picked.target3 === null ? "—" : <ValueChip>{fmt(picked.target3)}{picked.warren3Fallback ? <span className="stamp"> Warren</span> : null}</ValueChip>}</td>
+                  <td className="chip-cell">{rentChip(rent3)}</td>
+                  <td className="chip-cell">{cagr === null ? "—" : <ValueChip>{pct(cagr)}</ValueChip>}</td>
                   <td><EntradaMark company={company} radar={radar} spot={price} /></td>
                   <td><Stars stars={company.opportunity_stars} note={company.opportunity_stars_note} at={company.opportunity_stars_at} emphasize /></td>
-                  <td><Tikr3A value={radar?.target_3a_tikr} /></td>
                   <td><ProximosResultados row={props.earnings.find((row) => row.company_id === company.id) ?? null} /></td>
                 </tr>
               );
@@ -155,7 +153,7 @@ export function Seguimiento(props: { companies: Company[]; radar: RadarItem[]; e
           </tbody>
         </table>
       </div>
-      <p style={{ color: INK3, margin: "8px 0 0" }}>Sin acciones y sin plusvalías en euros. No entra en los totales de Mi cartera. Mixto = media de Warren y TIKR.</p>
+      <p style={{ color: INK3, margin: "8px 0 0" }}>Sin acciones y sin plusvalías en euros. No entra en los totales de Mi cartera. El objetivo es el del selector de arriba.</p>
     </section>
   );
 }

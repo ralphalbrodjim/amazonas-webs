@@ -39,17 +39,16 @@ export function BenchmarkCard(props: { bundle: Bundle; levels: BenchmarkLevel[] 
     const end = portfolioEurOn(props.bundle, last.price_date);
     return priceReturn(end, start);
   })() : null;
+  if (points.length < 2) return null;
   return (
-    <article style={{ ...card, margin: "12px 0" }}>
-      <div style={{ color: INK3, fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>Índice · solo precio</div>
-      {points.length < 2 ? <p style={{ color: INK3 }}>N/D. Hacen falta dos cierres del índice en warren_benchmark_levels. No hay ninguno cargado.</p> : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-          <div><div style={{ color: INK3, fontSize: 12 }}>{symbol} {fechaCorta(first?.price_date ?? null)}–{fechaCorta(last?.price_date ?? null)}</div><div style={{ fontSize: 22, fontWeight: 800 }}>{pct(indexReturn)}</div></div>
-          <div><div style={{ color: INK3, fontSize: 12 }}>Cartera real</div><div style={{ fontSize: 22, fontWeight: 800 }}>{pct(portfolio)}</div></div>
-        </div>
-      )}
-      {points.length >= 2 && portfolio === null ? <p className="stamp">La cartera queda en N/D: falta el número de acciones, un cierre en esas fechas, o el cambio BCE.</p> : null}
-    </article>
+    <details className="ibkr-fold" style={{ marginBottom: 8 }}>
+      <summary>Índice · solo precio</summary>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+        <div><div style={{ color: INK3, fontSize: 12 }}>{symbol} {fechaCorta(first?.price_date ?? null)}–{fechaCorta(last?.price_date ?? null)}</div><div style={{ fontSize: 22, fontWeight: 800 }}>{pct(indexReturn)}</div></div>
+        <div><div style={{ color: INK3, fontSize: 12 }}>Cartera real</div><div style={{ fontSize: 22, fontWeight: 800 }}>{pct(portfolio)}</div></div>
+      </div>
+      {portfolio === null ? <p className="stamp">La cartera queda en N/D: falta el número de acciones, un cierre en esas fechas, o el cambio BCE.</p> : null}
+    </details>
   );
 }
 

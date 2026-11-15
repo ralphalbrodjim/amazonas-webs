@@ -38,10 +38,11 @@ const AMBER = "#FFB547";
 
 const card: CSSProperties = { background: PANEL, border: "1px solid " + LINE, borderRadius: 16, padding: 16 };
 const inputS: CSSProperties = { background: NAVY, color: INK, border: "1px solid " + LINE, borderRadius: 10, padding: "10px 12px", width: "100%", boxSizing: "border-box" };
+const slim: CSSProperties = { background: NAVY, color: INK, border: "1px solid " + LINE, borderRadius: 999, padding: "4px 10px", fontSize: 13, minHeight: 32, maxWidth: "100%" };
 const btn = (on: boolean): CSSProperties => ({ cursor: "pointer", minHeight: 44, padding: "8px 14px", borderRadius: 999, border: "1px solid " + (on ? BLUE : LINE), background: on ? BLUE : "transparent", color: on ? NAVY : INK, fontWeight: 700 });
 
 type Screen = "resumen" | "cartera" | "ficha" | "intelligence" | "virtual" | "radar" | "calendario";
-type SortKey = "cagr" | "ticker" | "hoy";
+type SortKey = "cagr" | "ticker" | "hoy" | "rent1";
 
 function money(value: number | null, currency: string): string {
   if (value === null) return "N/D";
@@ -167,7 +168,7 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
   const [q, setQ] = useState("");
   const [cartera, setCartera] = useState<"todas" | "si" | "no">("todas");
   const [cagrMin, setCagrMin] = useState<number | null>(null);
-  const [sort, setSort] = useState<SortKey>("cagr");
+  const [sort, setSort] = useState<SortKey>("rent1");
   const today = madridToday();
 
   async function reload() {
@@ -411,6 +412,7 @@ function Resumen(props: {
       const vb = scored(b);
       if (props.sort === "ticker") return a.ticker.localeCompare(b.ticker);
       if (props.sort === "hoy") return (vb.view.rentHoy ?? -999) - (va.view.rentHoy ?? -999);
+      if (props.sort === "rent1") return (vb.rent1 ?? -999) - (va.rent1 ?? -999);
       return (vb.cagr ?? -999) - (va.cagr ?? -999);
     });
     return list;
@@ -419,22 +421,22 @@ function Resumen(props: {
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Resumen de inversiones</h1>
       <p style={{ color: INK3, marginTop: 0 }}>Ranking compacto · rentabilidad de precio, sin dividendos · objetivo según el selector</p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginBottom: 12 }}>
-        <label style={card}>Buscar<input style={inputS} placeholder="Ticker o nombre" value={props.q} onChange={(event) => props.setQ(event.target.value)} /></label>
-        <label style={card}>Cartera<select style={inputS} value={props.cartera} onChange={(event) => props.setCartera(event.target.value as "todas" | "si" | "no")}><option value="todas">Todas</option><option value="si">Sí</option><option value="no">No</option></select></label>
-        <label style={card}>CAGR mínimo<select style={inputS} value={props.cagrMin === null ? "" : String(props.cagrMin)} onChange={(event) => props.setCagrMin(event.target.value === "" ? null : Number(event.target.value))}><option value="">Sin límite</option><option value="0.15">15 %</option><option value="0.2">20 %</option></select></label>
-        <label style={card}>Orden<select style={inputS} value={props.sort} onChange={(event) => props.setSort(event.target.value as SortKey)}><option value="cagr">CAGR 3A desc.</option><option value="hoy">Rent. hoy desc.</option><option value="ticker">Ticker</option></select></label>
+      <div className="resumen-filters">
+        <input style={slim} placeholder="Buscar" aria-label="Buscar" value={props.q} onChange={(event) => props.setQ(event.target.value)} />
+        <select style={slim} aria-label="Cartera" value={props.cartera} onChange={(event) => props.setCartera(event.target.value as "todas" | "si" | "no")}><option value="todas">Cartera · Todas</option><option value="si">Cartera · Sí</option><option value="no">Cartera · No</option></select>
+        <select style={slim} aria-label="CAGR mínimo" value={props.cagrMin === null ? "" : String(props.cagrMin)} onChange={(event) => props.setCagrMin(event.target.value === "" ? null : Number(event.target.value))}><option value="">CAGR · Sin límite</option><option value="0.15">CAGR · 15 %</option><option value="0.2">CAGR · 20 %</option></select>
+        <select style={slim} aria-label="Orden" value={props.sort} onChange={(event) => props.setSort(event.target.value as SortKey)}><option value="rent1">Rent. 1A desc.</option><option value="hoy">Rent. hoy desc.</option><option value="cagr">CAGR 3A desc.</option><option value="ticker">Ticker</option></select>
       </div>
       <BenchmarkCard bundle={props.bundle} levels={props.phase2.benchmarks} />
       {props.owner ? <SyncLog runs={props.runs} /> : null}
-      {props.cartera !== "no" ? <FuenteToggle value={fuente} onChange={(id) => { setFuente(id); writeChoice("warren.resumen.fuente", id); }} /> : null}
+      <FuenteToggle value={fuente} onChange={(id) => { setFuente(id); writeChoice("warren.resumen.fuente", id); }} />
       {props.cartera !== "no" ? <h2 style={{ fontSize: 22, marginBottom: 8 }}>Mi cartera</h2> : null}
       {props.cartera !== "no" ? <div className="w-scroll">
         <table className="w-table">
           <thead>
             <tr>
-              {["Empresa", "Cart.", "P. medio", "P. hoy", "Rent. hoy", "Obj 1A", "Rent 1A", "TIKR (consenso)", "Obj 3A", "Rent 3A", "CAGR 3A", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => (
-                <th key={label} className={index === 0 ? "sticky" : ""} title={label.startsWith("TIKR 3A") ? TIKR_3A_NOTE : undefined}>
+              {["Empresa", "Cart.", "P. medio", "P. hoy", "Rent. hoy", "Obj 1A", "Rent 1A", "Obj 3A", "Rent 3A", "CAGR 3A", "Próx. resultados"].map((label, index) => (
+                <th key={label} className={index === 0 ? "sticky" : ""}>
                   {label}
                   {label === "P. hoy" ? <span className="stamp">{updatedLabel(props.runs, props.bundle.quotes)}</span> : null}
                 </th>
@@ -442,7 +444,7 @@ function Resumen(props: {
             </tr>
           </thead>
           <tbody>
-            {rows.filter((company) => company.in_portfolio).length === 0 ? <tr><td className="sticky">Sin empresas</td><td colSpan={12} className="nd">N/D</td></tr> : null}
+            {rows.filter((company) => company.in_portfolio).length === 0 ? <tr><td className="sticky">Sin empresas</td><td colSpan={10} className="nd">N/D</td></tr> : null}
             {rows.filter((company) => company.in_portfolio).map((company) => {
               const { view, picked, cagr, rent1, rent3 } = scored(company);
               return (
@@ -454,11 +456,9 @@ function Resumen(props: {
                   <td className="chip-cell">{signedChip(view.rentHoy)}</td>
                   <td className="chip-cell">{picked.target1 === null ? <span className="nd">N/D</span> : <ValueChip>{fmt(picked.target1)}</ValueChip>}</td>
                   <td className="chip-cell">{signedChip(rent1)}</td>
-                  <td><TikrConsenso value={radarFor(props.phase2.radar, company.id, company.ticker)?.target_1a_tikr} price={view.price} /></td>
                   <td className="chip-cell">{picked.target3 === null ? <span className="nd">N/D</span> : <ValueChip>{fmt(picked.target3)}{picked.warren3Fallback ? <span className="stamp"> Warren</span> : null}</ValueChip>}</td>
                   <td className="chip-cell">{signedChip(rent3)}</td>
                   <td className="chip-cell">{cagr === null ? <span className="nd">N/D</span> : <ValueChip>{pct(cagr)}</ValueChip>}</td>
-                  <td><Tikr3A value={radarFor(props.phase2.radar, company.id, company.ticker)?.target_3a_tikr} /></td>
                   <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
                 </tr>
               );
@@ -466,7 +466,7 @@ function Resumen(props: {
           </tbody>
         </table>
       </div> : null}
-      {props.cartera !== "si" ? <Seguimiento companies={rows.filter((company) => !company.in_portfolio)} radar={props.phase2.radar} earnings={props.bundle.earnings} onOpen={props.onOpen} /> : null}
+      {props.cartera !== "si" ? <Seguimiento fuente={fuente} companies={rows.filter((company) => !company.in_portfolio)} radar={props.phase2.radar} earnings={props.bundle.earnings} onOpen={props.onOpen} /> : null}
     </section>
   );
 }

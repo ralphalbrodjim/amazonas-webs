@@ -156,6 +156,9 @@ button:disabled {
 .neg { color: #FF6B6B; font-weight: 700; }
 .pos { color: #3DDC97; font-weight: 700; }
 
+.resumen-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; align-items: center; }
+.resumen-filters input { flex: 1 1 120px; width: auto; min-width: 0; }
+
 .ibkr-fold { margin-top: 14px; }
 .ibkr-fold summary {
   cursor: pointer;
