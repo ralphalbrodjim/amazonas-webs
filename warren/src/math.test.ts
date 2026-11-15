@@ -20,6 +20,9 @@ import {
   priceReturn,
   toEur,
   toMajor,
+  portfolioWeightPct,
+  weightOverLimit,
+  positionValueEur,
 } from "./math.ts";
 
 test("META Warren 3y target matches the Excel growth path, price only", () => {
@@ -111,6 +114,12 @@ test("FX, pence and portfolio total", () => {
   assert.equal(futurePnlEur(null, 10, 8, "USD", 1.1), null);
   assert.equal(portfolioCagr([{ valueNow: 100, valueFuture: null }]), null);
   assert.equal(portfolioCagr([]), null);
+  assert.equal(portfolioWeightPct(25, 100), 25);
+  assert.equal(portfolioWeightPct(null, 100), null);
+  assert.equal(portfolioWeightPct(10, 0), null);
+  assert.equal(weightOverLimit(19.994), false);
+  assert.equal(weightOverLimit(19.995), true);
+  assert.equal(positionValueEur(10, 5, "EUR", null), 50);
 });
 
 test("a close older than five days is old data; a missing date is not a fake zero", () => {

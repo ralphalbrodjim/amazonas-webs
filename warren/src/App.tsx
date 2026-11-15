@@ -3,7 +3,7 @@ import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { loadIsOwner, loadOpsDashboard, loadPhase2, loadSyncRuns, loadWarren, probeSchema, redirectTo, runHealthCheck, runSecFundamentals, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
 import { eur, fecha, fechaDiaMes, fmt, fmtCompact, madridToday, parseInput, pct } from "./format";
 import { failureReason, latestPriceUpdate, staleTickerReason } from "./stale";
-import { cagr3, carteraFuenteTargets, positionValueEur, yearTwoPrice, type CarteraFuente } from "./math";
+import { cagr3, carteraFuenteTargets, portfolioWeightPct, positionValueEur, weightOverLimit, yearTwoPrice, type CarteraFuente } from "./math";
 import { readChoice, writeChoice } from "./pendientes";
 import { AnalysisReader } from "./markdown";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
@@ -542,10 +542,12 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
     v1,
     v2,
   };
+  const portfolioEur = views.reduce((sum, row) => row.view.valueEur === null ? sum : sum + row.view.valueEur, 0);
+  const portfolioBase = views.some((row) => row.view.valueEur !== null) && portfolioEur > 0 ? portfolioEur : null;
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Mi cartera real</h1>
-      <p style={{ color: INK3, marginTop: 0 }}>Precio contra precio medio. Los euros salen solo con número de acciones y tipo BCE. El peso es el del Excel, no un cálculo nuevo.</p>
+      <p style={{ color: INK3, marginTop: 0 }}>Precio contra precio medio. Los euros salen solo con número de acciones y tipo BCE. El peso es el valor de hoy en euros sobre el total de la cartera.</p>
       {yearly ? (
         <div style={{ marginBottom: 12 }}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -572,7 +574,7 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
       <div className="w-scroll">
         <table className="w-table">
           <thead>
-            <tr>{["Empresa", "P. medio", "P. hoy", "Plusv. hoy", "Peso Excel", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A", "Próx. resultados"].map((label, index) => (
+            <tr>{["Empresa", "P. medio", "P. hoy", "Plusv. hoy", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A", "Peso", "Próx. resultados"].map((label, index) => (
               <th key={label} className={index === 0 ? "sticky" : ""}>
                 {label}
                 {label === "P. hoy" ? <span className="stamp">{updatedLabel(props.runs, props.bundle.quotes)}</span> : null}
@@ -590,18 +592,20 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
               const threeReturn = three.kind === "pending" || view.price === null || !(view.price > 0) || threePrice === null ? null : (threePrice - view.price) / view.price;
               const cagr = cagr3(three.kind === "target" ? picked.target3 : null, view.price);
               const oneParts = one.kind === "pending" ? null : rentParts(one.kind === "hoy" ? view.price : picked.target1, view.price);
+              const weight = portfolioWeightPct(view.valueEur, portfolioBase);
+              const heavy = weightOverLimit(weight);
               return (
               <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
                 <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} /></td>
                 <td>{fmt(view.avg)}</td>
                 <td>{view.price === null ? <span className="nd">Pendiente</span> : fmt(view.price)}</td>
                 <td className={view.price === null ? "nd" : tone(view.rentHoy, "plain")}>{view.price === null ? "Pendiente" : pct(view.rentHoy) + (view.pnlNowEur === null ? "" : " · " + eur(view.pnlNowEur))}</td>
-                <td>{view.weightPct === null ? "N/D" : fmt(view.weightPct, 2) + " %"}</td>
                 <td className={oneParts ? "col-yellow" : "nd"}>{oneParts ? <span className="precio-pill"><span className="precio-rent">{oneParts.pct}</span><span className="precio-px">{oneParts.price}</span>{oneMark ? <span className="stamp">{oneMark}</span> : null}</span> : "Pendiente"}</td>
                 <td className={one.kind === "target" ? tone(one.pnl, "blue") : one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : eur(one.pnl)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
                 <td className={three.kind === "pending" ? "nd" : threeReturn !== null && threeReturn !== 0 ? tone(threeReturn, "plain") : undefined}>{three.kind === "pending" ? "Pendiente" : rentYPrecio(threePrice, view.price)}{threeMark ? <span className="stamp"> {threeMark}</span> : null}</td>
                 <td className={three.kind === "target" ? tone(three.pnl, "plain") : three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : eur(three.pnl)}{threeMark ? <span className="stamp"> {threeMark}</span> : null}</td>
                 <td className={tone(cagr, "green")}>{pct(cagr)}</td>
+                <td className={heavy ? "peso-hot" : undefined}>{weight === null ? "N/D" : heavy ? <span className="peso-pill">{fmt(weight, 2) + " %"}</span> : fmt(weight, 2) + " %"}</td>
                 <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
               </tr>
               );

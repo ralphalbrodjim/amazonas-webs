@@ -151,6 +151,18 @@ export function positionValueEur(
   return toEur(shares * price, currency, unitsPerEur);
 }
 
+/** This position's euro value as a percentage of the valued portfolio. Missing value or total stays empty. */
+export function portfolioWeightPct(valueEur: number | null, totalEur: number | null): number | null {
+  if (valueEur === null || totalEur === null || !(totalEur > 0)) return null;
+  return (valueEur / totalEur) * 100;
+}
+
+/** True when the figure shown with two decimals is above 19,99 %. */
+export function weightOverLimit(weightPct: number | null, limit = 19.99): boolean {
+  if (weightPct === null || !Number.isFinite(weightPct)) return false;
+  return Math.round(weightPct * 100) / 100 > limit;
+}
+
 /** London pence quotes become pounds. Other currencies pass through. */
 export function toMajor(price: number | null, currency: string): { price: number | null; currency: string } {
   if (currency === "GBX") return { price: price === null ? null : price / 100, currency: "GBP" };
