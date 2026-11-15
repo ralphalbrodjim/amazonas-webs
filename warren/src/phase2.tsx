@@ -310,9 +310,10 @@ export function IbkrImport(props: { disabled: boolean; onSaved: () => void }) {
   const [rows, setRows] = useState<IbkrRow[]>([]);
   const [msg, setMsg] = useState("");
   return (
-    <section style={{ ...card, marginTop: 12 }}>
-      <h2 style={{ marginTop: 0, fontSize: 18 }}>Importar IBKR</h2>
-      <p style={{ color: INK3 }}>CSV de posiciones o de actividad. No hay conexión con IBKR. Si falta la cantidad, la fecha del cierre o la divisa, esa celda queda en N/D y no se inventa.</p>
+    <details className="ibkr-fold">
+      <summary>Importar IBKR</summary>
+      <div style={{ ...card, marginTop: 8 }}>
+      <p style={{ color: INK3, marginTop: 0 }}>CSV de posiciones o de actividad. No hay conexión con IBKR. Si falta la cantidad, la fecha del cierre o la divisa, esa celda queda en N/D y no se inventa.</p>
       <input type="file" accept=".csv,text/csv" disabled={props.disabled} onChange={(event) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -336,6 +337,7 @@ export function IbkrImport(props: { disabled: boolean; onSaved: () => void }) {
         if (!error) props.onSaved();
       })()}>Guardar en la cartera real</button>
       {msg ? <p style={{ color: AMBER }}>{msg}</p> : null}
-    </section>
+      </div>
+    </details>
   );
 }

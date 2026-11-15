@@ -546,11 +546,6 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Mi cartera real</h1>
       <p style={{ color: INK3, marginTop: 0 }}>Precio contra precio medio. Los euros salen solo con número de acciones y tipo BCE. El peso es el del Excel, no un cálculo nuevo.</p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-        {([["warren", "Warren"], ["tikr", "TIKR"], ["mixto", "Mixto"]] as const).map(([id, label]) => (
-          <button key={id} type="button" style={{ ...btn(fuente === id), minHeight: 52, fontSize: 16, padding: "12px 16px" }} onClick={() => { setFuente(id); writeChoice("warren.cartera.fuente", id); }}>{label}</button>
-        ))}
-      </div>
       {yearly ? (
         <div style={{ marginBottom: 12 }}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -569,19 +564,23 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
         <Kpi label="Plusvalía 3 años" value={eur(h3.pnl)} mark={h3.note} detail={"Valor: " + eur(h3.value)} />
       </div>
       <p className="stamp">FX BCE: {fxDates.length ? fecha(fxDates.sort().at(-1) ?? null) : "N/D"}{views.some((row) => row.company.currency !== "EUR" && !row.view.fx) ? " · falta el cambio de alguna divisa" : ""}</p>
-      <IbkrImport disabled={props.missing} onSaved={props.onSaved} />
+      <div role="group" aria-label="Fuente del objetivo" style={{ display: "flex", width: "100%", maxWidth: 360, margin: "0 0 10px", padding: 3, borderRadius: 12, background: PANEL, border: "1px solid " + LINE }}>
+        {([["warren", "Warren"], ["tikr", "TIKR"], ["mixto", "Mixto"]] as const).map(([id, label]) => (
+          <button key={id} type="button" aria-pressed={fuente === id} style={{ flex: 1, minHeight: 40, border: 0, borderRadius: 9, cursor: "pointer", fontWeight: 800, fontSize: 14, background: fuente === id ? BLUE : "transparent", color: fuente === id ? NAVY : INK3 }} onClick={() => { setFuente(id); writeChoice("warren.cartera.fuente", id); }}>{label}</button>
+        ))}
+      </div>
       <div className="w-scroll">
         <table className="w-table">
           <thead>
-            <tr>{["Empresa", "P. medio", "P. hoy", "Plusv. hoy", "Peso Excel", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A", "TIKR 3A (implícita)", "Próx. resultados"].map((label, index) => (
-              <th key={label} className={index === 0 ? "sticky" : ""} title={label.startsWith("TIKR 3A") ? TIKR_3A_NOTE : undefined}>
+            <tr>{["Empresa", "P. medio", "P. hoy", "Plusv. hoy", "Peso Excel", "Precio 1A", "Plusv. 1A EUR", "Precio 3A", "Plusv. 3A EUR", "CAGR 3A", "Próx. resultados"].map((label, index) => (
+              <th key={label} className={index === 0 ? "sticky" : ""}>
                 {label}
                 {label === "P. hoy" ? <span className="stamp">{updatedLabel(props.runs, props.bundle.quotes)}</span> : null}
               </th>
             ))}</tr>
           </thead>
           <tbody>
-            {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={11} className="nd">N/D</td></tr> : null}
+            {views.length === 0 ? <tr><td className="sticky">Sin posiciones</td><td colSpan={10} className="nd">N/D</td></tr> : null}
             {views.map(({ company, view, picked }, index) => {
               const one = oneYear[index];
               const three = threeYear[index];
@@ -590,6 +589,7 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
               const threePrice = three.kind === "hoy" ? view.price : picked.target3;
               const threeReturn = three.kind === "pending" || view.price === null || !(view.price > 0) || threePrice === null ? null : (threePrice - view.price) / view.price;
               const cagr = cagr3(three.kind === "target" ? picked.target3 : null, view.price);
+              const oneParts = one.kind === "pending" ? null : rentParts(one.kind === "hoy" ? view.price : picked.target1, view.price);
               return (
               <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
                 <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} /></td>
@@ -597,12 +597,11 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
                 <td>{view.price === null ? <span className="nd">Pendiente</span> : fmt(view.price)}</td>
                 <td className={view.price === null ? "nd" : tone(view.rentHoy, "plain")}>{view.price === null ? "Pendiente" : pct(view.rentHoy) + (view.pnlNowEur === null ? "" : " · " + eur(view.pnlNowEur))}</td>
                 <td>{view.weightPct === null ? "N/D" : fmt(view.weightPct, 2) + " %"}</td>
-                <td className={one.kind === "pending" ? "nd" : "col-yellow"}>{one.kind === "pending" ? "Pendiente" : rentYPrecio(one.kind === "hoy" ? view.price : picked.target1, view.price)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
+                <td className={oneParts ? "col-yellow" : "nd"}>{oneParts ? <span className="precio-pill"><span className="precio-rent">{oneParts.pct}</span><span className="precio-px">{oneParts.price}</span>{oneMark ? <span className="stamp">{oneMark}</span> : null}</span> : "Pendiente"}</td>
                 <td className={one.kind === "target" ? tone(one.pnl, "blue") : one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : eur(one.pnl)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
                 <td className={three.kind === "pending" ? "nd" : threeReturn !== null && threeReturn !== 0 ? tone(threeReturn, "plain") : undefined}>{three.kind === "pending" ? "Pendiente" : rentYPrecio(threePrice, view.price)}{threeMark ? <span className="stamp"> {threeMark}</span> : null}</td>
                 <td className={three.kind === "target" ? tone(three.pnl, "plain") : three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : eur(three.pnl)}{threeMark ? <span className="stamp"> {threeMark}</span> : null}</td>
                 <td className={tone(cagr, "green")}>{pct(cagr)}</td>
-                <td><Tikr3A value={radarFor(props.radar, company.id, company.ticker)?.target_3a_tikr} /></td>
                 <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
               </tr>
               );
@@ -611,6 +610,7 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
         </table>
       </div>
       <SharesEditor rows={rows.map((company) => ({ id: company.id, ticker: company.ticker, currency: company.currency, position: props.bundle.positions.find((row) => row.company_id === company.id) }))} disabled={props.missing} onSaved={props.onSaved} />
+      <IbkrImport disabled={props.missing} onSaved={props.onSaved} />
     </section>
   );
 }
@@ -631,11 +631,16 @@ function Kpi(props: { label: string; value: string; mark?: string | null; detail
   return <div style={card}><div style={{ color: INK3, fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>{props.label}</div><div style={{ fontSize: 26, fontWeight: 800, color: CYAN, marginTop: 6 }}>{props.value}{props.mark ? <span className="stamp"> {props.mark}</span> : null}</div>{props.detail ? <div style={{ color: INK3, fontSize: 12, marginTop: 4 }}>{props.detail}</div> : null}</div>;
 }
 
-function rentYPrecio(target: number | null, price: number | null): string {
-  if (target === null || price === null || !(price > 0)) return "Pendiente";
+function rentParts(target: number | null, price: number | null): { pct: string; price: string } | null {
+  if (target === null || price === null || !(price > 0)) return null;
   const rent = (target - price) / price;
   const text = (rent * 100).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  return (rent > 0 ? "+" : "") + text + "% – " + fmt(target);
+  return { pct: (rent > 0 ? "+" : "") + text + "%", price: fmt(target) };
+}
+
+function rentYPrecio(target: number | null, price: number | null): string {
+  const parts = rentParts(target, price);
+  return parts ? parts.pct + " – " + parts.price : "Pendiente";
 }
 
 function SharesEditor(props: { rows: { id: string; ticker: string; currency: string; position: Bundle["positions"][number] | undefined }[]; disabled: boolean; onSaved: () => void }) {
