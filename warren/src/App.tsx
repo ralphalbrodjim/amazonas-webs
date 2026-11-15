@@ -3,11 +3,11 @@ import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { loadIsOwner, loadOpsDashboard, loadPhase2, loadSyncRuns, loadWarren, probeSchema, redirectTo, runHealthCheck, runSecFundamentals, saveEstimate, saveManualPrice, savePosition, saveYearBpa, supabase, watchPhase2, watchWarren } from "./db";
 import { eur, fecha, fechaDiaMes, fmt, fmtCompact, madridToday, parseInput, pct } from "./format";
 import { failureReason, latestPriceUpdate, staleTickerReason } from "./stale";
-import { cagr3, carteraFuenteTargets, portfolioWeightPct, positionValueEur, weightOverLimit, yearTwoPrice, type CarteraFuente } from "./math";
+import { cagr3, carteraFuenteTargets, portfolioWeightPct, positionValueEur, priceReturn, weightOverLimit, yearTwoPrice, type CarteraFuente } from "./math";
 import { readChoice, writeChoice } from "./pendientes";
 import { AnalysisReader } from "./markdown";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
-import { EntradaMark, SourceCompare, Seguimiento, Stars, Calendario, Tikr3A, TikrConsenso, TIKR_3A_NOTE } from "./panels";
+import { EntradaMark, SourceCompare, Seguimiento, Stars, Calendario, Tikr3A, TikrConsenso, TIKR_3A_NOTE, ValueChip } from "./panels";
 import { EMPTY, EMPTY_PHASE2, type Bundle, type Company, type Estimate, type OpsDashboard, type Phase2, type RadarItem, type SyncRun } from "./types";
 import { earningsOf, ProximosResultados } from "./earnings";
 import { clearRememberedOpportunity, opportunityHash, opportunityTickerFromHash, opportunityTickerNow, rememberedOpportunity, rememberOpportunityFromLocation } from "./opportunity";
@@ -253,7 +253,7 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
       {screen === "virtual" ? <VirtualBook bundle={bundle} phase2={phase2} onOpen={(ticker) => open(ticker, "virtual")} onSaved={() => void reload()} /> : null}
       {screen === "radar" ? <Radar bundle={bundle} phase2={phase2} today={today} owner={owner} onOpen={(ticker) => open(ticker, "radar")} onSaved={() => void reload()} /> : null}
       {screen === "calendario" ? <Calendario companies={bundle.companies} earnings={bundle.earnings} today={today} onOpen={(ticker) => open(ticker, "calendario")} /> : null}
-      <p style={{ color: INK3, fontSize: 12, marginTop: 22 }}>Cierres diarios, sin dividendos. El objetivo a 1 año es el de Warren, y el de TIKR solo si Warren no tiene. El de 3 años es siempre el de Warren.</p>
+      <p style={{ color: INK3, fontSize: 12, marginTop: 22 }}>Cierres diarios, sin dividendos. En Resumen y en Mi cartera el objetivo sigue el selector. En el resto, el de 1 año es el de Warren y el de 3 años es el de Warren.</p>
       <button type="button" style={{ ...btn(false), marginTop: 8 }} onClick={() => download(bundle)}>Exportar copia JSON</button>
     </Frame>
   );
@@ -389,29 +389,36 @@ function Resumen(props: {
   onOpen: (ticker: string) => void;
   owner: boolean; runs: SyncRun[];
 }) {
+  const [fuente, setFuente] = useState<CarteraFuente>(() => readChoice("warren.resumen.fuente", ["tikr", "warren", "mixto"] as const, "mixto"));
+  const scored = (company: Company) => {
+    const view = companyView(props.bundle, company.id, "warren", props.today, radarTarget3Of(props.phase2.radar, company.id, company.ticker), radarTarget1Of(props.phase2.radar, company.id, company.ticker));
+    const radar = radarFor(props.phase2.radar, company.id, company.ticker);
+    const picked = carteraFuenteTargets(fuente, radar?.target_1a ?? null, radar?.target_1a_tikr ?? null, radar?.target_3a ?? null, radar?.target_3a_tikr ?? null);
+    return { view, picked, cagr: cagr3(picked.target3, view.price), rent1: priceReturn(picked.target1, view.price), rent3: priceReturn(picked.target3, view.price) };
+  };
   const rows = useMemo(() => {
     const needle = props.q.trim().toLowerCase();
     const list = props.bundle.companies.filter((company) => {
       if (needle && !`${company.ticker} ${company.name}`.toLowerCase().includes(needle)) return false;
       if (props.cartera === "si" && !company.in_portfolio) return false;
       if (props.cartera === "no" && company.in_portfolio) return false;
-      const view = companyView(props.bundle, company.id, "warren", props.today, radarTarget3Of(props.phase2.radar, company.id, company.ticker), radarTarget1Of(props.phase2.radar, company.id, company.ticker));
-      if (props.cagrMin !== null && (view.cagr === null || view.cagr < props.cagrMin)) return false;
+      const row = scored(company);
+      if (props.cagrMin !== null && (row.cagr === null || row.cagr < props.cagrMin)) return false;
       return true;
     });
     list.sort((a, b) => {
-      const va = companyView(props.bundle, a.id, "warren", props.today, radarTarget3Of(props.phase2.radar, a.id, a.ticker), radarTarget1Of(props.phase2.radar, a.id, a.ticker));
-      const vb = companyView(props.bundle, b.id, "warren", props.today, radarTarget3Of(props.phase2.radar, b.id, b.ticker), radarTarget1Of(props.phase2.radar, b.id, b.ticker));
+      const va = scored(a);
+      const vb = scored(b);
       if (props.sort === "ticker") return a.ticker.localeCompare(b.ticker);
-      if (props.sort === "hoy") return (vb.rentHoy ?? -999) - (va.rentHoy ?? -999);
+      if (props.sort === "hoy") return (vb.view.rentHoy ?? -999) - (va.view.rentHoy ?? -999);
       return (vb.cagr ?? -999) - (va.cagr ?? -999);
     });
     return list;
-  }, [props]);
+  }, [props, fuente]);
   return (
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Resumen de inversiones</h1>
-      <p style={{ color: INK3, marginTop: 0 }}>Ranking compacto · rentabilidad de precio, sin dividendos · objetivo de Warren</p>
+      <p style={{ color: INK3, marginTop: 0 }}>Ranking compacto · rentabilidad de precio, sin dividendos · objetivo según el selector</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginBottom: 12 }}>
         <label style={card}>Buscar<input style={inputS} placeholder="Ticker o nombre" value={props.q} onChange={(event) => props.setQ(event.target.value)} /></label>
         <label style={card}>Cartera<select style={inputS} value={props.cartera} onChange={(event) => props.setCartera(event.target.value as "todas" | "si" | "no")}><option value="todas">Todas</option><option value="si">Sí</option><option value="no">No</option></select></label>
@@ -420,6 +427,7 @@ function Resumen(props: {
       </div>
       <BenchmarkCard bundle={props.bundle} levels={props.phase2.benchmarks} />
       {props.owner ? <SyncLog runs={props.runs} /> : null}
+      {props.cartera !== "no" ? <FuenteToggle value={fuente} onChange={(id) => { setFuente(id); writeChoice("warren.resumen.fuente", id); }} /> : null}
       {props.cartera !== "no" ? <h2 style={{ fontSize: 22, marginBottom: 8 }}>Mi cartera</h2> : null}
       {props.cartera !== "no" ? <div className="w-scroll">
         <table className="w-table">
@@ -436,20 +444,20 @@ function Resumen(props: {
           <tbody>
             {rows.filter((company) => company.in_portfolio).length === 0 ? <tr><td className="sticky">Sin empresas</td><td colSpan={12} className="nd">N/D</td></tr> : null}
             {rows.filter((company) => company.in_portfolio).map((company) => {
-              const view = companyView(props.bundle, company.id, "warren", props.today, radarTarget3Of(props.phase2.radar, company.id, company.ticker), radarTarget1Of(props.phase2.radar, company.id, company.ticker));
+              const { view, picked, cagr, rent1, rent3 } = scored(company);
               return (
                 <tr key={company.id} className="hit" onClick={() => props.onOpen(company.ticker)}>
                   <td className="sticky"><TickerName company={company} priceDate={view.priceDate} runs={props.runs} name={company.name} /></td>
                   <td>{company.in_portfolio ? "Sí" : "No"}</td>
                   <td>{fmt(view.avg)}</td>
                   <td>{view.price === null ? <span className="nd">Pendiente</span> : fmt(view.price)}</td>
-                  <td className={tone(view.rentHoy, "plain")}>{pct(view.rentHoy)}</td>
-                  <td>{fmt(view.target1)}</td>
-                  <td className={tone(view.rent1, "blue")}>{pct(view.rent1)}</td>
+                  <td className="chip-cell">{signedChip(view.rentHoy)}</td>
+                  <td className="chip-cell">{picked.target1 === null ? <span className="nd">N/D</span> : <ValueChip>{fmt(picked.target1)}</ValueChip>}</td>
+                  <td className="chip-cell">{signedChip(rent1)}</td>
                   <td><TikrConsenso value={radarFor(props.phase2.radar, company.id, company.ticker)?.target_1a_tikr} price={view.price} /></td>
-                  <td>{fmt(view.target3)}</td>
-                  <td className={tone(view.rent3, "plain")}>{pct(view.rent3)}</td>
-                  <td className={tone(view.cagr, "green")}>{pct(view.cagr)}</td>
+                  <td className="chip-cell">{picked.target3 === null ? <span className="nd">N/D</span> : <ValueChip>{fmt(picked.target3)}{picked.warren3Fallback ? <span className="stamp"> Warren</span> : null}</ValueChip>}</td>
+                  <td className="chip-cell">{signedChip(rent3)}</td>
+                  <td className="chip-cell">{cagr === null ? <span className="nd">N/D</span> : <ValueChip>{pct(cagr)}</ValueChip>}</td>
                   <td><Tikr3A value={radarFor(props.phase2.radar, company.id, company.ticker)?.target_3a_tikr} /></td>
                   <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
                 </tr>
@@ -560,17 +568,13 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
         </div>
       ) : null}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginBottom: 12 }}>
-        <Kpi label="Valor actual" value={eur(valueNow.sum)} mark={valueNow.pending > 0 ? valueNow.pending + " Pendiente" : null} />
-        <Kpi label="Plusvalía actual" value={eur(pnlNow.sum)} mark={pnlNow.pending > 0 ? pnlNow.pending + " Pendiente" : null} detail={"Valor: " + eur(valueNow.sum)} />
-        <Kpi label="Plusvalía 1 año" value={eur(h1.pnl)} mark={h1.note} detail={"Valor: " + eur(h1.value)} />
-        <Kpi label="Plusvalía 3 años" value={eur(h3.pnl)} mark={h3.note} detail={"Valor: " + eur(h3.value)} />
+        <Kpi label="Valor actual" value={eur(valueNow.sum)} mark={valueNow.pending > 0 ? valueNow.pending + " Pendiente" : null} compact />
+        <Kpi label="Plusvalía actual" value={eur(pnlNow.sum)} mark={pnlNow.pending > 0 ? pnlNow.pending + " Pendiente" : null} detail={"Valor: " + eur(valueNow.sum)} compact goldDetail />
+        <Kpi label="Plusvalía 1 año" value={eur(h1.pnl)} mark={h1.note} detail={"Valor: " + eur(h1.value)} compact goldDetail />
+        <Kpi label="Plusvalía 3 años" value={eur(h3.pnl)} mark={h3.note} detail={"Valor: " + eur(h3.value)} compact goldDetail />
       </div>
       <p className="stamp">FX BCE: {fxDates.length ? fecha(fxDates.sort().at(-1) ?? null) : "N/D"}{views.some((row) => row.company.currency !== "EUR" && !row.view.fx) ? " · falta el cambio de alguna divisa" : ""}</p>
-      <div role="group" aria-label="Fuente del objetivo" style={{ display: "flex", width: "100%", maxWidth: 360, margin: "0 0 10px", padding: 3, borderRadius: 12, background: PANEL, border: "1px solid " + LINE }}>
-        {([["warren", "Warren"], ["tikr", "TIKR"], ["mixto", "Mixto"]] as const).map(([id, label]) => (
-          <button key={id} type="button" aria-pressed={fuente === id} style={{ flex: 1, minHeight: 40, border: 0, borderRadius: 9, cursor: "pointer", fontWeight: 800, fontSize: 14, background: fuente === id ? BLUE : "transparent", color: fuente === id ? NAVY : INK3 }} onClick={() => { setFuente(id); writeChoice("warren.cartera.fuente", id); }}>{label}</button>
-        ))}
-      </div>
+      <FuenteToggle value={fuente} onChange={(id) => { setFuente(id); writeChoice("warren.cartera.fuente", id); }} />
       <div className="w-scroll">
         <table className="w-table">
           <thead>
@@ -604,7 +608,7 @@ function Cartera(props: { bundle: Bundle; radar: RadarItem[]; today: string; mis
                 <td className={one.kind === "target" ? tone(one.pnl, "blue") : one.kind === "pending" ? "nd" : undefined}>{one.kind === "pending" ? "Pendiente" : eur(one.pnl)}{oneMark ? <span className="stamp"> {oneMark}</span> : null}</td>
                 <td className={three.kind === "pending" ? "nd" : threeReturn !== null && threeReturn !== 0 ? tone(threeReturn, "plain") : undefined}>{three.kind === "pending" ? "Pendiente" : rentYPrecio(threePrice, view.price)}{threeMark ? <span className="stamp"> {threeMark}</span> : null}</td>
                 <td className={three.kind === "target" ? tone(three.pnl, "plain") : three.kind === "pending" ? "nd" : undefined}>{three.kind === "pending" ? "Pendiente" : eur(three.pnl)}{threeMark ? <span className="stamp"> {threeMark}</span> : null}</td>
-                <td className={tone(cagr, "green")}>{pct(cagr)}</td>
+                <td className="chip-cell">{cagr === null ? <span className="nd">N/D</span> : <ValueChip>{pct(cagr)}</ValueChip>}</td>
                 <td className={heavy ? "peso-hot" : undefined}>{weight === null ? "N/D" : heavy ? <span className="peso-pill">{fmt(weight, 2) + " %"}</span> : fmt(weight, 2) + " %"}</td>
                 <td><ProximosResultados row={earningsOf(props.bundle.earnings, company.id)} /></td>
               </tr>
@@ -631,8 +635,33 @@ function YearChip(props: { label: string; euros: number | null; base: number | n
   );
 }
 
-function Kpi(props: { label: string; value: string; mark?: string | null; detail?: string | null }) {
-  return <div style={card}><div style={{ color: INK3, fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>{props.label}</div><div style={{ fontSize: 26, fontWeight: 800, color: CYAN, marginTop: 6 }}>{props.value}{props.mark ? <span className="stamp"> {props.mark}</span> : null}</div>{props.detail ? <div style={{ color: INK3, fontSize: 12, marginTop: 4 }}>{props.detail}</div> : null}</div>;
+function FuenteToggle(props: { value: CarteraFuente; onChange: (value: CarteraFuente) => void }) {
+  return (
+    <div role="group" aria-label="Fuente del objetivo" style={{ display: "flex", width: "100%", maxWidth: 360, margin: "0 0 10px", padding: 3, borderRadius: 12, background: PANEL, border: "1px solid " + LINE }}>
+      {([["warren", "Warren"], ["tikr", "TIKR"], ["mixto", "Mixto"]] as const).map(([id, label]) => (
+        <button key={id} type="button" aria-pressed={props.value === id} style={{ flex: 1, minHeight: 40, border: 0, borderRadius: 9, cursor: "pointer", fontWeight: 800, fontSize: 14, background: props.value === id ? BLUE : "transparent", color: props.value === id ? NAVY : INK3 }} onClick={() => props.onChange(id)}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
+function signedChip(value: number | null) {
+  if (value === null) return <span className="nd">N/D</span>;
+  const tone = value > 0 ? "up" : value < 0 ? "down" : "gold";
+  return <ValueChip tone={tone}>{pct(value)}</ValueChip>;
+}
+
+function Kpi(props: { label: string; value: string; mark?: string | null; detail?: string | null; compact?: boolean; goldDetail?: boolean; chip?: ReactNode }) {
+  return (
+    <div style={{ ...card, padding: props.compact ? 12 : 16 }}>
+      <div style={{ color: INK3, fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>{props.label}</div>
+      <div style={{ marginTop: props.compact ? 4 : 6, lineHeight: 1.15 }}>
+        {props.chip ?? <span style={{ fontSize: props.compact ? 18 : 26, fontWeight: 800, color: CYAN, whiteSpace: props.compact ? "nowrap" : undefined }}>{props.value}</span>}
+        {props.mark ? <span className="stamp"> {props.mark}</span> : null}
+      </div>
+      {props.detail ? <div style={{ color: props.goldDetail ? "#FFE14A" : INK3, fontWeight: props.goldDetail ? 700 : undefined, fontSize: 12, marginTop: 4 }}>{props.detail}</div> : null}
+    </div>
+  );
 }
 
 function rentParts(target: number | null, price: number | null): { pct: string; price: string } | null {
@@ -951,7 +980,7 @@ function Rentabilidad(props: { view: CompanyView; currency: string; companyId: s
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
-        {cards.map(([label, value]) => <Kpi key={label} label={label} value={value} />)}
+        {cards.map(([label, value]) => <Kpi key={label} label={label} value={value} chip={label === "CAGR 3A" && props.view.cagr !== null ? <ValueChip>{value}</ValueChip> : undefined} />)}
       </div>
       <p style={{ color: INK3 }}>TIKR (consenso): <TikrConsenso value={props.radar?.target_1a_tikr} price={props.view.price} /></p>
       <p title={TIKR_3A_NOTE} style={{ color: INK3 }}>TIKR 3A (implícita): <Tikr3A value={props.radar?.target_3a_tikr} />. {TIKR_3A_NOTE}</p>

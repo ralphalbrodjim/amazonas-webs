@@ -113,6 +113,32 @@ button:disabled {
 .w-table td.col-yellow .stamp { color: #FFB547; font-size: 10px; }
 .w-table td.peso-hot { background: transparent; font-weight: 800; }
 .w-table tr.hit:hover td.peso-hot { background: rgba(71, 154, 255, 0.08); }
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 10px;
+  background: rgba(255, 214, 10, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 214, 10, 0.35);
+  color: #FFE14A;
+  font-weight: 800;
+  line-height: 1.15;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.chip-up { color: #3DDC97; }
+.chip-down { color: #FF6B6B; }
+.chip-red {
+  background: rgba(255, 59, 48, 0.25);
+  box-shadow: inset 0 0 0 1px rgba(255, 59, 48, 0.7);
+  color: #FFF1F0;
+}
+.chip-lg { font-size: 22px; padding: 6px 10px; }
+.chip .stamp { color: #FFB547; }
+.w-table td.chip-cell { background: transparent; }
+.w-table tr.hit:hover td.chip-cell { background: rgba(71, 154, 255, 0.08); }
+
 .w-table td.peso-hot .peso-pill {
   display: inline-flex;
   padding: 4px 9px;

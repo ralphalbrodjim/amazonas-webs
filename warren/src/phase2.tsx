@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { importIbkr, runNewsDetect, runRadarSync } from "./db";
 import { AnalysisReader } from "./markdown";
 import { clearRememberedOpportunity, opportunityHash, opportunityTickerFromHash, opportunityTickerNow } from "./opportunity";
-import { EntradaMark, SourceCompare, StarLegend, Stars, VirtualTable } from "./panels";
+import { EntradaMark, SourceCompare, StarLegend, Stars, ValueChip, VirtualTable } from "./panels";
 import { compareRadar, inCartera, passesFloor, potencial1, readChoice, shownReturn, writeChoice, type CarteraFilter, type RadarSort } from "./pendientes";
 import { earningsOf, ProximosResultados } from "./earnings";
 import { eur, fecha, fechaCorta, fechaDiaMes, fmt, pct } from "./format";
@@ -170,7 +170,7 @@ export function Radar(props: { bundle: Bundle; phase2: Phase2; today: string; ow
               {[{ label: "CAGR 1A", item: cagr1 }, { label: "CAGR 3A", item: cagr3y }].map((block) => (
                 <div key={block.label}>
                   <div style={{ color: CAGR_YELLOW, fontSize: 13, fontWeight: 700 }}>{block.label}</div>
-                  <div style={{ color: CAGR_YELLOW, fontSize: 32, fontWeight: 800, lineHeight: 1.1 }}>{block.item.text}</div>
+                  <div style={{ marginTop: 4 }}><ValueChip large>{block.item.text}</ValueChip></div>
                   {block.item.sin ? <div className="stamp">sin objetivo</div> : null}
                 </div>
               ))}

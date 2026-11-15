@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { ProximosResultados } from "./earnings";
 import { fecha, fmt, pct } from "./format";
 import { safeHttpUrl } from "./markdown-parse";
@@ -11,6 +11,17 @@ const INK3 = "#8FA6CF";
 const YELLOW = "#FFE14A";
 const GREEN = "#3DDC97";
 const LINE = "rgba(130,170,230,0.18)";
+
+export function ValueChip(props: { children: ReactNode; tone?: "gold" | "up" | "down" | "red"; large?: boolean }) {
+  const tone = props.tone ?? "gold";
+  const cls = "chip" + (tone === "gold" ? "" : " chip-" + tone) + (props.large ? " chip-lg" : "");
+  return <span className={cls}>{props.children}</span>;
+}
+
+function cagrChip(row: { text: string; sin: boolean }) {
+  if (row.text === "Pendiente" || row.text === "—") return row.text;
+  return <ValueChip>{row.text}{row.sin ? <span className="stamp"> sin objetivo</span> : null}</ValueChip>;
+}
 
 function dash(title: string) {
   return <span title={title}>—</span>;
@@ -52,7 +63,7 @@ function oneCell(target: number | null, price: number | null, pending: string) {
 function threeCell(target: number | null, price: number | null, pending: string) {
   if (target === null) return dash(pending);
   const rate = price !== null && price > 0 ? cagr3(target, price) : null;
-  return <span>{fmt(target)}{rate === null ? "" : <> · <span style={{ color: YELLOW, fontWeight: 800 }}>CAGR {pct(rate)}</span></>}</span>;
+  return <span>{fmt(target)}{rate === null ? "" : <> · <ValueChip>CAGR {pct(rate)}</ValueChip></>}</span>;
 }
 
 export const TIKR_3A_NOTE = "Cálculo de Warren: objetivo medio de analistas × crecimiento del BPA de consenso hasta el 3.er año (mismo PER que pagan los analistas); no es cifra de TIKR";
@@ -130,10 +141,10 @@ export function Seguimiento(props: { companies: Company[]; radar: RadarItem[]; e
                   <td>{price === null ? "—" : fmt(price) + (radar?.price_currency ? " " + radar.price_currency : "")}</td>
                   <td>{warren1 == null ? "—" : fmt(warren1)}</td>
                   <td><TikrConsenso value={tikr1} price={price} /></td>
-                  <td style={{ color: YELLOW, fontWeight: 800 }}><TikrConsenso value={mixto} price={price} /></td>
+                  <td className="chip-cell">{mixto == null ? "—" : <ValueChip><TikrConsenso value={mixto} price={price} /></ValueChip>}</td>
                   <td>{radar?.target_3a == null ? "—" : fmt(radar.target_3a)}</td>
-                  <td style={{ color: YELLOW, fontWeight: 800 }}>{cagr1.text}{cagr1.sin ? <span className="stamp"> sin objetivo</span> : null}</td>
-                  <td style={{ color: YELLOW, fontWeight: 800 }}>{cagr3y.text}{cagr3y.sin ? <span className="stamp"> sin objetivo</span> : null}</td>
+                  <td className="chip-cell">{cagrChip(cagr1)}</td>
+                  <td className="chip-cell">{cagrChip(cagr3y)}</td>
                   <td><EntradaMark company={company} radar={radar} spot={price} /></td>
                   <td><Stars stars={company.opportunity_stars} note={company.opportunity_stars_note} at={company.opportunity_stars_at} emphasize /></td>
                   <td><Tikr3A value={radar?.target_3a_tikr} /></td>
@@ -200,7 +211,7 @@ export function VirtualTable(props: { companies: Company[]; radar: RadarItem[]; 
     <section>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Cartera virtual</h1>
       <p style={{ color: INK3, marginTop: 0 }}>Empresas del radar que no están en la cartera real. Sin importe por posición: la media es la rentabilidad simple de las que tienen precio de compra y precio de hoy.</p>
-      <p style={{ fontSize: 22, fontWeight: 800, color: YELLOW }}>{average === null ? "—" : pct(average)}</p>
+      <p style={{ fontSize: 22, fontWeight: 800 }}>{average === null ? "—" : <ValueChip large>{pct(average)}</ValueChip>}</p>
       <div className="w-scroll">
         <table className="w-table">
           <thead>
@@ -216,7 +227,7 @@ export function VirtualTable(props: { companies: Company[]; radar: RadarItem[]; 
                   <td>{line.enteredOn ? fecha(line.enteredOn) : "—"}</td>
                   <td>{line.pendingBuy ? <span className="stamp">pendiente</span> : fmt(line.entryPrice) + (line.currency ? " " + line.currency : "")}</td>
                   <td>{line.price === null ? "—" : fmt(line.price) + (line.priceCurrency ? " " + line.priceCurrency : "")}</td>
-                  <td style={{ color: YELLOW, fontWeight: 800 }}>{line.rent === null ? "—" : pct(line.rent)}</td>
+                  <td className="chip-cell">{line.rent === null ? "—" : <ValueChip tone={line.rent > 0 ? "up" : line.rent < 0 ? "down" : "gold"}>{pct(line.rent)}</ValueChip>}</td>
                   <td>{line.target1 === null ? "—" : fmt(line.target1)}</td>
                   <td><TikrConsenso value={line.tikr1} price={line.price} /></td>
                   <td>{line.target3 === null ? "—" : fmt(line.target3)}</td>
