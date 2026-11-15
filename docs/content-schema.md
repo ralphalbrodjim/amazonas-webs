@@ -213,7 +213,9 @@ Replace the placeholder with the real letter before running it.
 
 ## semana / organizacion
 
-One row per piece of the weekly organization. `id` is a stable slug. `sort` is the order inside its group. The site splits rows by `automatico`: `true` goes under Automatizado, anything else under Manual. There is no bundled list. With zero rows the tab stays empty.
+The Organización semana screen no longer renders this kind. Existing rows stay in the database. New cells use `organizacion_semana` below.
+
+One row per piece of the old weekly organization. `id` is a stable slug. `sort` is the order inside its group. `automatico: true` was Automatizado; anything else was Manual.
 
 `data`:
 
@@ -251,6 +253,41 @@ on conflict (site, kind, id) do update set
 ```
 
 Replace the placeholder before running it. `active = false` hides a row.
+
+## semana / organizacion_semana
+
+One row per cell of the weekday grid. The nine jefes and the five weekdays are fixed in the site. A row only fills a cell; it does not add a person or a day. Kaito is not a jefe, so a row with `jefe: "kaito"` is ignored. An empty `texto` leaves the cell blank. With no rows every cell stays empty.
+
+`id` is a stable slug, for example `ralph-lunes`. `sort` only breaks ties.
+
+`data`:
+
+| field | type | meaning |
+| --- | --- | --- |
+| `jefe` | string | `ralph`, `lola`, `warren`, `martinez`, `chef`, `ateneo`, `rocky`, `edward`, or `vito` |
+| `dia` | string | `lunes`, `martes`, `miercoles`, `jueves`, or `viernes` |
+| `texto` | string | what goes in the cell. `""` keeps it empty |
+
+```json
+{
+  "jefe": "ralph",
+  "dia": "lunes",
+  "texto": ""
+}
+```
+
+```sql
+insert into public.content (site, kind, id, data, sort, active)
+values (
+  'semana', 'organizacion_semana', 'ralph-lunes',
+  '{"jefe":"ralph","dia":"lunes","texto":""}'::jsonb,
+  1, true
+)
+on conflict (site, kind, id) do update set
+  data = excluded.data, sort = excluded.sort, active = excluded.active, updated_at = now();
+```
+
+Replace the placeholder before running it. `active = false` hides a cell.
 
 ## semana / run_plan
 

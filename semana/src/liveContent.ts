@@ -3,6 +3,7 @@ import culturaBundled from "../data/cultura.json";
 import deporteBundled from "../data/deporte.json";
 import inglesBundled from "../data/ingles.json";
 import type { ContentRow } from "../../shared/content";
+import { celdasOrganizacion, type OrganizacionCelda } from "./organizacionModel";
 
 export type AgendaData = typeof agendaBundled;
 export type DeporteData = typeof deporteBundled;
@@ -46,6 +47,7 @@ export type CulturaDia = {
 };
 
 let organizacionLive: OrganizacionItem[] = [];
+let organizacionSemanaLive: OrganizacionCelda[] = [];
 let culturaDiasLive: CulturaDia[] = [];
 
 export function getAgenda(): AgendaData { return agendaLive; }
@@ -53,6 +55,7 @@ export function getDeporte(): DeporteData { return deporteLive; }
 export function getIngles(): InglesData { return inglesLive; }
 export function getCultura(): CulturaItem[] { return culturaLive; }
 export function getOrganizacion(): OrganizacionItem[] { return organizacionLive; }
+export function getOrganizacionSemana(): OrganizacionCelda[] { return organizacionSemanaLive; }
 export function getCulturaDias(): CulturaDia[] { return culturaDiasLive; }
 
 function texto(value: unknown): string {
@@ -125,6 +128,7 @@ export function applySemanaContent(rows: ContentRow[] | null) {
     inglesLive = inglesBundled;
     culturaLive = culturaBundled;
     organizacionLive = [];
+    organizacionSemanaLive = [];
     culturaDiasLive = [];
     return;
   }
@@ -182,5 +186,6 @@ export function applySemanaContent(rows: ContentRow[] | null) {
   const cultura = rowsOf(rows, "cultura");
   culturaLive = cultura.length ? cultura.map((row) => row.data as CulturaItem) : culturaBundled;
   organizacionLive = organizacionDe(rows);
+  organizacionSemanaLive = celdasOrganizacion(rows);
   culturaDiasLive = culturaDiasDe(rows);
 }

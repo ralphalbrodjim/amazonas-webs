@@ -808,6 +808,82 @@ button.ws-cell-btn.on { outline: 2px solid var(--green); }
   cursor: pointer;
 }
 
+@media (max-width: 640px) {
+  .week { gap: 8px; margin-top: 8px; }
+  .week-day.card { padding: 8px 10px; border-radius: 12px; }
+  .week-day .day-title { font-size: 16px; margin: 0 0 2px; }
+  .week-day .franja { margin-top: 4px; }
+  .week-day .franja-label { margin-bottom: 0; font-size: 11px; }
+  .week-day .slot-row { gap: 2px; margin-top: 2px; }
+  .week-day .slot-select { min-height: 36px; padding: 2px 8px; border-radius: 8px; }
+  .week-day .note { margin: 2px 0 0; font-size: 12px; }
+  .day { aspect-ratio: 1.7; font-size: 12px; border-radius: 8px; gap: 1px; }
+  .cal-head, .cal-grid { gap: 2px; }
+  .cal-head span { font-size: 10px; padding: 0; }
+  .month { margin-top: 8px; }
+  .month h3 { font-size: 18px; margin-bottom: 4px; }
+}
+
+.org-scroll {
+  overflow: auto;
+  max-width: 100%;
+  margin-top: 12px;
+  border: 1px solid rgba(130, 170, 230, 0.18);
+  border-radius: 14px;
+  background: #14284B;
+}
+.org-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.org-table th,
+.org-table td {
+  padding: 8px 10px;
+  font-size: 13px;
+  text-align: left;
+  border-bottom: 1px solid rgba(130, 170, 230, 0.18);
+  color: #C9D6F0;
+  min-width: 92px;
+  vertical-align: middle;
+  background: transparent;
+}
+.org-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #1B3360;
+  color: #FFE14A;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.org-table .org-jefe {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 176px;
+  background: #14284B;
+  box-shadow: 8px 0 12px rgba(13, 25, 51, 0.35);
+}
+.org-table thead .org-jefe { z-index: 3; background: #1B3360; }
+.org-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 10px;
+  background: rgba(255, 214, 10, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 214, 10, 0.35);
+  color: #FFE14A;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.org-chip small { display: block; color: #E6D27A; font-weight: 600; font-size: 11px; }
+.org-empty { color: #8FA6CF; }
+
 @media (min-width: 900px) {
   .week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: start; }
 }
