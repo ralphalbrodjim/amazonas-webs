@@ -1,9 +1,7 @@
-/** Rows of Tu semana. Add or rename one here; the grid follows this list. */
+/** Columns of Tu semana. Days are the rows. Cultura is kept in storage but not listed here. */
 export const AGENDA_FILAS = [
-  { id: "gimnasio", icono: "🏋️", nombre: "Gimnasio" },
-  { id: "run", icono: "🏃", nombre: "Run" },
+  { id: "deporte", icono: "🏃", nombre: "Deporte" },
   { id: "ingles", icono: "🎓", nombre: "Inglés" },
-  { id: "cultura", icono: "🎭", nombre: "Cultura" },
   { id: "cocina", icono: "🍳", nombre: "Cocina" },
   { id: "otros", icono: "📝", nombre: "Otros" },
 ] as const;
@@ -24,8 +22,19 @@ export type DiaId = (typeof LABORABLES)[number]["id"];
 
 export type WeekGrid = Record<string, Partial<Record<DiaId, string>>>;
 
-const FILA_IDS = new Set<string>(AGENDA_FILAS.map((fila) => fila.id));
+/** Old columns stay in the saved object so a later edit does not wipe them. */
+const STORED_FILA_IDS = new Set<string>([...AGENDA_FILAS.map((fila) => fila.id), "gimnasio", "run", "cultura"]);
 const DIA_IDS = new Set<string>(LABORABLES.map((dia) => dia.id));
+
+function joinDeporte(gimnasio: string | undefined, run: string | undefined): string | undefined {
+  const parts: string[] = [];
+  for (const part of [gimnasio, run]) {
+    const text = part?.trim();
+    if (!text || parts.includes(text)) continue;
+    parts.push(text);
+  }
+  return parts.length ? parts.join(" · ") : undefined;
+}
 
 /** ISO week of a calendar day, for example 2026-11-09 → 2026-W46. */
 export function isoWeekId(iso: string): string {
@@ -50,7 +59,7 @@ export function parseWeekGrid(value: unknown): WeekGrid {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const grid: WeekGrid = {};
   for (const [fila, row] of Object.entries(value as Record<string, unknown>)) {
-    if (!FILA_IDS.has(fila) || !row || typeof row !== "object" || Array.isArray(row)) continue;
+    if (!STORED_FILA_IDS.has(fila) || !row || typeof row !== "object" || Array.isArray(row)) continue;
     const cells: Partial<Record<DiaId, string>> = {};
     for (const [dia, text] of Object.entries(row as Record<string, unknown>)) {
       if (!DIA_IDS.has(dia) || typeof text !== "string") continue;
@@ -58,6 +67,16 @@ export function parseWeekGrid(value: unknown): WeekGrid {
     }
     if (Object.keys(cells).length) grid[fila] = cells;
   }
+  const deporte: Partial<Record<DiaId, string>> = { ...grid.deporte };
+  let migrated = false;
+  for (const dia of LABORABLES) {
+    if (Object.prototype.hasOwnProperty.call(deporte, dia.id)) continue;
+    const joined = joinDeporte(grid.gimnasio?.[dia.id], grid.run?.[dia.id]);
+    if (joined === undefined) continue;
+    deporte[dia.id] = joined;
+    migrated = true;
+  }
+  if (migrated || Object.keys(deporte).length) grid.deporte = deporte;
   return grid;
 }
 
@@ -77,11 +96,11 @@ export function conCelda(grid: WeekGrid, fila: string, dia: DiaId, texto: string
   return { ...grid, [fila]: { ...grid[fila], [dia]: texto } };
 }
 
-export function filaDe(tipo: string): FilaId {
+/** Cultura is recognised so a plan item is not dropped into Otro, but the grid does not show that column. */
+export function filaDe(tipo: string): FilaId | "cultura" {
   const text = tipo.toLowerCase();
-  if (text.includes("gimnas")) return "gimnasio";
+  if (text.includes("gimnas") || text.includes("run") || text.includes("deporte") || text.includes("correr")) return "deporte";
   if (text.includes("ingles") || text.includes("inglés")) return "ingles";
-  if (text.includes("run") || text.includes("deporte") || text.includes("correr")) return "run";
   if (text.includes("cultur") || text.includes("teatro") || text.includes("pelíc") || text.includes("pelic") || text.includes("expos")) return "cultura";
   if (text.includes("cocin") || text.includes("chef") || text.includes("comida") || text.includes("restaur")) return "cocina";
   return "otros";
