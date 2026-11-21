@@ -53,9 +53,20 @@ Se sigue la guía cuando choca con el archivo de los profesores.
 6. Tablas. La guía las nombra sin prefijo (`profiles`, `study_sessions`, …). El encargo de la fase 2 usa el prefijo `ch_`. El plan de abajo usa `ch_` y conserva el nombre de la guía entre paréntesis.
 7. Publicar. El protocolo de la guía, sección 20, pide no publicar hasta aprobar el inventario. El encargo de esta fase pide publicar la demo ahora. Se publica solo `/ingles/`, sin tablas.
 
-## Fase 2, sin implementar
+## Fase 2 y 3, en el repositorio
 
-Proyecto Supabase `njspskcisrwmtmbcbdny`. Tablas con prefijo `ch_` y RLS por usuario. La clave de servicio no entra en el navegador. Las claves de respuesta van en una tabla que el cliente no puede leer; se revelan al enviar, en el servidor.
+La página ya llama a Supabase. Hasta que se ejecuten los dos SQL, la corrección responde que faltan las migraciones y guarda el intento solo en el navegador. Con la cuenta abierta, la fila de Supabase manda.
+
+Ejecutar en el editor SQL, en este orden:
+
+1. `supabase/migrations/20261121120000_ch_schema.sql`
+2. `supabase/migrations/20261121120100_ch_seed.sql`
+
+No tocan `warren_*`, `app_state` ni `content`. Después, en Authentication → URL configuration, añadir `https://ralphalbrodjim.github.io/amazonas-webs/ingles/` como Site URL y como redirect. Sirve la misma cuenta de correo del proyecto.
+
+La función de IA está en `supabase/functions/ch-correct/index.ts`. Hay que desplegarla y crear el secreto `CH_AI_KEY`. Opcionales: `CH_AI_URL` y `CH_AI_MODEL`. Sin ese secreto, Writing y Speaking dicen `corrección IA pendiente de activar` y aun así guardan la entrega para el profesor. No hay clave de servicio en el navegador ni en esa función: usa la sesión de quien llama.
+
+Proyecto Supabase `njspskcisrwmtmbcbdny`. Tablas con prefijo `ch_` y RLS por usuario. Las claves de respuesta están solo en `ch_exercise_answers`, que el cliente no puede leer. La corrección cerrada pasa por `ch_grade_exercise`.
 
 | Tabla | Equivale en la guía | Contenido |
 | --- | --- | --- |
@@ -69,7 +80,8 @@ Proyecto Supabase `njspskcisrwmtmbcbdny`. Tablas con prefijo `ch_` y RLS por usu
 | `ch_writing_submissions` | writing_submissions | Texto, versión, rúbrica. Una revisión no pisa la anterior |
 | `ch_speaking_sessions` | speaking_turns / speaking_sessions | Turnos, resumen, tope |
 | `ch_resource_catalog` | resource_catalog | URL, proveedor, acento, nivel, duración, licencia |
-| `ch_ai_usage` | ai_usage | Proveedor, unidades, importe. Vacío hasta haber una llamada real |
+| `ch_ai_usage` | ai_usage | Proveedor y tokens cuando el modelo los devuelve. El importe se queda vacío | 
+| `ch_mock_attempts` | assessment_runs | Fecha, duración, condiciones, puntos por parte y si se paró antes |
 
 Estados de sesión de la guía: `planned`, `in_progress`, `paused`, `submitted`, `completed`, `abandoned`. Solo `completed` suma minutos, y un segundo «Finalizar» no crea otro cierre.
 

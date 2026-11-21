@@ -1,12 +1,17 @@
-/** Closed-exercise scoring for the Cambridge House demo. Part 4 can score 0, 1 or 2. */
+/** Same contract as public.ch_score in the Cambridge House migration. */
 
 export function normalizeAnswer(value) {
   return String(value).trim().replace(/\s+/g, " ").replace(/[.,!?;:]/g, "").toLowerCase();
 }
 
+export function maxPoints(part) {
+  if (part === 4 || part === 5 || part === 6 || part === 7) return 2;
+  return 1;
+}
+
 export function gradeClosed(item, raw) {
-  const max = item.part === 4 ? 2 : 1;
-  const answer = item.type === "choice" ? raw : normalizeAnswer(raw ?? "");
+  const max = item.max ?? maxPoints(item.part);
+  const answer = item.type === "choice" && Number.isInteger(raw) ? raw : normalizeAnswer(raw ?? "");
   if (answer === null || answer === undefined || answer === "") return { status: "empty", points: 0, max, review: false };
   if (item.part === 4 && item.type === "text") {
     const full = (item.answer || []).map(normalizeAnswer);
@@ -16,12 +21,12 @@ export function gradeClosed(item, raw) {
     if (item.keyword && answer.includes(normalizeAnswer(item.keyword))) return { status: "review", points: null, max, review: true };
     return { status: "incorrect", points: 0, max, review: false };
   }
-  if (item.type === "choice") {
-    const ok = answer === item.correct;
-    return { status: ok ? "correct" : "incorrect", points: ok ? 1 : 0, max, review: false };
+  if (item.type === "choice" && Number.isInteger(raw)) {
+    const ok = raw === item.correct;
+    return { status: ok ? "correct" : "incorrect", points: ok ? max : 0, max, review: false };
   }
   const ok = (item.answer || []).map(normalizeAnswer).includes(answer);
-  return { status: ok ? "correct" : "incorrect", points: ok ? 1 : 0, max, review: false };
+  return { status: ok ? "correct" : "incorrect", points: ok ? max : 0, max, review: false };
 }
 
 export function turnCap(minutes) {
