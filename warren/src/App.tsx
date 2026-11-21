@@ -227,7 +227,6 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
 
   const nav: { id: Screen; label: string }[] = [
     { id: "resumen", label: "Resumen" },
-    { id: "intelligence", label: "Intelligence" },
     { id: "cartera", label: "Mi cartera" },
     { id: "virtual", label: "Cartera virtual" },
     { id: "radar", label: "Radar" },
@@ -236,9 +235,9 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
 
   return (
     <Frame email={props.email} onExit={() => void supabase.auth.signOut()}>
-      <nav style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+      <nav style={{ display: "flex", flexWrap: "nowrap", gap: 8, marginBottom: 14, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
         {nav.map((item) => (
-          <button key={item.id} type="button" style={btn(screen === item.id)} onClick={() => go(item.id)}>
+          <button key={item.id} type="button" style={{ ...btn(screen === item.id), whiteSpace: "nowrap", flex: "0 0 auto" }} onClick={() => go(item.id)}>
             {item.label}
           </button>
         ))}
