@@ -344,16 +344,16 @@ as $$
 declare
   max_pts integer := public.ch_max_points(part, max_override);
   answer text := public.ch_norm(raw);
-  full text[];
+  full_keys text[];
   partial text[];
 begin
   if answer = '' then
     return jsonb_build_object('status', 'empty', 'points', 0, 'max', max_pts, 'review', false);
   end if;
-  select coalesce(array_agg(public.ch_norm(value)), '{}') into full from jsonb_array_elements_text(coalesce(keys, '[]'::jsonb)) as value;
+  select coalesce(array_agg(public.ch_norm(value)), '{}') into full_keys from jsonb_array_elements_text(coalesce(keys, '[]'::jsonb)) as value;
   select coalesce(array_agg(public.ch_norm(value)), '{}') into partial from jsonb_array_elements_text(coalesce(partials, '[]'::jsonb)) as value;
   if part = 4 and kind = 'text' then
-    if answer = any(full) then
+    if answer = any(full_keys) then
       return jsonb_build_object('status', 'correct', 'points', 2, 'max', max_pts, 'review', false);
     elsif answer = any(partial) then
       return jsonb_build_object('status', 'partial', 'points', 1, 'max', max_pts, 'review', false);
@@ -363,7 +363,7 @@ begin
       return jsonb_build_object('status', 'incorrect', 'points', 0, 'max', max_pts, 'review', false);
     end if;
   end if;
-  if answer = any(full) then
+  if answer = any(full_keys) then
     return jsonb_build_object('status', 'correct', 'points', max_pts, 'max', max_pts, 'review', false);
   end if;
   return jsonb_build_object('status', 'incorrect', 'points', 0, 'max', max_pts, 'review', false);

@@ -29,7 +29,7 @@
   }
   async function rest(path, options) {
     const method = (options && options.method) || "GET";
-    const headers = { apikey: KEY, "Content-Type": "application/json", Prefer: "return=representation" };
+    const headers = { apikey: KEY, "Content-Type": "application/json", Prefer: (options && options.prefer) || "return=representation" };
     if (session && session.access_token) headers.Authorization = "Bearer " + session.access_token;
     const res = await fetch(URL + path, { method, headers, body: options && options.body ? JSON.stringify(options.body) : undefined });
     const text = await res.text();
@@ -67,7 +67,24 @@
     const out = $("auth-out");
     if (out) out.hidden = !session;
   }
+  async function ensureProfile() {
+    if (!session || !session.user) return;
+    const existing = await rest("/rest/v1/ch_profiles?select=user_id&limit=1");
+    if (Array.isArray(existing) && existing.length) return;
+    try {
+      await rest("/rest/v1/ch_profiles?on_conflict=user_id", {
+        method: "POST",
+        prefer: "resolution=merge-duplicates,return=minimal",
+        body: { user_id: session.user.id, email: session.user.email || null },
+      });
+    } catch (error) {
+      const again = await rest("/rest/v1/ch_profiles?select=user_id&limit=1");
+      if (Array.isArray(again) && again.length) return;
+      throw error;
+    }
+  }
   async function pull() {
+    await ensureProfile();
     const bank = await rest("/rest/v1/ch_exercise_bank?select=id,code,skill,part&order=sort");
     schemaReady = true;
     const byId = {};
