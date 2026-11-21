@@ -235,9 +235,9 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
 
   return (
     <Frame email={props.email} onExit={() => void supabase.auth.signOut()}>
-      <nav style={{ display: "flex", flexWrap: "nowrap", gap: 8, marginBottom: 14, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+      <nav style={{ display: "flex", flexWrap: "nowrap", gap: 4, marginBottom: 14 }}>
         {nav.map((item) => (
-          <button key={item.id} type="button" style={{ ...btn(screen === item.id), whiteSpace: "nowrap", flex: "0 0 auto" }} onClick={() => go(item.id)}>
+          <button key={item.id} type="button" style={{ ...btn(screen === item.id), whiteSpace: "nowrap", flex: "0 0 auto", fontSize: 11, lineHeight: 1.1, padding: "6px 6px", minHeight: 32 }} onClick={() => go(item.id)}>
             {item.label}
           </button>
         ))}
@@ -418,10 +418,7 @@ function Resumen(props: {
   }, [props, fuente]);
   return (
     <section>
-      <h1 style={{ fontSize: 28, marginBottom: 4 }}>Resumen de inversiones</h1>
-      <p style={{ color: INK3, marginTop: 0 }}>Ranking compacto · rentabilidad de precio, sin dividendos · objetivo según el selector</p>
       <div className="resumen-filters">
-        <input style={slim} placeholder="Buscar" aria-label="Buscar" value={props.q} onChange={(event) => props.setQ(event.target.value)} />
         <select style={slim} aria-label="Cartera" value={props.cartera} onChange={(event) => props.setCartera(event.target.value as "todas" | "si" | "no")}><option value="todas">Cartera · Todas</option><option value="si">Cartera · Sí</option><option value="no">Cartera · No</option></select>
         <select style={slim} aria-label="CAGR mínimo" value={props.cagrMin === null ? "" : String(props.cagrMin)} onChange={(event) => props.setCagrMin(event.target.value === "" ? null : Number(event.target.value))}><option value="">CAGR · Sin límite</option><option value="0.15">CAGR · 15 %</option><option value="0.2">CAGR · 20 %</option></select>
         <select style={slim} aria-label="Orden" value={props.sort} onChange={(event) => props.setSort(event.target.value as SortKey)}><option value="rent1">Rent. 1A desc.</option><option value="hoy">Rent. hoy desc.</option><option value="cagr">CAGR 3A desc.</option><option value="ticker">Ticker</option></select>
