@@ -91,6 +91,15 @@ export default function App() {
   return <Desk email={sessionEmail} schemaMissing={schema === "missing"} />;
 }
 
+function NavIcon(props: { id: Screen }) {
+  const pen = { width: 28, height: 28, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.75, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const };
+  if (props.id === "resumen") return <svg {...pen}><rect x="3" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" /></svg>;
+  if (props.id === "cartera") return <svg {...pen}><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7" /><path d="M3 12h18" /></svg>;
+  if (props.id === "virtual") return <svg {...pen}><rect x="6" y="8" width="15" height="12" rx="2" /><path d="M9 8V6.5A2.5 2.5 0 0 1 11.5 4h3A2.5 2.5 0 0 1 17 6.5V8" /><path d="M3 13.5 6 12v8l-3-1.5z" /></svg>;
+  if (props.id === "radar") return <svg {...pen}><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.5" /><path d="M12 4v3M12 17v3M4 12h3M17 12h3" /></svg>;
+  return <svg {...pen}><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M3.5 9.5h17M8 3.5V6.5M16 3.5V6.5" /></svg>;
+}
+
 function Frame(props: { email: string | null; onExit?: () => void; children: ReactNode }) {
   return (
     <div style={{ background: NAVY, color: INK, minHeight: "100vh", padding: "16px 14px 48px", boxSizing: "border-box", fontFamily: "Inter, -apple-system, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif" }}>
@@ -235,10 +244,10 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
 
   return (
     <Frame email={props.email} onExit={() => void supabase.auth.signOut()}>
-      <nav style={{ display: "flex", flexWrap: "nowrap", gap: 4, marginBottom: 14 }}>
+      <nav style={{ display: "flex", flexWrap: "nowrap", gap: 6, marginBottom: 14 }} aria-label="Secciones">
         {nav.map((item) => (
-          <button key={item.id} type="button" style={{ ...btn(screen === item.id), whiteSpace: "nowrap", flex: "0 0 auto", fontSize: 11, lineHeight: 1.1, padding: "6px 6px", minHeight: 32 }} onClick={() => go(item.id)}>
-            {item.label}
+          <button key={item.id} type="button" aria-label={item.label} title={item.label} style={{ ...btn(screen === item.id), flex: "1 1 0", minWidth: 0, padding: 8, minHeight: 48, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => go(item.id)}>
+            <NavIcon id={item.id} />
           </button>
         ))}
       </nav>
