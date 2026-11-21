@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AGENDA_FILAS, LABORABLES, conCelda, filaDe, parseWeekGrid, sugerido, textoVisible, weekStorageKey, type DiaId, type FilaId, type PlanItem, type WeekGrid } from "./agendaGrid";
+import { AGENDA_FILAS, LABORABLES, conCelda, conHecho, estaHecho, filaDe, parseHecho, parseWeekGrid, semanaGuardada, sugerido, textoVisible, weekStorageKey, type DiaId, type FilaId, type HechoMap, type PlanItem, type WeekGrid } from "./agendaGrid";
 import { useSync } from "./cloud";
 import { shiftDay, shortDay, weekStart } from "./dates";
 import { getAgenda, getCultura, getDeporte, getIngles } from "./liveContent";
@@ -32,6 +32,9 @@ export function Planner(props: { hoy: string }) {
   const key = weekStorageKey(monday);
   const days = LABORABLES.map((dia, index) => ({ ...dia, fecha: shiftDay(monday, index) }));
   const [grid, setGrid] = useState<WeekGrid>({});
+  const [hecho, setHecho] = useState<HechoMap>({});
+  const hechoRef = useRef<HechoMap>({});
+  const gridRef = useRef<WeekGrid>({});
   const [ready, setReady] = useState(false);
   const edited = useRef(false);
 
@@ -39,19 +42,44 @@ export function Planner(props: { hoy: string }) {
     edited.current = false;
     setReady(false);
     setGrid({});
+    setHecho({});
+    gridRef.current = {};
+    hechoRef.current = {};
     const offKey = sync.onKey(key, (value) => {
-      if (!edited.current) setGrid(parseWeekGrid(value));
+      if (!edited.current) {
+        const next = parseWeekGrid(value);
+        const ticks = parseHecho(value);
+        gridRef.current = next;
+        hechoRef.current = ticks;
+        setGrid(next);
+        setHecho(ticks);
+      }
       setReady(true);
     });
     const offReady = sync.onReady(() => setReady(true));
     return () => { offKey(); offReady(); };
   }, [key, sync]);
 
+  function publish(nextGrid: WeekGrid, nextHecho: HechoMap) {
+    gridRef.current = nextGrid;
+    hechoRef.current = nextHecho;
+    sync.push(key, semanaGuardada(nextGrid, nextHecho));
+  }
+
   function edit(fila: FilaId, dia: DiaId, texto: string) {
     edited.current = true;
     setGrid((current) => {
       const next = conCelda(current, fila, dia, texto);
-      sync.push(key, next);
+      publish(next, hechoRef.current);
+      return next;
+    });
+  }
+
+  function toggle(fila: FilaId, dia: DiaId) {
+    edited.current = true;
+    setHecho((current) => {
+      const next = conHecho(current, fila, dia, !estaHecho(current, fila, dia));
+      publish(gridRef.current, next);
       return next;
     });
   }
@@ -63,13 +91,12 @@ export function Planner(props: { hoy: string }) {
     <section>
       <div className="kicker">Agenda</div>
       <h2>Tu semana</h2>
-      <p className="lead">Escribe en la casilla. Se guarda solo y llega al otro teléfono. Si aún no has escrito nada, se muestra el plan que ya había.</p>
-      <div className="nav">
+      <div className="nav agenda-nav">
         <button className="tap" type="button" onClick={() => setAnchor(shiftDay(monday, -7))} aria-label="Semana anterior">◀</button>
         <div className="grow">Semana del {shortDay(monday)}</div>
+        <button className="tap" type="button" onClick={() => setAnchor(props.hoy)}>Hoy</button>
         <button className="tap" type="button" onClick={() => setAnchor(shiftDay(monday, 7))} aria-label="Semana siguiente">▶</button>
       </div>
-      <button className="tap" type="button" onClick={() => setAnchor(props.hoy)}>Hoy</button>
       <div className="org-scroll agenda-scroll">
         <table className="org-table agenda-table">
           <thead>
@@ -77,32 +104,45 @@ export function Planner(props: { hoy: string }) {
               <th className="org-jefe">Día</th>
               {AGENDA_FILAS.map((fila) => (
                 <th key={fila.id}>
-                  <span className="org-chip"><span aria-hidden="true">{fila.icono}</span><span>{fila.nombre}</span></span>
+                  <span className="org-chip agenda-head"><span aria-hidden="true">{fila.icono}</span><span>{fila.nombre}</span></span>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {days.map((dia) => (
-              <tr key={dia.id}>
-                <th className={dia.fecha === props.hoy ? "org-jefe org-today" : "org-jefe"} scope="row">
+              <tr key={dia.id} className={dia.fecha === props.hoy ? "hoy" : ""}>
+                <th className="org-jefe" scope="row">
                   <span className="agenda-day">{dia.label}</span>
                   <span className="org-date">{shortDay(dia.fecha)}</span>
                 </th>
                 {AGENDA_FILAS.map((fila) => {
                   const propuesto = sugerido(planes, dia.fecha, fila.id);
                   const valor = textoVisible(grid, fila.id, dia.id, propuesto);
+                  const done = estaHecho(hecho, fila.id, dia.id);
                   return (
-                    <td key={fila.id} className={dia.fecha === props.hoy ? "org-today" : ""}>
-                      <textarea
-                        className="org-cell"
-                        aria-label={dia.label + ", " + fila.nombre}
-                        rows={2}
-                        value={valor}
-                        disabled={!ready}
-                        placeholder="—"
-                        onChange={(event) => edit(fila.id, dia.id, event.target.value)}
-                      />
+                    <td key={fila.id} className={done ? "hecho" : ""}>
+                      <div className="agenda-cell">
+                        <textarea
+                          className="org-cell"
+                          aria-label={dia.label + ", " + fila.nombre}
+                          rows={3}
+                          value={valor}
+                          disabled={!ready}
+                          placeholder="—"
+                          onChange={(event) => edit(fila.id, dia.id, event.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className={done ? "hecho-btn on" : "hecho-btn"}
+                          aria-label={(done ? "Quitar hecho de " : "Marcar hecho ") + fila.nombre + ", " + dia.label}
+                          aria-pressed={done}
+                          disabled={!ready}
+                          onClick={() => toggle(fila.id, dia.id)}
+                        >
+                          {done ? "✓" : ""}
+                        </button>
+                      </div>
                     </td>
                   );
                 })}

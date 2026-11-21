@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { conCelda, filaDe, isoWeekId, parseWeekGrid, sugerido, textoUsuario, textoVisible, weekStorageKey, type PlanItem } from "./agendaGrid.ts";
+import { conCelda, conHecho, estaHecho, filaDe, isoWeekId, parseHecho, parseWeekGrid, semanaGuardada, sugerido, textoUsuario, textoVisible, weekStorageKey, type PlanItem } from "./agendaGrid.ts";
 
 test("the week of 9 November 2026 is 2026-W46", () => {
   assert.equal(isoWeekId("2026-11-09"), "2026-W46");
@@ -34,6 +34,18 @@ test("gimnasio and run become one Deporte cell and cultura stays stored", () => 
   assert.equal(grid.cultura?.lunes, "teatro");
   assert.equal(grid.gimnasio?.lunes, "cuerpo completo");
   assert.equal(grid.run?.lunes, "6 km suave");
+});
+
+test("a done tick is stored with the week and does not erase text", () => {
+  const grid = parseWeekGrid({ deporte: { lunes: "cuerpo completo · 6 km suave" }, cultura: { lunes: "teatro" } });
+  const marked = conHecho({}, "deporte", "lunes", true);
+  const saved = semanaGuardada(grid, marked);
+  assert.equal(estaHecho(parseHecho(saved), "deporte", "lunes"), true);
+  assert.equal(textoUsuario(parseWeekGrid(saved), "deporte", "lunes"), "cuerpo completo · 6 km suave");
+  assert.equal(parseWeekGrid(saved).cultura?.lunes, "teatro");
+  const cleared = semanaGuardada(grid, conHecho(marked, "deporte", "lunes", false));
+  assert.equal(estaHecho(parseHecho(cleared), "deporte", "lunes"), false);
+  assert.equal("hecho" in cleared, false);
 });
 
 test("known plan kinds land on the matching column", () => {

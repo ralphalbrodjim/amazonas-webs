@@ -23,7 +23,8 @@ export type DiaId = (typeof LABORABLES)[number]["id"];
 export type WeekGrid = Record<string, Partial<Record<DiaId, string>>>;
 
 /** Old columns stay in the saved object so a later edit does not wipe them. */
-const STORED_FILA_IDS = new Set<string>([...AGENDA_FILAS.map((fila) => fila.id), "gimnasio", "run", "cultura"]);
+const FILA_IDS = new Set<string>(AGENDA_FILAS.map((fila) => fila.id));
+const STORED_FILA_IDS = new Set<string>([...FILA_IDS, "gimnasio", "run", "cultura"]);
 const DIA_IDS = new Set<string>(LABORABLES.map((dia) => dia.id));
 
 function joinDeporte(gimnasio: string | undefined, run: string | undefined): string | undefined {
@@ -94,6 +95,45 @@ export function textoVisible(grid: WeekGrid, fila: string, dia: DiaId, sugerido:
 
 export function conCelda(grid: WeekGrid, fila: string, dia: DiaId, texto: string): WeekGrid {
   return { ...grid, [fila]: { ...grid[fila], [dia]: texto } };
+}
+
+export type HechoMap = Partial<Record<FilaId, Partial<Record<DiaId, true>>>>;
+
+export function parseHecho(value: unknown): HechoMap {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const raw = (value as { hecho?: unknown }).hecho;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const hecho: HechoMap = {};
+  for (const [fila, row] of Object.entries(raw as Record<string, unknown>)) {
+    if (!FILA_IDS.has(fila) || !row || typeof row !== "object" || Array.isArray(row)) continue;
+    const days: Partial<Record<DiaId, true>> = {};
+    for (const [dia, flag] of Object.entries(row as Record<string, unknown>)) {
+      if (!DIA_IDS.has(dia) || flag !== true) continue;
+      days[dia as DiaId] = true;
+    }
+    if (Object.keys(days).length) hecho[fila as FilaId] = days;
+  }
+  return hecho;
+}
+
+export function conHecho(hecho: HechoMap, fila: FilaId, dia: DiaId, on: boolean): HechoMap {
+  const row = { ...hecho[fila] };
+  if (on) row[dia] = true;
+  else delete row[dia];
+  const next: HechoMap = { ...hecho, [fila]: row };
+  if (!Object.keys(row).length) delete next[fila];
+  return next;
+}
+
+export function estaHecho(hecho: HechoMap, fila: FilaId, dia: DiaId): boolean {
+  return hecho[fila]?.[dia] === true;
+}
+
+/** Text cells plus the done ticks, ready to store as one week in app_state. */
+export function semanaGuardada(grid: WeekGrid, hecho: HechoMap): Record<string, unknown> {
+  const saved: Record<string, unknown> = { ...grid };
+  if (Object.keys(hecho).length) saved.hecho = hecho;
+  return saved;
 }
 
 /** Cultura is recognised so a plan item is not dropped into Otro, but the grid does not show that column. */

@@ -11,6 +11,14 @@ import { AGENDA_KEY, DEPORTE_KEY, deporteDates, gimnasioHecho, kmDelMes, mergeAg
 
 type Tab = "agenda" | "deporte" | "cultura" | "organizacion";
 
+function TabIcon(props: { id: Tab }) {
+  const pen = { width: 28, height: 28, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.75, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const };
+  if (props.id === "agenda") return <svg {...pen}><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M3.5 9.5h17M8 3.5V6.5M16 3.5V6.5" /></svg>;
+  if (props.id === "deporte") return <svg {...pen}><circle cx="13" cy="5" r="1.6" /><path d="M5 14.5 8.5 11l2.2 2.2 2.4-3.2L16 13" /><path d="M4 19c1.2-2.4 3-3.6 5.2-3.6 1.6 0 2.6.6 3.8.6 2.2 0 3.6-1.2 5-3.2" /></svg>;
+  if (props.id === "cultura") return <svg {...pen}><path d="M4 14c2.2-4 4.2-6 8-6s5.8 2 8 6" /><path d="M8 14c1-2 2.2-3 4-3s3 1 4 3" /><path d="M9 18.5c.8-1.4 1.8-2 3-2s2.2.6 3 2" /></svg>;
+  return <svg {...pen}><circle cx="8" cy="8" r="2.2" /><circle cx="16" cy="9" r="2" /><path d="M3.5 18.5c.4-2.2 2-3.4 4.5-3.4s4 1.2 4.5 3.4M12.5 18.2c.4-1.8 1.6-2.8 3.5-2.8 1.8 0 3 .9 3.5 2.6" /></svg>;
+}
+
 function Pill(props: { kind: "miss" | "wait" | "neutral" | "recorded" | "completo"; children: string }) {
   return <span className={`pill ${props.kind}`}>{props.children}</span>;
 }
@@ -31,15 +39,15 @@ export default function App() {
         </div>
       </header>
       <main className="wrap">
-        <div className="tabs" role="tablist" aria-label="Secciones">
+        <div className="tabs icon-tabs" role="tablist" aria-label="Secciones">
           {([
             ["agenda", "Agenda"],
             ["deporte", "Running y gimnasio"],
-            ["cultura", "🎭 Cultura"],
+            ["cultura", "Cultura"],
             ["organizacion", "Organización semana"],
           ] as const).map(([id, label]) => (
-            <button key={id} className="tab" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
-              {label}
+            <button key={id} className="tab" role="tab" aria-label={label} title={label} aria-selected={tab === id} onClick={() => setTab(id)}>
+              <TabIcon id={id} />
             </button>
           ))}
         </div>
