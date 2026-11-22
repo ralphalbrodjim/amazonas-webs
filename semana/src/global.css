@@ -81,7 +81,25 @@ button { -webkit-tap-highlight-color: transparent; }
   gap: 8px;
 }
 .icon-tabs { flex-wrap: nowrap; gap: 6px; }
-.icon-tabs .tab { flex: 1 1 0; min-width: 0; padding: 8px; min-height: 52px; display: flex; align-items: center; justify-content: center; }
+.icon-tabs .tab {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.icon-tabs .tab:active { transform: scale(0.94); }
+.icon-tabs .tab[data-tab="agenda"] { background: #fff1d2; color: #C47A12; }
+.icon-tabs .tab[data-tab="deporte"] { background: #e5f6ee; color: #1C8A5A; }
+.icon-tabs .tab[data-tab="cultura"] { background: #fde8f2; color: #C43B78; }
+.icon-tabs .tab[data-tab="organizacion"] { background: #e6f3fb; color: #1D6FA8; }
+.icon-tabs .tab[data-tab="agenda"][aria-selected="true"] { background: linear-gradient(160deg, #F6C35B, #E0912A); color: #fff; box-shadow: 0 6px 14px rgba(224, 145, 42, 0.35); }
+.icon-tabs .tab[data-tab="deporte"][aria-selected="true"] { background: linear-gradient(160deg, #3DDC97, #14915A); color: #fff; box-shadow: 0 6px 14px rgba(20, 145, 90, 0.3); }
+.icon-tabs .tab[data-tab="cultura"][aria-selected="true"] { background: linear-gradient(160deg, #F7A0C4, #D23B78); color: #fff; box-shadow: 0 6px 14px rgba(210, 59, 120, 0.3); }
+.icon-tabs .tab[data-tab="organizacion"][aria-selected="true"] { background: linear-gradient(160deg, #7EC8F0, #1D6FA8); color: #fff; box-shadow: 0 6px 14px rgba(29, 111, 168, 0.3); }
 
 .tab, .subtab {
   border: none;
@@ -923,7 +941,7 @@ button.ws-cell-btn.on { outline: 2px solid var(--green); }
   width: 100%;
   min-height: 84px;
   box-sizing: border-box;
-  padding: 28px 0 0;
+  padding: 4px 20px 4px 2px;
   overflow-wrap: normal;
   word-break: normal;
   white-space: pre-wrap;
@@ -934,22 +952,41 @@ button.ws-cell-btn.on { outline: 2px solid var(--green); }
 }
 .hecho-btn {
   position: absolute;
-  top: 0;
-  right: 0;
-  width: 26px;
-  height: 26px;
+  top: -6px;
+  right: -6px;
+  width: 32px;
+  height: 32px;
+  border: 0;
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.45);
   background: transparent;
-  color: transparent;
   padding: 0;
-  font-size: 16px;
-  line-height: 1;
-  font-weight: 800;
+  display: grid;
+  place-items: center;
 }
-.hecho-btn.on { background: #1F7A4D; border-color: #3DDC97; color: #fff; }
-.agenda-table td.hecho { background: rgba(61, 220, 151, 0.18); }
-.agenda-table tr.hoy td.hecho { background: rgba(61, 220, 151, 0.28); }
+.hecho-btn::before {
+  content: "";
+  grid-area: 1 / 1;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  background: rgba(13, 25, 51, 0.45);
+}
+.hecho-btn.on::before { background: #1F7A4D; border-color: #3DDC97; }
+.hecho-btn.on::after {
+  content: "✓";
+  grid-area: 1 / 1;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 16px;
+}
+.agenda-table textarea.org-cell.done-text {
+  color: #083222;
+  background: rgba(61, 220, 151, 0.72);
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(8, 80, 48, 0.18);
+}
 
 @media (min-width: 900px) {
   .week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: start; }

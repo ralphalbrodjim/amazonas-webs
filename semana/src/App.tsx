@@ -46,7 +46,7 @@ export default function App() {
             ["cultura", "Cultura"],
             ["organizacion", "Organización semana"],
           ] as const).map(([id, label]) => (
-            <button key={id} className="tab" role="tab" aria-label={label} title={label} aria-selected={tab === id} onClick={() => setTab(id)}>
+            <button key={id} className="tab" role="tab" data-tab={id} aria-label={label} title={label} aria-selected={tab === id} onClick={() => setTab(id)}>
               <TabIcon id={id} />
             </button>
           ))}
@@ -326,9 +326,6 @@ function Deporte() {
     <section>
       <div className="kicker">Actualizado {formatWhen(deporte.actualizado)}</div>
       <h2>Running y gimnasio</h2>
-      <p className="source">{deporte.fuente}</p>
-      <p className="lead">Los kilómetros salen de las salidas marcadas como hechas en la semana. El gimnasio cuenta 30 minutos por sesión hecha allí.</p>
-
       <div id="graficas-mes">
         <div className="mes-switch">
           <button type="button" className="tap" aria-label="Mes anterior" disabled={meses.indexOf(mes) <= 0} onClick={() => setMes(meses[meses.indexOf(mes) - 1])}>‹</button>

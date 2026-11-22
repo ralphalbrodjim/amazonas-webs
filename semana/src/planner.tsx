@@ -124,7 +124,7 @@ export function Planner(props: { hoy: string }) {
                     <td key={fila.id} className={done ? "hecho" : ""}>
                       <div className="agenda-cell">
                         <textarea
-                          className="org-cell"
+                          className={done ? "org-cell done-text" : "org-cell"}
                           aria-label={dia.label + ", " + fila.nombre}
                           rows={3}
                           value={valor}
@@ -139,9 +139,7 @@ export function Planner(props: { hoy: string }) {
                           aria-pressed={done}
                           disabled={!ready}
                           onClick={() => toggle(fila.id, dia.id)}
-                        >
-                          {done ? "✓" : ""}
-                        </button>
+                        />
                       </div>
                     </td>
                   );

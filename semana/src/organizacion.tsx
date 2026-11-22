@@ -7,7 +7,6 @@ export function Organizacion() {
     <section>
       <div className="kicker">Organización</div>
       <h2>Organización semana</h2>
-      <p className="lead">Una fila por jefe y una columna por cada día de la semana. Las casillas están vacías hasta que se publiquen.</p>
       <div className="org-scroll">
         <table className="org-table">
           <thead>

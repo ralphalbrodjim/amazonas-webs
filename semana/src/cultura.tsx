@@ -212,7 +212,6 @@ export function Cultura() {
     <section>
       <div className="kicker">Don Ateneo</div>
       <h2>Cultura</h2>
-      <p className="lead">La edición del día llega por la web. Lo que añadas pasa a Pendiente y se guarda en tus dos teléfonos.</p>
       <div className="cult-filters" role="group" aria-label="Vista de cultura">
         <button type="button" className="cult-filter" aria-pressed={vista === "edicion"} onClick={() => setVista("edicion")}>La edición</button>
         <button type="button" className="cult-filter" aria-pressed={vista === "lista"} onClick={() => setVista("lista")}>Mi lista <span>{pendientes.length}</span></button>
