@@ -6,7 +6,7 @@ import { cagr3, carteraFuenteTargets, priceReturn, type CarteraFuente } from "./
 import { calendarModel, calendarRows, certaintyLabel, entrada15, entradaHit, isSoon, meanRent, sessionLabel, STAR_LEGEND, virtualLines, weekday, type CalendarRow } from "./pendientes";
 import type { Company, EarningsRow, RadarItem, VirtualEntry } from "./types";
 
-const PANEL = "#14284B";
+const PANEL = "#2C446C";
 const INK3 = "#8FA6CF";
 const YELLOW = "#FFE14A";
 const GREEN = "#3DDC97";
@@ -162,7 +162,7 @@ function CalendarCard(props: { row: CalendarRow; today: string; onOpen: (ticker:
   const when = sessionLabel(row.timeOfDay);
   const certainty = certaintyLabel(row.certainty);
   return (
-    <article style={{ background: PANEL, border: "1px solid " + (soon ? YELLOW : LINE), borderRadius: 16, padding: 14, marginTop: 8 }}>
+    <article style={{ background: PANEL, border: "1px solid " + (soon ? YELLOW : "rgba(190, 210, 235, 0.4)"), borderRadius: 16, padding: 14, marginTop: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
         <button type="button" onClick={() => props.onOpen(row.ticker)} style={{ background: "none", border: 0, color: "inherit", font: "inherit", fontWeight: 800, padding: 0, textAlign: "left", minHeight: 44, cursor: "pointer", textDecoration: "underline" }}>{row.inPortfolio ? "💼 " : ""}{row.ticker}</button>
         {row.nextDate ? <b>{fecha(row.nextDate)} · {weekday(row.nextDate)}</b> : <span style={{ color: INK3 }}>Sin fecha</span>}
@@ -189,7 +189,7 @@ export function Calendario(props: { companies: Company[]; earnings: EarningsRow[
       ))}
       <h2 style={{ fontSize: 18, margin: "16px 0 4px" }}>Sin fecha todavía</h2>
       {model.undated.length === 0 ? <p style={{ color: INK3 }}>Todas tienen fecha.</p> : model.undated.map((row) => (
-        <article key={row.companyId} style={{ background: PANEL, border: "1px solid " + LINE, borderRadius: 16, padding: 14, marginTop: 8 }}>
+        <article key={row.companyId} style={{ background: PANEL, border: "1px solid rgba(190, 210, 235, 0.4)", borderRadius: 16, padding: 14, marginTop: 8 }}>
           <button type="button" onClick={() => props.onOpen(row.ticker)} style={{ background: "none", border: 0, color: "inherit", font: "inherit", fontWeight: 800, padding: 0, minHeight: 44, cursor: "pointer", textDecoration: "underline" }}>{row.inPortfolio ? "💼 " : ""}{row.ticker}</button>
           <div style={{ color: INK3 }}>{row.name}</div>
           <p style={{ color: INK3 }}>{row.pendingReason || "—"}</p>

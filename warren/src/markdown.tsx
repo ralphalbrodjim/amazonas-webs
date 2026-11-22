@@ -6,7 +6,7 @@ import { asReport } from "./report";
 import { ReportDocument } from "./report-view";
 
 const NAVY = "#0D1933";
-const PANEL = "#14284B";
+const PANEL = "#2C446C";
 const BLUE = "#479AFF";
 const INK = "#FFFFFF";
 const LINE = "rgba(130,170,230,0.18)";
@@ -39,7 +39,7 @@ const cell = (index: number, header: boolean): CSSProperties => ({
   fontSize: 16,
   fontWeight: header ? 700 : 400,
   color: header ? INK3 : "#FFFFFF",
-  ...(index === 0 ? { position: "sticky" as const, left: 0, background: "#14284B", zIndex: 1 } : {}),
+  ...(index === 0 ? { position: "sticky" as const, left: 0, background: "#2C446C", zIndex: 1 } : {}),
 });
 
 function headingText(nodes: Inline[]): string {

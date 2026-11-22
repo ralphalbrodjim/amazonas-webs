@@ -11,7 +11,7 @@ import type { Bundle, Company, RadarItem } from "./types";
 import { companyView } from "./view";
 
 const NAVY = "#0D1933";
-const PANEL = "#14284B";
+const PANEL = "#2C446C";
 const BLUE = "#479AFF";
 const INK = "#FFFFFF";
 const LINE = "rgba(130,170,230,0.18)";
@@ -220,11 +220,11 @@ function Notas(props: { rows: Listed[] }) {
       {missing ? <p style={{ color: INK3 }}>Las notas se guardan cuando exista la tabla warren_company_notes. Aplica supabase/migrations/20261122010000_warren_company_notes.sql.</p> : null}
       <label style={{ display: "block", marginBottom: 8 }}>
         <span style={{ color: INK3, fontSize: 13 }}>Empresa</span>
-        <select aria-label="Empresa" value={picked} onChange={(event) => choose(event.target.value)} style={{ display: "block", width: "100%", marginTop: 4, background: NAVY, color: INK, border: "1px solid " + LINE, borderRadius: 10, padding: "10px 12px" }}>
+        <select aria-label="Empresa" value={picked} onChange={(event) => choose(event.target.value)} style={{ display: "block", width: "100%", marginTop: 4, background: PANEL, color: INK, border: "1px solid rgba(190, 210, 235, 0.4)", borderRadius: 10, padding: "10px 12px" }}>
           {companies.map((row) => <option key={row.company!.id} value={row.company!.id}>{row.ticker} · {row.name}</option>)}
         </select>
       </label>
-      <textarea aria-label={"Notas de " + (companies.find((row) => row.company?.id === picked)?.ticker ?? "la empresa")} value={text} disabled={missing} placeholder="" onChange={(event) => { dirty.current = true; setText(event.target.value); }} style={{ width: "100%", minHeight: 180, boxSizing: "border-box", background: NAVY, color: INK, border: "1px solid " + LINE, borderRadius: 12, padding: 12 }} />
+      <textarea aria-label={"Notas de " + (companies.find((row) => row.company?.id === picked)?.ticker ?? "la empresa")} value={text} disabled={missing} placeholder="" onChange={(event) => { dirty.current = true; setText(event.target.value); }} style={{ width: "100%", minHeight: 180, boxSizing: "border-box", background: PANEL, color: INK, border: "1px solid rgba(190, 210, 235, 0.4)", borderRadius: 12, padding: 12 }} />
       {msg ? <p style={{ color: INK3 }}>{msg}</p> : null}
     </div>
   );
@@ -241,7 +241,7 @@ function Informes(props: { reports: Company[] }) {
           const dated = sent && sent !== "N/D" ? sent : "Sin fecha";
           return (
             <li key={company.id}>
-              <button type="button" onClick={() => setOpen(company)} style={{ width: "100%", textAlign: "left", background: PANEL, color: INK, border: "1px solid " + LINE, borderRadius: 12, padding: "8px 10px", display: "flex", gap: 8, alignItems: "baseline" }}>
+              <button type="button" onClick={() => setOpen(company)} style={{ width: "100%", textAlign: "left", background: PANEL, color: INK, border: "1px solid rgba(190, 210, 235, 0.4)", borderRadius: 12, padding: "8px 10px", display: "flex", gap: 8, alignItems: "baseline" }}>
                 <b style={{ minWidth: 64 }}>{company.ticker}</b>
                 <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{company.name}</span>
                 <span style={{ color: INK3, fontSize: 13 }}>{dated}</span>

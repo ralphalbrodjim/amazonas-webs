@@ -28,7 +28,7 @@ function radarTarget1Of(rows: RadarItem[], companyId: string, ticker: string): n
 }
 
 const NAVY = "#0D1933";
-const PANEL = "#14284B";
+const PANEL = "#2C446C";
 const BLUE = "#479AFF";
 const CYAN = "#56D3EC";
 const INK = "#FFFFFF";
@@ -37,7 +37,7 @@ const LINE = "rgba(130,170,230,0.18)";
 const GREEN = "#3DDC97";
 const AMBER = "#FFB547";
 
-const card: CSSProperties = { background: PANEL, border: "1px solid " + LINE, borderRadius: 16, padding: 16 };
+const card: CSSProperties = { background: PANEL, border: "1px solid rgba(190, 210, 235, 0.4)", borderRadius: 16, padding: 16 };
 const inputS: CSSProperties = { background: NAVY, color: INK, border: "1px solid " + LINE, borderRadius: 10, padding: "10px 12px", width: "100%", boxSizing: "border-box" };
 const slim: CSSProperties = { background: NAVY, color: INK, border: "1px solid " + LINE, borderRadius: 999, padding: "4px 10px", fontSize: 13, minHeight: 32, maxWidth: "100%" };
 const btn = (on: boolean): CSSProperties => ({ cursor: "pointer", minHeight: 44, padding: "8px 14px", borderRadius: 999, border: "1px solid " + (on ? BLUE : LINE), background: on ? BLUE : "transparent", color: on ? NAVY : INK, fontWeight: 700 });

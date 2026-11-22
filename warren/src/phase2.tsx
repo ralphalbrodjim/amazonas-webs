@@ -13,13 +13,13 @@ import type { BenchmarkLevel, Bundle, Company, NewsItem, Phase2, RadarItem, Virt
 import { portfolioEurOn } from "./view";
 
 const NAVY = "#0D1933";
-const PANEL = "#14284B";
+const PANEL = "#2C446C";
 const BLUE = "#479AFF";
 const INK = "#FFFFFF";
 const INK3 = "#8FA6CF";
 const LINE = "rgba(130,170,230,0.18)";
 const AMBER = "#FFB547";
-const card = { background: PANEL, border: "1px solid " + LINE, borderRadius: 16, padding: 16 } as const;
+const card = { background: PANEL, border: "1px solid rgba(190, 210, 235, 0.4)", borderRadius: 16, padding: 16 } as const;
 const inputS = { background: NAVY, color: INK, border: "1px solid " + LINE, borderRadius: 10, padding: "10px 12px", width: "100%", boxSizing: "border-box" as const };
 const btn = (on: boolean) => ({ cursor: "pointer", minHeight: 44, padding: "8px 14px", borderRadius: 999, border: "1px solid " + (on ? BLUE : LINE), background: on ? BLUE : "transparent", color: on ? NAVY : INK, fontWeight: 700 as const });
 
