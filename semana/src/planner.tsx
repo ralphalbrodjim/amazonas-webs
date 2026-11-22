@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AGENDA_FILAS, HORAS_OPCIONES, LABORABLES, conCelda, conHoras, etiquetaHoras, filaDe, horasDe, parseHoras, parseWeekGrid, semanaGuardada, sugerido, textoVisible, totalHoras, weekStorageKey, type DiaId, type FilaId, type Horas, type HorasMap, type PlanItem, type WeekGrid } from "./agendaGrid";
 import { useSync } from "./cloud";
+import { Estadisticas } from "./estadisticas";
 import { shiftDay, shortDay, weekStart } from "./dates";
 import { getAgenda, getCultura, getDeporte, getIngles } from "./liveContent";
 
@@ -36,6 +37,7 @@ export function Planner(props: { hoy: string }) {
   const horasRef = useRef<HorasMap>({});
   const gridRef = useRef<WeekGrid>({});
   const [ready, setReady] = useState(false);
+  const [stats, setStats] = useState(false);
   const edited = useRef(false);
 
   useEffect(() => {
@@ -87,6 +89,8 @@ export function Planner(props: { hoy: string }) {
   const fechas = new Set(days.map((dia) => dia.fecha));
   const planes = planDeLaSemana(fechas);
 
+  if (stats) return <Estadisticas hoy={props.hoy} onClose={() => setStats(false)} />;
+
   return (
     <section>
       <div className="kicker">Agenda</div>
@@ -97,6 +101,10 @@ export function Planner(props: { hoy: string }) {
         <button className="tap" type="button" onClick={() => setAnchor(props.hoy)}>Hoy</button>
         <button className="tap" type="button" onClick={() => setAnchor(shiftDay(monday, 7))} aria-label="Semana siguiente">▶</button>
       </div>
+      <button type="button" className="agenda-stats-btn" onClick={() => setStats(true)}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true"><path d="M4 19V10M10 19V5M16 19v-7M22 19H2" /></svg>
+        Estadísticas
+      </button>
       <div className="org-scroll agenda-scroll">
         <table className="org-table agenda-table">
           <thead>

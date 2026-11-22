@@ -56,6 +56,26 @@ export function weekStorageKey(monday: string): string {
   return "agenda-semana-" + isoWeekId(monday);
 }
 
+/** Monday of an ISO week id, for example 2026-W46 → 2026-11-09. */
+export function mondayOfIsoWeek(weekId: string): string | null {
+  const match = /^(\d{4})-W(\d{2})$/.exec(weekId);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const week = Number(match[2]);
+  if (week < 1 || week > 53) return null;
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const monday = new Date(jan4);
+  monday.setUTCDate(jan4.getUTCDate() - ((jan4.getUTCDay() + 6) % 7) + (week - 1) * 7);
+  const iso = monday.toISOString().slice(0, 10);
+  return isoWeekId(iso) === weekId ? iso : null;
+}
+
+export function shiftMonth(mes: string, delta: number): string {
+  const [year, month] = mes.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1 + delta, 1));
+  return date.toISOString().slice(0, 7);
+}
+
 export function parseWeekGrid(value: unknown): WeekGrid {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const grid: WeekGrid = {};
@@ -169,6 +189,56 @@ export function totalHoras(horas: HorasMap): number {
     for (const value of Object.values(row)) if (typeof value === "number") sum += value;
   }
   return sum;
+}
+
+export function formatoHoras(value: number): string {
+  const text = value.toLocaleString("es-ES", { maximumFractionDigits: 1 });
+  return text + " h";
+}
+
+export type MesCuenta = {
+  mes: string;
+  deporte: number;
+  ingles: number;
+  cocina: number;
+  otros: number;
+  total: number;
+};
+
+function diaSiguiente(iso: string, delta: number): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + delta)).toISOString().slice(0, 10);
+}
+
+function mesVacio(mes: string): MesCuenta {
+  return { mes, deporte: 0, ingles: 0, cocina: 0, otros: 0, total: 0 };
+}
+
+/** Each weekday keeps the month of its own date, so a week that crosses months is split. */
+export function horasPorMes(weeks: { key: string; value: unknown }[]): MesCuenta[] {
+  const totals = new Map<string, MesCuenta>();
+  for (const week of weeks) {
+    const weekId = week.key.startsWith("agenda-semana-") ? week.key.slice("agenda-semana-".length) : week.key;
+    const monday = mondayOfIsoWeek(weekId);
+    if (!monday) continue;
+    const horas = parseHoras(week.value);
+    for (let index = 0; index < LABORABLES.length; index += 1) {
+      const dia = LABORABLES[index].id;
+      const mes = diaSiguiente(monday, index).slice(0, 7);
+      let row = totals.get(mes);
+      if (!row) totals.set(mes, row = mesVacio(mes));
+      for (const fila of AGENDA_FILAS) {
+        const hours = horasDe(horas, fila.id, dia);
+        row[fila.id] += hours;
+        row.total += hours;
+      }
+    }
+  }
+  return [...totals.values()].sort((a, b) => a.mes.localeCompare(b.mes));
+}
+
+export function cuentaMes(rows: MesCuenta[], mes: string): MesCuenta {
+  return rows.find((row) => row.mes === mes) ?? mesVacio(mes);
 }
 
 /** Text cells plus the hours, ready to store as one week in app_state. A zero is omitted. */

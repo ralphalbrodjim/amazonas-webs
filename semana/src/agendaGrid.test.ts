@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { conCelda, conHoras, etiquetaHoras, filaDe, horasDe, isoWeekId, parseHoras, parseWeekGrid, semanaGuardada, sugerido, textoUsuario, textoVisible, totalHoras, weekStorageKey, type PlanItem } from "./agendaGrid.ts";
+import { conCelda, conHoras, cuentaMes, etiquetaHoras, filaDe, formatoHoras, horasDe, horasPorMes, isoWeekId, mondayOfIsoWeek, parseHoras, parseWeekGrid, semanaGuardada, sugerido, textoUsuario, textoVisible, totalHoras, weekStorageKey, type PlanItem } from "./agendaGrid.ts";
 
 test("the week of 9 November 2026 is 2026-W46", () => {
   assert.equal(isoWeekId("2026-11-09"), "2026-W46");
@@ -55,6 +55,28 @@ test("hours stay with the week and an old done tick becomes 1 h", () => {
   assert.equal(etiquetaHoras(0), "0 h");
   assert.equal(etiquetaHoras(0.5), "0,5 h");
   assert.equal(etiquetaHoras(1.5), "1,5 h");
+});
+
+test("a week that crosses months splits hours by the real date", () => {
+  assert.equal(mondayOfIsoWeek("2026-W46"), "2026-11-09");
+  const crossing = isoWeekId("2026-11-30");
+  assert.equal(mondayOfIsoWeek(crossing), "2026-11-30");
+  const rows = horasPorMes([
+    { key: "agenda-semana-" + isoWeekId("2026-11-16"), value: { horas: { deporte: { lunes: 1, martes: 0.5 }, ingles: { miercoles: 1 } } } },
+    { key: "agenda-semana-" + crossing, value: { horas: { deporte: { lunes: 1 }, cocina: { domingo: 1.5 } } } },
+  ]);
+  const noviembre = cuentaMes(rows, "2026-11");
+  const diciembre = cuentaMes(rows, "2026-12");
+  assert.equal(noviembre.deporte, 2.5);
+  assert.equal(noviembre.ingles, 1);
+  assert.equal(noviembre.cocina, 0);
+  assert.equal(noviembre.total, 3.5);
+  assert.equal(diciembre.cocina, 1.5);
+  assert.equal(diciembre.deporte, 0);
+  assert.equal(diciembre.total, 1.5);
+  assert.equal(formatoHoras(0.5), "0,5 h");
+  assert.equal(formatoHoras(3.5), "3,5 h");
+  assert.equal(formatoHoras(1), "1 h");
 });
 
 test("known plan kinds land on the matching column", () => {

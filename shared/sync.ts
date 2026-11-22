@@ -56,6 +56,8 @@ export type SiteSync = {
   stop: () => void;
   push: (key: string, value: unknown) => void;
   onKey: (key: string, handler: Handler) => () => void;
+  /** Fires for every stored key that starts with prefix, including rows already loaded. */
+  onPrefix: (prefix: string, handler: (key: string, value: unknown) => void) => () => void;
   onReady: (handler: () => void) => () => void;
   onStatus: (handler: (status: SyncStatus) => void) => () => void;
 };
@@ -70,6 +72,7 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
     return exact.get(key) ?? prefixes.find((item) => item.prefix && key.startsWith(item.prefix));
   }
   const handlers = new Map<string, Set<Handler>>();
+  const prefixHandlers = new Map<string, Set<(key: string, value: unknown) => void>>();
   const statusHandlers = new Set<(status: SyncStatus) => void>();
   const readyHandlers = new Set<() => void>();
   const applied = new Map<string, string>();
@@ -103,6 +106,10 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
     applied.set(key, stable(value));
     writeLocal(key, value);
     for (const fn of handlers.get(key) ?? []) fn(value);
+    for (const [prefix, set] of prefixHandlers) {
+      if (!key.startsWith(prefix)) continue;
+      for (const fn of set) fn(key, value);
+    }
   }
 
   async function upsert(key: string, value: unknown) {
@@ -141,6 +148,14 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
     if (!set) handlers.set(key, set = new Set());
     set.add(handler);
     if (latest.has(key)) handler(latest.get(key));
+    return () => set!.delete(handler);
+  }
+
+  function onPrefix(prefix: string, handler: (key: string, value: unknown) => void) {
+    let set = prefixHandlers.get(prefix);
+    if (!set) prefixHandlers.set(prefix, set = new Set());
+    set.add(handler);
+    for (const [key, value] of latest) if (key.startsWith(prefix)) handler(key, value);
     return () => set!.delete(handler);
   }
 
@@ -242,5 +257,5 @@ export function createSync(site: SyncSite, keys: SyncKey[]): SiteSync {
     channel = null;
   }
 
-  return { start, stop, push, onKey, onReady, onStatus };
+  return { start, stop, push, onKey, onPrefix, onReady, onStatus };
 }

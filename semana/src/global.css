@@ -995,6 +995,36 @@ button.ws-cell-btn.on { outline: 2px solid var(--green); }
   box-shadow: inset 0 0 0 1px rgba(8, 80, 48, 0.18);
 }
 .agenda-total { margin: 8px 0 0; color: #1F3B34; font-size: 13px; font-weight: 650; }
+.agenda-stats-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.agenda-back { margin-bottom: 8px; }
+.estadisticas h3 { margin: 16px 0 8px; font-size: 14px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.mes-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 12px; }
+.mes-chip { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+.mes-chip span { display: block; font-size: 11px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.mes-chip b { display: block; margin-top: 2px; font-size: 16px; font-weight: 650; line-height: 1.2; color: var(--text); }
+.mes-chip.total { grid-column: 1 / -1; background: #e6eee7; }
+.mes-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
+.mes-table th, .mes-table td { padding: 6px 2px; text-align: right; border-bottom: 1px solid var(--line); font-weight: 500; vertical-align: bottom; }
+.mes-table th:first-child, .mes-table td:first-child, .mes-table th[scope="row"] { text-align: left; width: 28%; font-weight: 650; }
+.mes-table thead th { font-size: 12px; color: var(--muted); }
+.mes-table tr.activo th, .mes-table tr.activo td { background: rgba(31, 59, 52, 0.08); }
+.mes-total { display: block; }
+.mes-bar { display: block; height: 4px; margin-top: 3px; border-radius: 99px; background: var(--green); max-width: 100%; }
+.sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 @media (min-width: 900px) {
   .week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: start; }
