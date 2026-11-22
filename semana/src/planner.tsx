@@ -126,7 +126,7 @@ export function Planner(props: { hoy: string }) {
                         <textarea
                           className={done ? "org-cell done-text" : "org-cell"}
                           aria-label={dia.label + ", " + fila.nombre}
-                          rows={3}
+                          rows={2}
                           value={valor}
                           disabled={!ready}
                           placeholder="—"

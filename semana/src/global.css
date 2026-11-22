@@ -73,6 +73,7 @@ button { -webkit-tap-highlight-color: transparent; }
   max-width: 980px;
   margin: 0 auto;
   padding: 16px 16px 56px;
+  overflow-x: clip;
 }
 
 .tabs, .subtabs {
@@ -924,36 +925,48 @@ button.ws-cell-btn.on { outline: 2px solid var(--green); }
 }
 .org-cell::placeholder { color: #8FA6CF; opacity: 1; }
 .org-cell:disabled { opacity: 0.7; }
-.agenda-scroll { overflow-x: hidden; }
-.agenda-table { width: 100%; min-width: 0; table-layout: fixed; }
+.org-scroll.agenda-scroll { overflow: hidden; max-width: 100%; }
+.agenda-table { width: 100%; max-width: 100%; min-width: 0; table-layout: fixed; }
 .agenda-table th,
-.agenda-table td { min-width: 0; padding: 6px 4px; font-size: 13px; }
-.agenda-table .org-jefe { min-width: 0; width: 72px; box-shadow: none; }
+.agenda-table td { min-width: 0; width: auto; padding: 4px 3px; font-size: 12px; }
+.agenda-table .org-jefe { min-width: 0; width: 76px; box-shadow: none; padding-left: 8px; padding-right: 4px; }
 .agenda-table thead th { letter-spacing: 0; font-size: 11px; white-space: normal; }
-.agenda-table .org-chip { gap: 2px; padding: 3px 4px; font-size: 10px; white-space: normal; justify-content: center; }
+.agenda-table .org-chip { gap: 2px; padding: 3px 2px; font-size: 10px; white-space: normal; justify-content: center; }
 .agenda-head { flex-direction: column; }
-.agenda-day { display: block; font-size: 12px; font-weight: 800; line-height: 1.15; color: #fff; }
-.agenda-table .org-date { font-size: 11px; }
+.agenda-day { display: block; font-size: 12px; font-weight: 650; line-height: 1.15; color: #fff; overflow-wrap: normal; }
+.agenda-table .org-date { font-size: 10px; }
 .agenda-table tr.hoy th,
 .agenda-table tr.hoy td { background: rgba(255, 214, 10, 0.16); }
-.agenda-cell { position: relative; }
+.agenda-cell { display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-width: 0; }
 .agenda-table textarea.org-cell {
   width: 100%;
-  min-height: 84px;
+  min-height: 44px;
+  max-height: 84px;
+  field-sizing: content;
+  resize: none;
   box-sizing: border-box;
-  padding: 4px 20px 4px 2px;
-  overflow-wrap: normal;
+  padding: 4px 4px 2px;
+  overflow-wrap: break-word;
   word-break: normal;
   white-space: pre-wrap;
-  font: 14px/1.25 Inter, -apple-system, "Segoe UI", sans-serif;
+  color: #E4E9F2;
+  font-family: Inter, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
 }
 @media (max-width: 640px) {
-  .agenda-table textarea.org-cell { font-size: 14px !important; }
+  .agenda-table textarea.org-cell {
+    font-family: Inter, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    line-height: 1.2 !important;
+  }
 }
 .hecho-btn {
-  position: absolute;
-  top: -6px;
-  right: -6px;
+  position: static;
+  align-self: flex-end;
+  flex: 0 0 auto;
   width: 32px;
   height: 32px;
   border: 0;
