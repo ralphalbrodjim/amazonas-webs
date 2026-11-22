@@ -244,9 +244,9 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
 
   return (
     <Frame email={props.email} onExit={() => void supabase.auth.signOut()}>
-      <nav style={{ display: "flex", flexWrap: "nowrap", gap: 6, marginBottom: 14 }} aria-label="Secciones">
+      <nav className="w-nav" aria-label="Secciones">
         {nav.map((item) => (
-          <button key={item.id} type="button" aria-label={item.label} title={item.label} style={{ ...btn(screen === item.id), flex: "1 1 0", minWidth: 0, padding: 8, minHeight: 48, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => go(item.id)}>
+          <button key={item.id} type="button" data-tab={item.id} className={screen === item.id ? "on" : undefined} aria-label={item.label} title={item.label} onClick={() => go(item.id)}>
             <NavIcon id={item.id} />
           </button>
         ))}

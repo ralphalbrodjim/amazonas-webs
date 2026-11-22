@@ -180,3 +180,28 @@ button:disabled {
 .nd { color: #8FA6CF; }
 
 .soon { opacity: 0.72; }
+
+.w-nav { display: flex; flex-wrap: nowrap; gap: 6px; margin-bottom: 14px; }
+.w-nav button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform .16s ease, background .16s ease, box-shadow .16s ease, color .16s ease;
+}
+.w-nav button:active { transform: scale(0.94); }
+.w-nav button[data-tab="resumen"] { background: rgba(255, 181, 71, 0.16); color: #FFB547; border: 1px solid rgba(255, 181, 71, 0.5); }
+.w-nav button[data-tab="cartera"] { background: rgba(232, 194, 122, 0.14); color: #E8C27A; border: 1px solid rgba(232, 194, 122, 0.45); }
+.w-nav button[data-tab="virtual"] { background: rgba(86, 211, 236, 0.14); color: #56D3EC; border: 1px solid rgba(86, 211, 236, 0.45); }
+.w-nav button[data-tab="radar"] { background: rgba(71, 154, 255, 0.16); color: #479AFF; border: 1px solid rgba(71, 154, 255, 0.5); }
+.w-nav button[data-tab="calendario"] { background: rgba(61, 220, 151, 0.14); color: #3DDC97; border: 1px solid rgba(61, 220, 151, 0.45); }
+.w-nav button[data-tab="resumen"].on { background: linear-gradient(160deg, #F6C35B, #E0912A); color: #0D1933; border-color: transparent; box-shadow: 0 6px 16px rgba(224, 145, 42, 0.4); }
+.w-nav button[data-tab="cartera"].on { background: linear-gradient(160deg, #F3D48A, #C9963A); color: #0D1933; border-color: transparent; box-shadow: 0 6px 16px rgba(201, 150, 58, 0.38); }
+.w-nav button[data-tab="virtual"].on { background: linear-gradient(160deg, #8AE7F5, #2AA8C4); color: #0D1933; border-color: transparent; box-shadow: 0 6px 16px rgba(42, 168, 196, 0.38); }
+.w-nav button[data-tab="radar"].on { background: linear-gradient(160deg, #8CBCFF, #2F78E0); color: #0D1933; border-color: transparent; box-shadow: 0 6px 16px rgba(47, 120, 224, 0.4); }
+.w-nav button[data-tab="calendario"].on { background: linear-gradient(160deg, #7EE8BE, #1FA56A); color: #0D1933; border-color: transparent; box-shadow: 0 6px 16px rgba(31, 165, 106, 0.35); }
