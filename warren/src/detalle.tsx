@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { loadCompanyNotes, saveCompanyNote, watchCompanyNotes } from "./db";
-import { fecha } from "./format";
+import { earningsOf } from "./earnings";
+import { fecha, pct } from "./format";
+import { cagr3, priceReturn } from "./math";
 import { AnalysisReader } from "./markdown";
-import { storedReports, trackedCompanies, type Listed } from "./detalle-model";
+import { ValueChip } from "./panels";
+import { cagrTone, compareListado, resultadoDe, storedReports, trackedCompanies, warrenUpdateIso, type ListSortKey, type Listed, type Resultado, type SortDir } from "./detalle-model";
 import type { Bundle, Company, RadarItem } from "./types";
+import { companyView } from "./view";
 
 const NAVY = "#0D1933";
 const PANEL = "#14284B";
@@ -16,7 +20,7 @@ const btn = (on: boolean): CSSProperties => ({ cursor: "pointer", minHeight: 44,
 
 type Pane = "listado" | "notas" | "informes";
 
-export function Detalle(props: { bundle: Bundle; radar: RadarItem[]; onOpen: (ticker: string) => void }) {
+export function Detalle(props: { bundle: Bundle; radar: RadarItem[]; today: string; onOpen: (ticker: string) => void }) {
   const [pane, setPane] = useState<Pane>("listado");
   const rows = useMemo(() => trackedCompanies(props.bundle.companies, props.radar), [props.bundle.companies, props.radar]);
   const reports = useMemo(() => storedReports(props.bundle.companies), [props.bundle.companies]);
@@ -32,36 +36,116 @@ export function Detalle(props: { bundle: Bundle; radar: RadarItem[]; onOpen: (ti
           <button key={item.id} type="button" role="tab" aria-selected={pane === item.id} style={btn(pane === item.id)} onClick={() => setPane(item.id)}>{item.label}</button>
         ))}
       </div>
-      {pane === "listado" ? <Listado rows={rows} onOpen={props.onOpen} /> : null}
+      {pane === "listado" ? <Listado bundle={props.bundle} radar={props.radar} today={props.today} onOpen={props.onOpen} /> : null}
       {pane === "notas" ? <Notas rows={rows} /> : null}
       {pane === "informes" ? <Informes reports={reports} /> : null}
     </section>
   );
 }
 
-function Listado(props: { rows: Listed[]; onOpen: (ticker: string) => void }) {
-  if (props.rows.length === 0) return <p style={{ color: INK3 }}>No hay empresas en cartera ni en seguimiento.</p>;
+const HEADS: { id: ListSortKey; lines: string[]; title: string }[] = [
+  { id: "empresa", lines: ["Empresa"], title: "Empresa" },
+  { id: "cagr3", lines: ["CAGR", "3 años"], title: "CAGR 3 años" },
+  { id: "cagr1", lines: ["CAGR", "1 año"], title: "CAGR 1 año" },
+  { id: "resultados", lines: ["Fecha", "resultados"], title: "Fecha resultados" },
+  { id: "warren", lines: ["Fecha act.", "Warren"], title: "Fecha actualización Warren" },
+];
+
+function radarOf(rows: RadarItem[], companyId: string | null, ticker: string): RadarItem | null {
+  return (companyId ? rows.find((row) => row.company_id === companyId) : undefined) ?? rows.find((row) => row.ticker.toUpperCase() === ticker.toUpperCase()) ?? null;
+}
+
+type ListLine = Listed & { cagr3: number | null; cagr1: number | null; resultado: Resultado | null; warren: string | null };
+
+function listLines(bundle: Bundle, radar: RadarItem[], today: string): ListLine[] {
+  return trackedCompanies(bundle.companies, radar).map((row) => {
+    const item = radarOf(radar, row.company?.id ?? null, row.ticker);
+    let cagr3y: number | null = null;
+    let cagr1y: number | null = null;
+    if (row.company) {
+      const view = companyView(bundle, row.company.id, "warren", today, item?.target_3a ?? null, item?.target_1a ?? null);
+      cagr3y = view.cagr;
+      cagr1y = view.rent1;
+    } else if (item) {
+      const price = typeof item.price === "number" ? item.price : null;
+      cagr3y = cagr3(item.target_3a ?? null, price);
+      cagr1y = priceReturn(item.target_1a ?? null, price);
+    }
+    const earned = row.company ? earningsOf(bundle.earnings, row.company.id) : null;
+    const dates = row.company
+      ? bundle.estimates.filter((estimate) => estimate.company_id === row.company!.id && estimate.source === "warren").map((estimate) => estimate.as_of)
+      : [];
+    return {
+      ...row,
+      cagr3: cagr3y,
+      cagr1: cagr1y,
+      resultado: resultadoDe(earned?.next_date, today, earned?.certainty),
+      warren: warrenUpdateIso([...dates, item?.computed_at]),
+    };
+  });
+}
+
+function Listado(props: { bundle: Bundle; radar: RadarItem[]; today: string; onOpen: (ticker: string) => void }) {
+  const [sort, setSort] = useState<ListSortKey>("empresa");
+  const [dir, setDir] = useState<SortDir>("asc");
+  const lines = useMemo(() => {
+    const rows = listLines(props.bundle, props.radar, props.today);
+    return rows.slice().sort((a, b) => compareListado(
+      { ticker: a.ticker, cagr3: a.cagr3, cagr1: a.cagr1, resultados: a.resultado?.iso ?? null, warren: a.warren },
+      { ticker: b.ticker, cagr3: b.cagr3, cagr1: b.cagr1, resultados: b.resultado?.iso ?? null, warren: b.warren },
+      sort,
+      dir,
+    ));
+  }, [props.bundle, props.radar, props.today, sort, dir]);
+  if (lines.length === 0) return <p style={{ color: INK3 }}>No hay empresas en cartera ni en seguimiento.</p>;
+  function tap(key: ListSortKey) {
+    if (sort === key) setDir(dir === "desc" ? "asc" : "desc");
+    else { setSort(key); setDir("desc"); }
+  }
   return (
-    <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-      {props.rows.map((row) => {
-        const openable = Boolean(row.company);
-        return (
-          <li key={row.where + row.ticker}>
-            <button
-              type="button"
-              disabled={!openable}
-              onClick={() => { if (row.company) props.onOpen(row.company.ticker); }}
-              style={{ width: "100%", textAlign: "left", background: PANEL, color: INK, border: "1px solid " + LINE, borderRadius: 12, padding: "8px 10px", display: "flex", gap: 8, alignItems: "baseline", cursor: openable ? "pointer" : "default" }}
-            >
-              <b style={{ minWidth: 64 }}>{row.ticker}</b>
-              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name}</span>
-              <span style={{ color: INK3, fontSize: 13 }}>{row.where}</span>
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+    <table className="detalle-list">
+      <thead>
+        <tr>
+          {HEADS.map((head) => {
+            const active = sort === head.id;
+            const aria = active ? (dir === "desc" ? "descending" : "ascending") : "none";
+            return (
+              <th key={head.id} scope="col" aria-sort={aria}>
+                <button type="button" title={head.title} aria-label={head.title} onClick={() => tap(head.id)}>
+                  {head.lines.map((line) => <span key={line} style={{ display: "block" }}>{line}</span>)}
+                  {active ? <span aria-hidden="true">{dir === "desc" ? "↓" : "↑"}</span> : null}
+                </button>
+              </th>
+            );
+          })}
+        </tr>
+      </thead>
+      <tbody>
+        {lines.map((row) => (
+          <tr key={row.where + row.ticker} onClick={() => { if (row.company) props.onOpen(row.company.ticker); }} style={{ cursor: row.company ? "pointer" : "default" }}>
+            <td>
+              <span className="emp" title={row.name}>
+                <b>{row.ticker}</b>
+                <span>{row.name}</span>
+              </span>
+            </td>
+            <td style={{ textAlign: "right" }}>{row.cagr3 === null ? "—" : <ValueChip tone={cagrTone(row.cagr3)}>{pct(row.cagr3)}</ValueChip>}</td>
+            <td style={{ textAlign: "right" }}>{row.cagr1 === null ? "—" : <ValueChip tone={cagrTone(row.cagr1)}>{pct(row.cagr1)}</ValueChip>}</td>
+            <td style={{ textAlign: "right" }}><ResultadoCell value={row.resultado} /></td>
+            <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{row.warren ? fecha(row.warren) : "—"}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
+}
+
+function ResultadoCell(props: { value: Resultado | null }) {
+  const value = props.value;
+  if (!value) return <>—</>;
+  const text = fecha(value.iso);
+  if (value.kind === "known") return <span style={{ whiteSpace: "nowrap" }}>{text}</span>;
+  return <span className="chip" title={value.approx ? "Estimado: fecha anterior más 3 meses" : "Fecha estimada"}>{value.approx ? "≈ " : ""}{text} <span className="stamp">est.</span></span>;
 }
 
 function Notas(props: { rows: Listed[] }) {

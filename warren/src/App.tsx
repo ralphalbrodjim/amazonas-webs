@@ -265,7 +265,7 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
       {screen === "virtual" ? <VirtualBook bundle={bundle} phase2={phase2} onOpen={(ticker) => open(ticker, "virtual")} onSaved={() => void reload()} /> : null}
       {screen === "radar" ? <Radar bundle={bundle} phase2={phase2} today={today} owner={owner} onOpen={(ticker) => open(ticker, "radar")} onSaved={() => void reload()} /> : null}
       {screen === "calendario" ? <Calendario companies={bundle.companies} earnings={bundle.earnings} today={today} onOpen={(ticker) => open(ticker, "calendario")} /> : null}
-      {screen === "detalle" ? <Detalle bundle={bundle} radar={phase2.radar} onOpen={(ticker) => open(ticker, "detalle")} /> : null}
+      {screen === "detalle" ? <Detalle bundle={bundle} radar={phase2.radar} today={today} onOpen={(ticker) => open(ticker, "detalle")} /> : null}
       <p style={{ color: INK3, fontSize: 12, marginTop: 22 }}>Cierres diarios, sin dividendos. En Resumen y en Mi cartera el objetivo sigue el selector. En el resto, el de 1 año es el de Warren y el de 3 años es el de Warren.</p>
       <button type="button" style={{ ...btn(false), marginTop: 8 }} onClick={() => download(bundle)}>Exportar copia JSON</button>
     </Frame>

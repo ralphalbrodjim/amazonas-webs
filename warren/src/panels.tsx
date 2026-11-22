@@ -12,7 +12,7 @@ const YELLOW = "#FFE14A";
 const GREEN = "#3DDC97";
 const LINE = "rgba(130,170,230,0.18)";
 
-export function ValueChip(props: { children: ReactNode; tone?: "gold" | "up" | "down" | "red"; large?: boolean }) {
+export function ValueChip(props: { children: ReactNode; tone?: "gold" | "up" | "down" | "red" | "neutral"; large?: boolean }) {
   const tone = props.tone ?? "gold";
   const cls = "chip" + (tone === "gold" ? "" : " chip-" + tone) + (props.large ? " chip-lg" : "");
   return <span className={cls}>{props.children}</span>;
