@@ -5,6 +5,7 @@ import { eur, fecha, fechaDiaMes, fmt, fmtCompact, madridToday, parseInput, pct 
 import { failureReason, latestPriceUpdate, staleTickerReason } from "./stale";
 import { cagr3, carteraFuenteTargets, portfolioWeightPct, positionValueEur, priceReturn, weightOverLimit, yearTwoPrice, type CarteraFuente } from "./math";
 import { readChoice, writeChoice } from "./pendientes";
+import { Detalle } from "./detalle";
 import { AnalysisReader } from "./markdown";
 import { BenchmarkCard, IbkrImport, Intelligence, Radar, VirtualBook } from "./phase2";
 import { EntradaMark, SourceCompare, Seguimiento, Stars, Calendario, Tikr3A, TikrConsenso, TIKR_3A_NOTE, ValueChip } from "./panels";
@@ -41,7 +42,7 @@ const inputS: CSSProperties = { background: NAVY, color: INK, border: "1px solid
 const slim: CSSProperties = { background: NAVY, color: INK, border: "1px solid " + LINE, borderRadius: 999, padding: "4px 10px", fontSize: 13, minHeight: 32, maxWidth: "100%" };
 const btn = (on: boolean): CSSProperties => ({ cursor: "pointer", minHeight: 44, padding: "8px 14px", borderRadius: 999, border: "1px solid " + (on ? BLUE : LINE), background: on ? BLUE : "transparent", color: on ? NAVY : INK, fontWeight: 700 });
 
-type Screen = "resumen" | "cartera" | "ficha" | "intelligence" | "virtual" | "radar" | "calendario";
+type Screen = "resumen" | "cartera" | "ficha" | "intelligence" | "virtual" | "radar" | "calendario" | "detalle";
 type SortKey = "cagr" | "ticker" | "hoy" | "rent1";
 
 function money(value: number | null, currency: string): string {
@@ -92,11 +93,12 @@ export default function App() {
 }
 
 function NavIcon(props: { id: Screen }) {
-  const pen = { width: 28, height: 28, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.75, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const };
+  const pen = { width: 26, height: 26, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.75, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const };
   if (props.id === "resumen") return <svg {...pen}><rect x="3" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" /></svg>;
   if (props.id === "cartera") return <svg {...pen}><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7" /><path d="M3 12h18" /></svg>;
   if (props.id === "virtual") return <svg {...pen}><rect x="6" y="8" width="15" height="12" rx="2" /><path d="M9 8V6.5A2.5 2.5 0 0 1 11.5 4h3A2.5 2.5 0 0 1 17 6.5V8" /><path d="M3 13.5 6 12v8l-3-1.5z" /></svg>;
   if (props.id === "radar") return <svg {...pen}><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.5" /><path d="M12 4v3M12 17v3M4 12h3M17 12h3" /></svg>;
+  if (props.id === "detalle") return <svg {...pen}><rect x="4" y="3.5" width="16" height="17" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></svg>;
   return <svg {...pen}><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M3.5 9.5h17M8 3.5V6.5M16 3.5V6.5" /></svg>;
 }
 
@@ -240,6 +242,7 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
     { id: "virtual", label: "Cartera virtual" },
     { id: "radar", label: "Radar" },
     { id: "calendario", label: "Calendario" },
+    { id: "detalle", label: "Detalle" },
   ];
 
   return (
@@ -256,12 +259,13 @@ function Desk(props: { email: string; schemaMissing: boolean }) {
       {error ? <Banner>No se han podido leer los datos: {error}</Banner> : null}
       {screen === "resumen" ? <Resumen bundle={bundle} phase2={phase2} today={today} q={q} setQ={setQ} cartera={cartera} setCartera={setCartera} cagrMin={cagrMin} setCagrMin={setCagrMin} sort={sort} setSort={setSort} onOpen={open} owner={owner} runs={runs} /> : null}
       {screen === "cartera" ? <Cartera bundle={bundle} radar={phase2.radar} today={today} missing={missing || phase2.missing} runs={runs} onOpen={open} onSaved={() => void reload()} /> : null}
-      {screen === "ficha" && company && view ? <Ficha company={company} companyName={company.name} ticker={company.ticker} currency={company.currency} notes={company.notes} verdict={company.verdict} view={view} bundle={bundle} companyId={company.id} radar={phase2.radar.find((row) => row.company_id === company.id) ?? phase2.radar.find((row) => row.ticker.toUpperCase() === company.ticker.toUpperCase()) ?? null} tab={tab} setTab={setTab} today={today} missing={missing} owner={owner} backLabel={sheetFrom === "radar" ? "← Radar" : sheetFrom === "calendario" ? "← Calendario" : sheetFrom === "virtual" ? "← Cartera virtual" : "← Resumen"} onBack={() => setScreen(sheetFrom)} onSaved={() => void reload()} /> : null}
+      {screen === "ficha" && company && view ? <Ficha company={company} companyName={company.name} ticker={company.ticker} currency={company.currency} notes={company.notes} verdict={company.verdict} view={view} bundle={bundle} companyId={company.id} radar={phase2.radar.find((row) => row.company_id === company.id) ?? phase2.radar.find((row) => row.ticker.toUpperCase() === company.ticker.toUpperCase()) ?? null} tab={tab} setTab={setTab} today={today} missing={missing} owner={owner} backLabel={sheetFrom === "radar" ? "← Radar" : sheetFrom === "calendario" ? "← Calendario" : sheetFrom === "virtual" ? "← Cartera virtual" : sheetFrom === "detalle" ? "← Detalle" : "← Resumen"} onBack={() => setScreen(sheetFrom)} onSaved={() => void reload()} /> : null}
       {screen === "ficha" && !company ? <p style={{ color: INK3 }}>Elige una empresa en Resumen.</p> : null}
       {screen === "intelligence" ? <Intelligence phase2={phase2} owner={owner} onSaved={() => void reload()} /> : null}
       {screen === "virtual" ? <VirtualBook bundle={bundle} phase2={phase2} onOpen={(ticker) => open(ticker, "virtual")} onSaved={() => void reload()} /> : null}
       {screen === "radar" ? <Radar bundle={bundle} phase2={phase2} today={today} owner={owner} onOpen={(ticker) => open(ticker, "radar")} onSaved={() => void reload()} /> : null}
       {screen === "calendario" ? <Calendario companies={bundle.companies} earnings={bundle.earnings} today={today} onOpen={(ticker) => open(ticker, "calendario")} /> : null}
+      {screen === "detalle" ? <Detalle bundle={bundle} radar={phase2.radar} onOpen={(ticker) => open(ticker, "detalle")} /> : null}
       <p style={{ color: INK3, fontSize: 12, marginTop: 22 }}>Cierres diarios, sin dividendos. En Resumen y en Mi cartera el objetivo sigue el selector. En el resto, el de 1 año es el de Warren y el de 3 años es el de Warren.</p>
       <button type="button" style={{ ...btn(false), marginTop: 8 }} onClick={() => download(bundle)}>Exportar copia JSON</button>
     </Frame>

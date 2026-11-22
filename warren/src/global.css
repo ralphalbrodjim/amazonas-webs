@@ -181,12 +181,13 @@ button:disabled {
 
 .soon { opacity: 0.72; }
 
-.w-nav { display: flex; flex-wrap: nowrap; gap: 6px; margin-bottom: 14px; }
+.w-nav { display: flex; flex-wrap: nowrap; gap: 4px; margin-bottom: 14px; }
 .w-nav button {
   flex: 1 1 0;
   min-width: 0;
-  min-height: 48px;
-  padding: 8px;
+  min-height: 46px;
+  box-sizing: border-box;
+  padding: 4px;
   border-radius: 999px;
   cursor: pointer;
   display: flex;
@@ -205,3 +206,6 @@ button:disabled {
 .w-nav button[data-tab="virtual"].on { background: linear-gradient(160deg, #8AE7F5, #2AA8C4); color: #0D1933; border-color: transparent; box-shadow: 0 6px 16px rgba(42, 168, 196, 0.38); }
 .w-nav button[data-tab="radar"].on { background: linear-gradient(160deg, #8CBCFF, #2F78E0); color: #0D1933; border-color: transparent; box-shadow: 0 6px 16px rgba(47, 120, 224, 0.4); }
 .w-nav button[data-tab="calendario"].on { background: linear-gradient(160deg, #7EE8BE, #1FA56A); color: #0D1933; border-color: transparent; box-shadow: 0 6px 16px rgba(31, 165, 106, 0.35); }
+.w-nav button[data-tab="detalle"] { background: rgba(240, 160, 122, 0.16); color: #F0A07A; border: 1px solid rgba(240, 160, 122, 0.5); }
+.w-nav button[data-tab="detalle"].on { background: linear-gradient(160deg, #F6C2A8, #E07A4A); color: #0D1933; border-color: transparent; box-shadow: 0 6px 16px rgba(224, 122, 74, 0.38); }
+.w-nav svg { width: 26px; height: 26px; }

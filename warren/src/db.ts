@@ -192,6 +192,29 @@ export async function importIbkr(rows: IbkrRow[]): Promise<string | null> {
   return null;
 }
 
+export async function loadCompanyNotes(): Promise<{ notes: Record<string, string>; missing: boolean; error: string | null }> {
+  const { data, error } = await supabase.from("warren_company_notes").select("company_id,body");
+  if (error) {
+    if (migrationMissing(error)) return { notes: {}, missing: true, error: null };
+    return { notes: {}, missing: false, error: error.message };
+  }
+  const notes: Record<string, string> = {};
+  for (const row of data ?? []) notes[String(row.company_id)] = typeof row.body === "string" ? row.body : "";
+  return { notes, missing: false, error: null };
+}
+
+export async function saveCompanyNote(companyId: string, body: string): Promise<string | null> {
+  const { error } = await supabase.from("warren_company_notes").upsert({ company_id: companyId, body }, { onConflict: "company_id" });
+  return error ? error.message : null;
+}
+
+export function watchCompanyNotes(onChange: () => void): () => void {
+  const channel = supabase.channel("warren-notes");
+  channel.on("postgres_changes", { event: "*", schema: "public", table: "warren_company_notes" }, () => onChange());
+  channel.subscribe();
+  return () => { void supabase.removeChannel(channel); };
+}
+
 export function watchWarren(onChange: () => void): () => void {
   const channel = supabase.channel("warren-phase1");
   for (const table of ["warren_companies", "warren_quotes", "warren_fx_rates", "warren_financial_years", "warren_estimates", "warren_positions", "warren_earnings"]) {
