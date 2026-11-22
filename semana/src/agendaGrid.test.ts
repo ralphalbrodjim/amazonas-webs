@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { conCelda, conHecho, estaHecho, filaDe, isoWeekId, parseHecho, parseWeekGrid, semanaGuardada, sugerido, textoUsuario, textoVisible, weekStorageKey, type PlanItem } from "./agendaGrid.ts";
+import { conCelda, conHoras, etiquetaHoras, filaDe, horasDe, isoWeekId, parseHoras, parseWeekGrid, semanaGuardada, sugerido, textoUsuario, textoVisible, totalHoras, weekStorageKey, type PlanItem } from "./agendaGrid.ts";
 
 test("the week of 9 November 2026 is 2026-W46", () => {
   assert.equal(isoWeekId("2026-11-09"), "2026-W46");
@@ -36,16 +36,25 @@ test("gimnasio and run become one Deporte cell and cultura stays stored", () => 
   assert.equal(grid.run?.lunes, "6 km suave");
 });
 
-test("a done tick is stored with the week and does not erase text", () => {
+test("hours stay with the week and an old done tick becomes 1 h", () => {
   const grid = parseWeekGrid({ deporte: { lunes: "cuerpo completo · 6 km suave" }, cultura: { lunes: "teatro" } });
-  const marked = conHecho({}, "deporte", "lunes", true);
+  const marked = conHoras({}, "deporte", "lunes", 1.5);
   const saved = semanaGuardada(grid, marked);
-  assert.equal(estaHecho(parseHecho(saved), "deporte", "lunes"), true);
+  assert.equal(horasDe(parseHoras(saved), "deporte", "lunes"), 1.5);
+  assert.equal(horasDe(parseHoras(saved), "ingles", "lunes"), 0);
   assert.equal(textoUsuario(parseWeekGrid(saved), "deporte", "lunes"), "cuerpo completo · 6 km suave");
   assert.equal(parseWeekGrid(saved).cultura?.lunes, "teatro");
-  const cleared = semanaGuardada(grid, conHecho(marked, "deporte", "lunes", false));
-  assert.equal(estaHecho(parseHecho(cleared), "deporte", "lunes"), false);
-  assert.equal("hecho" in cleared, false);
+  assert.equal("hecho" in saved, false);
+  const cleared = semanaGuardada(grid, conHoras(marked, "deporte", "lunes", 0));
+  assert.equal(horasDe(parseHoras(cleared), "deporte", "lunes"), 0);
+  assert.equal("horas" in cleared, false);
+  const legacy = { deporte: { martes: "clase" }, hecho: { deporte: { martes: true }, ingles: { lunes: false } } };
+  assert.equal(horasDe(parseHoras(legacy), "deporte", "martes"), 1);
+  assert.equal(horasDe(parseHoras(legacy), "ingles", "lunes"), 0);
+  assert.equal(totalHoras(parseHoras({ horas: { deporte: { lunes: 1, martes: 0.5 }, cocina: { miercoles: 0 } } })), 1.5);
+  assert.equal(etiquetaHoras(0), "0 h");
+  assert.equal(etiquetaHoras(0.5), "0,5 h");
+  assert.equal(etiquetaHoras(1.5), "1,5 h");
 });
 
 test("known plan kinds land on the matching column", () => {

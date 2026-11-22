@@ -97,42 +97,84 @@ export function conCelda(grid: WeekGrid, fila: string, dia: DiaId, texto: string
   return { ...grid, [fila]: { ...grid[fila], [dia]: texto } };
 }
 
-export type HechoMap = Partial<Record<FilaId, Partial<Record<DiaId, true>>>>;
+export const HORAS_OPCIONES = [0, 0.5, 1, 1.5] as const;
+export type Horas = (typeof HORAS_OPCIONES)[number];
+export type HorasMap = Partial<Record<FilaId, Partial<Record<DiaId, Horas>>>>;
 
-export function parseHecho(value: unknown): HechoMap {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const raw = (value as { hecho?: unknown }).hecho;
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  const hecho: HechoMap = {};
-  for (const [fila, row] of Object.entries(raw as Record<string, unknown>)) {
-    if (!FILA_IDS.has(fila) || !row || typeof row !== "object" || Array.isArray(row)) continue;
-    const days: Partial<Record<DiaId, true>> = {};
-    for (const [dia, flag] of Object.entries(row as Record<string, unknown>)) {
-      if (!DIA_IDS.has(dia) || flag !== true) continue;
-      days[dia as DiaId] = true;
-    }
-    if (Object.keys(days).length) hecho[fila as FilaId] = days;
-  }
-  return hecho;
+function asHoras(value: unknown): Horas | null {
+  const number = typeof value === "number" ? value : typeof value === "string" ? Number(value.replace(",", ".")) : NaN;
+  if (number === 0 || number === 0.5 || number === 1 || number === 1.5) return number;
+  return null;
 }
 
-export function conHecho(hecho: HechoMap, fila: FilaId, dia: DiaId, on: boolean): HechoMap {
-  const row = { ...hecho[fila] };
-  if (on) row[dia] = true;
+function readHoras(raw: unknown): HorasMap | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const horas: HorasMap = {};
+  for (const [fila, row] of Object.entries(raw as Record<string, unknown>)) {
+    if (!FILA_IDS.has(fila) || !row || typeof row !== "object" || Array.isArray(row)) continue;
+    const days: Partial<Record<DiaId, Horas>> = {};
+    for (const [dia, flag] of Object.entries(row as Record<string, unknown>)) {
+      const hours = asHoras(flag);
+      if (!DIA_IDS.has(dia) || hours === null || hours === 0) continue;
+      days[dia as DiaId] = hours;
+    }
+    if (Object.keys(days).length) horas[fila as FilaId] = days;
+  }
+  return horas;
+}
+
+/** Hours per cell. A week saved before this control used `hecho: true`, which becomes 1 h. */
+export function parseHoras(value: unknown): HorasMap {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const record = value as { horas?: unknown; hecho?: unknown };
+  if (record.horas && typeof record.horas === "object") return readHoras(record.horas) ?? {};
+  const raw = record.hecho;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const horas: HorasMap = {};
+  for (const [fila, row] of Object.entries(raw as Record<string, unknown>)) {
+    if (!FILA_IDS.has(fila) || !row || typeof row !== "object" || Array.isArray(row)) continue;
+    const days: Partial<Record<DiaId, Horas>> = {};
+    for (const [dia, flag] of Object.entries(row as Record<string, unknown>)) {
+      if (!DIA_IDS.has(dia) || flag !== true) continue;
+      days[dia as DiaId] = 1;
+    }
+    if (Object.keys(days).length) horas[fila as FilaId] = days;
+  }
+  return horas;
+}
+
+export function horasDe(horas: HorasMap, fila: FilaId, dia: DiaId): Horas {
+  return horas[fila]?.[dia] ?? 0;
+}
+
+export function conHoras(horas: HorasMap, fila: FilaId, dia: DiaId, value: Horas): HorasMap {
+  const row = { ...horas[fila] };
+  if (value > 0) row[dia] = value;
   else delete row[dia];
-  const next: HechoMap = { ...hecho, [fila]: row };
+  const next: HorasMap = { ...horas, [fila]: row };
   if (!Object.keys(row).length) delete next[fila];
   return next;
 }
 
-export function estaHecho(hecho: HechoMap, fila: FilaId, dia: DiaId): boolean {
-  return hecho[fila]?.[dia] === true;
+export function etiquetaHoras(value: Horas): string {
+  if (value === 0.5) return "0,5 h";
+  if (value === 1.5) return "1,5 h";
+  return value + " h";
 }
 
-/** Text cells plus the done ticks, ready to store as one week in app_state. */
-export function semanaGuardada(grid: WeekGrid, hecho: HechoMap): Record<string, unknown> {
+export function totalHoras(horas: HorasMap): number {
+  let sum = 0;
+  for (const row of Object.values(horas)) {
+    if (!row) continue;
+    for (const value of Object.values(row)) if (typeof value === "number") sum += value;
+  }
+  return sum;
+}
+
+/** Text cells plus the hours, ready to store as one week in app_state. A zero is omitted. */
+export function semanaGuardada(grid: WeekGrid, horas: HorasMap): Record<string, unknown> {
   const saved: Record<string, unknown> = { ...grid };
-  if (Object.keys(hecho).length) saved.hecho = hecho;
+  if (Object.keys(horas).length) saved.horas = horas;
   return saved;
 }
 

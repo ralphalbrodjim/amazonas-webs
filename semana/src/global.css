@@ -963,43 +963,38 @@ button.ws-cell-btn.on { outline: 2px solid var(--green); }
     line-height: 1.2 !important;
   }
 }
-.hecho-btn {
-  position: static;
-  align-self: flex-end;
-  flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  padding: 0;
-  display: grid;
-  place-items: center;
+.agenda-horas {
+  width: 100%;
+  min-height: 36px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 2px 0;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(13, 25, 51, 0.35);
+  color: #E4E9F2;
+  font-family: Inter, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-align: center;
 }
-.hecho-btn::before {
-  content: "";
-  grid-area: 1 / 1;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.55);
-  background: rgba(13, 25, 51, 0.45);
+.agenda-horas.on {
+  color: #083222;
+  background: rgba(61, 220, 151, 0.55);
+  border-color: rgba(8, 80, 48, 0.18);
+  font-weight: 650;
 }
-.hecho-btn.on::before { background: #1F7A4D; border-color: #3DDC97; }
-.hecho-btn.on::after {
-  content: "✓";
-  grid-area: 1 / 1;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 16px;
+@media (max-width: 640px) {
+  .agenda-table select.agenda-horas { font-size: 12px !important; }
 }
 .agenda-table textarea.org-cell.done-text {
   color: #083222;
-  background: rgba(61, 220, 151, 0.72);
+  background: rgba(61, 220, 151, 0.55);
   border-radius: 8px;
   box-shadow: inset 0 0 0 1px rgba(8, 80, 48, 0.18);
 }
+.agenda-total { margin: 8px 0 0; color: #1F3B34; font-size: 13px; font-weight: 650; }
 
 @media (min-width: 900px) {
   .week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: start; }

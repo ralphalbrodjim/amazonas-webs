@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AGENDA_FILAS, LABORABLES, conCelda, conHecho, estaHecho, filaDe, parseHecho, parseWeekGrid, semanaGuardada, sugerido, textoVisible, weekStorageKey, type DiaId, type FilaId, type HechoMap, type PlanItem, type WeekGrid } from "./agendaGrid";
+import { AGENDA_FILAS, HORAS_OPCIONES, LABORABLES, conCelda, conHoras, etiquetaHoras, filaDe, horasDe, parseHoras, parseWeekGrid, semanaGuardada, sugerido, textoVisible, totalHoras, weekStorageKey, type DiaId, type FilaId, type Horas, type HorasMap, type PlanItem, type WeekGrid } from "./agendaGrid";
 import { useSync } from "./cloud";
 import { shiftDay, shortDay, weekStart } from "./dates";
 import { getAgenda, getCultura, getDeporte, getIngles } from "./liveContent";
@@ -32,8 +32,8 @@ export function Planner(props: { hoy: string }) {
   const key = weekStorageKey(monday);
   const days = LABORABLES.map((dia, index) => ({ ...dia, fecha: shiftDay(monday, index) }));
   const [grid, setGrid] = useState<WeekGrid>({});
-  const [hecho, setHecho] = useState<HechoMap>({});
-  const hechoRef = useRef<HechoMap>({});
+  const [horas, setHoras] = useState<HorasMap>({});
+  const horasRef = useRef<HorasMap>({});
   const gridRef = useRef<WeekGrid>({});
   const [ready, setReady] = useState(false);
   const edited = useRef(false);
@@ -42,17 +42,17 @@ export function Planner(props: { hoy: string }) {
     edited.current = false;
     setReady(false);
     setGrid({});
-    setHecho({});
+    setHoras({});
     gridRef.current = {};
-    hechoRef.current = {};
+    horasRef.current = {};
     const offKey = sync.onKey(key, (value) => {
       if (!edited.current) {
         const next = parseWeekGrid(value);
-        const ticks = parseHecho(value);
+        const hours = parseHoras(value);
         gridRef.current = next;
-        hechoRef.current = ticks;
+        horasRef.current = hours;
         setGrid(next);
-        setHecho(ticks);
+        setHoras(hours);
       }
       setReady(true);
     });
@@ -60,25 +60,25 @@ export function Planner(props: { hoy: string }) {
     return () => { offKey(); offReady(); };
   }, [key, sync]);
 
-  function publish(nextGrid: WeekGrid, nextHecho: HechoMap) {
+  function publish(nextGrid: WeekGrid, nextHoras: HorasMap) {
     gridRef.current = nextGrid;
-    hechoRef.current = nextHecho;
-    sync.push(key, semanaGuardada(nextGrid, nextHecho));
+    horasRef.current = nextHoras;
+    sync.push(key, semanaGuardada(nextGrid, nextHoras));
   }
 
   function edit(fila: FilaId, dia: DiaId, texto: string) {
     edited.current = true;
     setGrid((current) => {
       const next = conCelda(current, fila, dia, texto);
-      publish(next, hechoRef.current);
+      publish(next, horasRef.current);
       return next;
     });
   }
 
-  function toggle(fila: FilaId, dia: DiaId) {
+  function elegirHoras(fila: FilaId, dia: DiaId, value: Horas) {
     edited.current = true;
-    setHecho((current) => {
-      const next = conHecho(current, fila, dia, !estaHecho(current, fila, dia));
+    setHoras((current) => {
+      const next = conHoras(current, fila, dia, value);
       publish(gridRef.current, next);
       return next;
     });
@@ -119,12 +119,13 @@ export function Planner(props: { hoy: string }) {
                 {AGENDA_FILAS.map((fila) => {
                   const propuesto = sugerido(planes, dia.fecha, fila.id);
                   const valor = textoVisible(grid, fila.id, dia.id, propuesto);
-                  const done = estaHecho(hecho, fila.id, dia.id);
+                  const hours = horasDe(horas, fila.id, dia.id);
+                  const activo = hours > 0;
                   return (
-                    <td key={fila.id} className={done ? "hecho" : ""}>
+                    <td key={fila.id} className={activo ? "hecho" : ""}>
                       <div className="agenda-cell">
                         <textarea
-                          className={done ? "org-cell done-text" : "org-cell"}
+                          className={activo ? "org-cell done-text" : "org-cell"}
                           aria-label={dia.label + ", " + fila.nombre}
                           rows={2}
                           value={valor}
@@ -132,14 +133,15 @@ export function Planner(props: { hoy: string }) {
                           placeholder="—"
                           onChange={(event) => edit(fila.id, dia.id, event.target.value)}
                         />
-                        <button
-                          type="button"
-                          className={done ? "hecho-btn on" : "hecho-btn"}
-                          aria-label={(done ? "Quitar hecho de " : "Marcar hecho ") + fila.nombre + ", " + dia.label}
-                          aria-pressed={done}
+                        <select
+                          className={activo ? "agenda-horas on" : "agenda-horas"}
+                          aria-label={"Horas de " + fila.nombre + ", " + dia.label}
+                          value={String(hours)}
                           disabled={!ready}
-                          onClick={() => toggle(fila.id, dia.id)}
-                        />
+                          onChange={(event) => elegirHoras(fila.id, dia.id, Number(event.target.value) as Horas)}
+                        >
+                          {HORAS_OPCIONES.map((opcion) => <option key={opcion} value={String(opcion)}>{etiquetaHoras(opcion)}</option>)}
+                        </select>
                       </div>
                     </td>
                   );
@@ -149,6 +151,7 @@ export function Planner(props: { hoy: string }) {
           </tbody>
         </table>
       </div>
+      {totalHoras(horas) > 0 ? <p className="agenda-total">Esta semana: {totalHoras(horas).toLocaleString("es-ES", { maximumFractionDigits: 1 })} h</p> : null}
     </section>
   );
 }
